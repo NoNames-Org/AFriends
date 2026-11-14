@@ -1,0 +1,37 @@
+{
+  "ui.click": {
+    "sounds": [
+      "blooddesigner:ui/click"
+    ]
+  },
+  "ui.dropdown_open": {
+    "sounds": [
+      "blooddesigner:ui/dropdown_open"
+    ]
+  },
+  "ui.dropdown_close": {
+    "sounds": [
+      "blooddesigner:ui/dropdown_close"
+    ]
+  },
+  "ui.menu_open": {
+    "sounds": [
+      "blooddesigner:ui/menu_open"
+    ]
+  },
+  "ui.type": {
+    "sounds": [
+      "blooddesigner:ui/type"
+    ]
+  },
+  "ui.delete": {
+    "sounds": [
+      "blooddesigner:ui/delete"
+    ]
+  },
+  "ui.select": {
+    "sounds": [
+      "blooddesigner:ui/select"
+    ]
+  }
+}

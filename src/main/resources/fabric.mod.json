@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "blooddesigner",
+	"version": "${version}",
+	"name": "BloodDesigner",
+	"description": "Кнопка друзей в чате, список друзей, мессенджер ЛС и два способа узнать, кто в сети.",
+	"authors": ["Fell"],
+	"license": "MIT",
+	"icon": "assets/blooddesigner/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.no.name.blooddesigner.BloodDesignerClient"]
+	},
+	"mixins": ["blooddesigner.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "${minecraft_dependency}",
+		"java": ">=${java_version}",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,31 @@
+package dev.no.name.blooddesigner.gui.sound;
+
+import dev.no.name.blooddesigner.BloodDesigner;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+
+public enum UiSound {
+    CLICK("click", 0.45f),
+    DROPDOWN_OPEN("dropdown_open", 0.42f),
+    DROPDOWN_CLOSE("dropdown_close", 0.35f),
+    SELECT("select", 0.45f),
+    TYPE("type", 0.3f),
+    DELETE("delete", 0.3f),
+    MENU_OPEN("menu_open", 0.45f);
+
+    private final SoundEvent event;
+    private final float volume;
+
+    UiSound(String name, float volume) {
+        this.event = SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID, "ui." + name));
+        this.volume = volume;
+    }
+
+    public SoundEvent getEvent() {
+        return event;
+    }
+
+    public float getVolume() {
+        return volume;
+    }
+}

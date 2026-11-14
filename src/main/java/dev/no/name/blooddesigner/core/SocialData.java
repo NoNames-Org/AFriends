@@ -1,0 +1,147 @@
+package dev.no.name.blooddesigner.core;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+public final class SocialData {
+    private static final String LEGACY_KEY = "$unassigned";
+
+    public record Scope(FriendManager friends, IgnoreList ignored, PrivateMessages messages) {
+        boolean isEmpty() {
+            return friends.size() == 0 && ignored.all().isEmpty() && messages.isEmpty();
+        }
+    }
+
+    private final Map<String, Scope> scopes = new LinkedHashMap<>();
+
+    private Scope legacy;
+    private Runnable onMessagesChange = () -> { };
+    public void setOnMessagesChange(Runnable listener) {
+        onMessagesChange = listener;
+        scopes.values().forEach(scope -> scope.messages().setOnChange(listener));
+        if (legacy != null) {
+            legacy.messages().setOnChange(listener);
+        }
+    }
+
+    public void trimMessages() {
+        scopes.values().forEach(scope -> scope.messages().trimAll());
+        if (legacy != null) {
+            legacy.messages().trimAll();
+        }
+    }
+
+    public Scope current() {
+        return scope(ServerScope.current());
+    }
+
+    public FriendManager friends() {
+        return current().friends();
+    }
+
+    public IgnoreList ignored() {
+        return current().ignored();
+    }
+
+    public PrivateMessages messages() {
+        return current().messages();
+    }
+
+    public void tick() {
+        if (!ServerScope.NONE.equals(ServerScope.current())) {
+            friends().tick();
+        }
+    }
+
+    private Scope scope(String key) {
+        Scope existing = scopes.get(key);
+        if (existing != null) {
+            return existing;
+        }
+        Scope created = legacy != null && !ServerScope.NONE.equals(key) ? legacy : newScope();
+        if (created == legacy) {
+            legacy = null;
+            onMessagesChange.run();
+        }
+        scopes.put(key, created);
+        return created;
+    }
+
+    private Scope newScope() {
+        Scope scope = new Scope(new FriendManager(), new IgnoreList(), new PrivateMessages());
+        scope.messages().setOnChange(onMessagesChange);
+        return scope;
+    }
+
+    private Scope legacyScope() {
+        if (legacy == null) {
+            legacy = newScope();
+        }
+        return legacy;
+    }
+
+    public JsonElement friendsJson() {
+        return write(scope -> scope.friends().toJson());
+    }
+
+    public void friendsFromJson(JsonElement json) {
+        read(json, JsonElement::isJsonArray, (scope, data) -> scope.friends().fromJson(data));
+    }
+
+    public JsonElement ignoredJson() {
+        return write(scope -> scope.ignored().toJson());
+    }
+
+    public void ignoredFromJson(JsonElement json) {
+        read(json, JsonElement::isJsonArray, (scope, data) -> scope.ignored().fromJson(data));
+    }
+
+    public JsonElement messagesJson() {
+        return write(scope -> scope.messages().toJson());
+    }
+
+    public void messagesFromJson(JsonElement json) {
+        read(json, SocialData::isLegacyMessages, (scope, data) -> scope.messages().fromJson(data));
+    }
+
+    private static boolean isLegacyMessages(JsonElement json) {
+        if (!json.isJsonObject()) {
+            return false;
+        }
+        return json.getAsJsonObject().entrySet().stream().anyMatch(entry -> entry.getValue().isJsonArray());
+    }
+
+    private JsonElement write(Function<Scope, JsonElement> writer) {
+        JsonObject json = new JsonObject();
+        scopes.forEach((key, scope) -> {
+            if (!ServerScope.NONE.equals(key) && !scope.isEmpty()) {
+                json.add(key, writer.apply(scope));
+            }
+        });
+
+        if (legacy != null && !legacy.isEmpty()) {
+            json.add(LEGACY_KEY, writer.apply(legacy));
+        }
+        return json;
+    }
+
+    private void read(JsonElement json, Predicate<JsonElement> isLegacy, BiConsumer<Scope, JsonElement> reader) {
+        if (isLegacy.test(json)) {
+            reader.accept(legacyScope(), json);
+            return;
+        }
+        if (!json.isJsonObject()) {
+            return;
+        }
+        json.getAsJsonObject().entrySet().forEach(entry -> {
+            Scope scope = LEGACY_KEY.equals(entry.getKey()) ? legacyScope() : scopes.computeIfAbsent(entry.getKey(), key -> newScope());
+            reader.accept(scope, entry.getValue());
+        });
+    }
+}

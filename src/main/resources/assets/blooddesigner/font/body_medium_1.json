@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "blooddesigner:inter_latin_500.ttf",
+      "size": 7.0,
+      "oversample": 1.0,
+      "shift": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "ttf",
+      "file": "blooddesigner:inter_cyrillic_500.ttf",
+      "size": 7.0,
+      "oversample": 1.0,
+      "shift": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/default"
+    }
+  ]
+}
