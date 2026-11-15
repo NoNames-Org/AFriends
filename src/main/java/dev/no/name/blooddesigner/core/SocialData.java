@@ -53,6 +53,18 @@ public final class SocialData {
         return current().messages();
     }
 
+    // друг удалил нас в сети: на каждом сервере он больше не друг. true — где-то был
+    public boolean removeFriendEverywhere(String name) {
+        boolean removed = false;
+        for (Scope scope : scopes.values()) {
+            removed |= scope.friends().remove(name);
+        }
+        if (legacy != null) {
+            removed |= legacy.friends().remove(name);
+        }
+        return removed;
+    }
+
     public void tick() {
         if (!ServerScope.NONE.equals(ServerScope.current())) {
             friends().tick();

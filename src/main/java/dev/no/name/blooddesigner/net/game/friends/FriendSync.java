@@ -22,13 +22,25 @@ public final class FriendSync {
     private static final long FORGET_MS = 120_000;
 
     private final LinkService link;
+    private final FriendRemovals removals;
     private final Map<String, Long> removedAt = new ConcurrentHashMap<>();
     private final Map<String, Long> answered = new ConcurrentHashMap<>();
     private LinkSnapshot merged;
     private String mergedScope;
 
-    public FriendSync(LinkService link) {
+    // removeEverywhere — убрать друга по нику из списков всех серверов (он удалил нас сам)
+    public FriendSync(LinkService link, Consumer<String> removeEverywhere) {
         this.link = link;
+        this.removals = new FriendRemovals(link::snapshot, this::removedByMe, removeEverywhere);
+    }
+
+    // раз в тик, на сервере и в меню: не удалил ли нас кто-то из друзей
+    public void tick() {
+        removals.tick();
+    }
+
+    private boolean removedByMe(String name) {
+        return System.currentTimeMillis() - removedAt.getOrDefault(key(name), 0L) <= FORGET_MS;
     }
 
     public boolean active() {

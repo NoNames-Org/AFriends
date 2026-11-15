@@ -43,7 +43,7 @@ public class BloodDesignerClient implements ClientModInitializer {
         modeFavorites.setOnChange(configStore::save);
         linkSettings.setOnChange(configStore::save);
         // сеть друзей и ЛС: свой сервер, сквозное шифрование
-        NetworkGame network = new NetworkGame(socialData, linkSettings);
+        NetworkGame network = new NetworkGame(socialData, linkSettings, configStore::save);
         theme.setOnChange(() -> themeChangedAt = System.currentTimeMillis());
 
         PartyService party = new PartyService();

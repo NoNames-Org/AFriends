@@ -31,13 +31,18 @@ public final class NetworkGame {
     private int lookupTicks = LOOKUP_EVERY_TICKS - 40;
     private boolean running;
 
-    public NetworkGame(SocialData social, LinkSettings settings) {
+    // save — записать конфиг, когда друг сам удалил нас и список изменился
+    public NetworkGame(SocialData social, LinkSettings settings, Runnable save) {
         this.social = social;
         this.settings = settings;
         Path folder = FabricLoader.getInstance().getConfigDir().resolve(BloodDesigner.MOD_ID).resolve("link");
         this.incoming = new IncomingChat(social, folder.resolve("parked.json"));
         this.link = new LinkService(folder, GameAccount::current, incoming);
-        this.friends = new FriendSync(link);
+        this.friends = new FriendSync(link, name -> {
+            if (social.removeFriendEverywhere(name)) {
+                save.run();
+            }
+        });
         this.direct = new DirectMessages(social, link);
         BadgeText.install(link.badges(), () -> running);
     }
@@ -74,6 +79,7 @@ public final class NetworkGame {
             link.updateProfile(profile);
         }
         incoming.tick();
+        friends.tick();
         String scope = ServerScope.current();
         if (!ServerScope.NONE.equals(scope)) {
             friends.merge(social.friends(), scope);
