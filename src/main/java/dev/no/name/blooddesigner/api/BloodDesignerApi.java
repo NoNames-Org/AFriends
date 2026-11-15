@@ -1,5 +1,7 @@
 package dev.no.name.blooddesigner.api;
 
+import java.util.Optional;
+
 // что дополнение может встроить в BloodDesigner. Всё необязательно: без дополнений окна работают как обычно
 public interface BloodDesignerApi {
     // проверка перед отправкой сообщения в ЛС
@@ -34,4 +36,11 @@ public interface BloodDesignerApi {
 
     // позвать в пати
     void inviteToParty(String name);
+
+    // ЛС от имени игрока: другу по сети — сквозным шифрованием, остальным — /msg сервера.
+    // Пусто — ушло; иначе причина. Зовётся на потоке игры
+    Optional<String> sendMessage(String partner, String text);
+
+    // с этим игроком переписка идёт через сеть BloodDesigner, а не через сервер Minecraft
+    boolean viaNetwork(String partner);
 }

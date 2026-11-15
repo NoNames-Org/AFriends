@@ -15,6 +15,7 @@ import dev.no.name.blooddesigner.api.Privacy;
 import dev.no.name.blooddesigner.api.ProfileStatus;
 import dev.no.name.blooddesigner.api.SendCheck;
 import dev.no.name.blooddesigner.core.FriendManager;
+import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.ServerScope;
 import dev.no.name.blooddesigner.core.SocialData;
 import dev.no.name.blooddesigner.core.party.PartyService;
@@ -37,7 +38,7 @@ import java.util.function.Supplier;
 public final class Addons implements BloodDesignerApi {
     private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
     private static final String ENTRYPOINT = BloodDesigner.MOD_ID;
-    private static Addons instance = new Addons(null, null, () -> { });
+    private static Addons instance = new Addons(null, null, () -> { }, null);
 
     public record Request(String name, String hint, FriendRequests owner) {
     }
@@ -45,6 +46,7 @@ public final class Addons implements BloodDesignerApi {
     private final SocialData social;
     private final PartyService party;
     private final Runnable save;
+    private final MessageRoute route;
     private final List<SendCheck> sendChecks = new CopyOnWriteArrayList<>();
     private final List<FriendStatus> statuses = new CopyOnWriteArrayList<>();
     private final List<FriendAction> actions = new CopyOnWriteArrayList<>();
@@ -56,16 +58,19 @@ public final class Addons implements BloodDesignerApi {
     private volatile Privacy privacy;
     private volatile ProfileStatus profile;
 
-    private Addons(SocialData social, PartyService party, Runnable save) {
+    private Addons(SocialData social, PartyService party, Runnable save, MessageRoute route) {
         this.social = social;
         this.party = party;
         this.save = save;
+        this.route = route;
     }
 
-    // при запуске: находим дополнения и даём им встроиться
-    public static void load(SocialData social, PartyService party, Runnable save) {
-        Addons addons = new Addons(social, party, save);
+    // при запуске: свои встроенные части (сеть) первыми, потом дополнения других модов
+    public static void load(SocialData social, PartyService party, Runnable save, MessageRoute route,
+                            List<BloodDesignerAddon> builtIn) {
+        Addons addons = new Addons(social, party, save, route);
         instance = addons;
+        builtIn.forEach(addon -> addon.register(addons));
         for (EntrypointContainer<BloodDesignerAddon> container
                 : FabricLoader.getInstance().getEntrypointContainers(ENTRYPOINT, BloodDesignerAddon.class)) {
             String mod = container.getProvider().getMetadata().getId();
@@ -159,6 +164,19 @@ public final class Addons implements BloodDesignerApi {
         if (party != null && BloodstoneServer.isConnected()) {
             party.invite(name);
         }
+    }
+
+    @Override
+    public Optional<String> sendMessage(String partner, String text) {
+        if (route == null) {
+            return Optional.of("BloodDesigner ещё не готов");
+        }
+        return route.send(partner, text, problem -> { });
+    }
+
+    @Override
+    public boolean viaNetwork(String partner) {
+        return route != null && route.viaNetwork(partner);
     }
 
     private FriendManager current() {

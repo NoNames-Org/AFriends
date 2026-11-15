@@ -21,6 +21,8 @@ import dev.no.name.blooddesigner.gui.theme.ThemeSettings;
 import dev.no.name.blooddesigner.gui.widget.ButtonWidget;
 import dev.no.name.blooddesigner.gui.widget.TextFieldWidget;
 import dev.no.name.blooddesigner.gui.widget.Widget;
+import dev.no.name.blooddesigner.net.game.LinkSettings;
+import dev.no.name.blooddesigner.net.service.LinkService;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -64,7 +66,8 @@ public class SettingsScreen extends ScreenBase {
 
     private enum Section {
         THEME("Оформление", "Тема панели и меню", Icon.BRUSH),
-        MESSAGES("Сообщения", "История личных сообщений", Icon.MESSAGE);
+        MESSAGES("Сообщения", "История личных сообщений", Icon.MESSAGE),
+        NETWORK("Сеть", "Друзья на любом сервере и защищённые ЛС", Icon.GLOBE);
 
         private final String title;
         private final String subtitle;
@@ -82,6 +85,7 @@ public class SettingsScreen extends ScreenBase {
     private final Screen parent;
     private final ThemeSettings theme;
     private final Runnable onHistoryChange;
+    private final NetworkSection network;
     private final ButtonWidget close = new ButtonWidget(Icon.CLOSE, this::onClose);
     private final TextFieldWidget historyField = new TextFieldWidget(Icon.MESSAGE, String.valueOf(MessageHistory.DEFAULT))
             .withMaxLength(HISTORY_DIGITS);
@@ -99,10 +103,12 @@ public class SettingsScreen extends ScreenBase {
     private int left;
     private int top;
 
-    public SettingsScreen(Screen parent, ThemeSettings theme, Runnable onHistoryChange) {
+    public SettingsScreen(Screen parent, ThemeSettings theme, LinkSettings linkSettings, LinkService link,
+                          Runnable onHistoryChange) {
         super(Component.literal("Настройки"));
         this.parent = parent;
         this.theme = theme;
+        this.network = new NetworkSection(linkSettings, link);
         this.onHistoryChange = onHistoryChange;
         float[] bg = Colors.toHsv(0xFF000000 | theme.customBackground());
         bgHue = bg[0];
@@ -221,10 +227,10 @@ public class SettingsScreen extends ScreenBase {
         drawBar(g, x, y);
         drawSidebar(g, x, y);
         drawContentPanel(g);
-        if (section == Section.THEME) {
-            drawTheme(g, x, y);
-        } else {
-            drawMessages(g, x, y);
+        switch (section) {
+            case THEME -> drawTheme(g, x, y);
+            case MESSAGES -> drawMessages(g, x, y);
+            case NETWORK -> network.draw(g, innerX(), bodyTop() + 26, innerWidth(), x, y);
         }
         Draw.popOffset(g);
         Draw.popAlpha();
@@ -360,6 +366,9 @@ public class SettingsScreen extends ScreenBase {
         }
         if (clickSection(x, y)) {
             return true;
+        }
+        if (section == Section.NETWORK) {
+            return network.click(x, y, innerX(), bodyTop() + 26, innerWidth());
         }
         if (section == Section.MESSAGES) {
             boolean wasTyping = historyField.isFocused();

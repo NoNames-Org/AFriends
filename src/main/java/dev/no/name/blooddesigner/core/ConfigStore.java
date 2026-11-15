@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.core.modes.ModeFavorites;
 import dev.no.name.blooddesigner.gui.theme.ThemeSettings;
+import dev.no.name.blooddesigner.net.game.LinkSettings;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +27,17 @@ public final class ConfigStore {
     private static final String FAVORITE_MODES = "favoriteModes";
     private static final String THEME = "theme";
     private static final String MESSAGE_LIMIT = "messageLimit";
+    private static final String NETWORK = "network";
 
     private final SocialData social;
     private final ModeFavorites favorites;
     private final ThemeSettings theme;
+    private final LinkSettings network;
     private final Path file;
 
-    public ConfigStore(SocialData social, ModeFavorites favorites, ThemeSettings theme) {
+    public ConfigStore(SocialData social, ModeFavorites favorites, ThemeSettings theme, LinkSettings network) {
         this.social = social;
+        this.network = network;
         this.favorites = favorites;
         this.theme = theme;
         this.file = FabricLoader.getInstance().getConfigDir().resolve(BloodDesigner.MOD_ID).resolve("config.json");
@@ -62,6 +66,9 @@ public final class ConfigStore {
             if (json.has(THEME)) {
                 theme.fromJson(json.get(THEME));
             }
+            if (json.has(NETWORK)) {
+                network.fromJson(json.get(NETWORK));
+            }
             if (json.has(MESSAGE_LIMIT) && json.get(MESSAGE_LIMIT).isJsonPrimitive()) {
                 MessageHistory.set(json.get(MESSAGE_LIMIT).getAsInt());
             }
@@ -77,6 +84,7 @@ public final class ConfigStore {
         json.add(FAVORITE_MODES, favorites.toJson());
         json.add(THEME, theme.toJson());
         json.addProperty(MESSAGE_LIMIT, MessageHistory.limit());
+        json.add(NETWORK, network.toJson());
         try {
             Files.createDirectories(file.getParent());
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");

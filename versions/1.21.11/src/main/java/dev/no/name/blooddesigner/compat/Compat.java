@@ -49,4 +49,9 @@ public final class Compat {
             minecraft.gameMode.handleInventoryMouseClick(containerId, slot, 0, ClickType.PICKUP, minecraft.player);
         }
     }
+
+    // строка в чат только для себя: сервер её не видит
+    public static void localMessage(net.minecraft.network.chat.Component message) {
+        Minecraft.getInstance().gui.getChat().addMessage(message);
+    }
 }

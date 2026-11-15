@@ -51,4 +51,9 @@ public final class Compat {
             minecraft.gameMode.handleContainerInput(containerId, slot, 0, ContainerInput.PICKUP, minecraft.player);
         }
     }
+
+    // строка в чат только для себя: сервер её не видит
+    public static void localMessage(net.minecraft.network.chat.Component message) {
+        Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(message);
+    }
 }

@@ -12,6 +12,7 @@ import dev.no.name.blooddesigner.compat.ScreenBase;
 import dev.no.name.blooddesigner.core.Friend;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.core.IgnoreList;
+import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.party.PartyService;
@@ -33,7 +34,6 @@ import dev.no.name.blooddesigner.gui.widget.Widget;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.joml.Matrix3x2fStack;
@@ -88,7 +88,7 @@ public class MessengerScreen extends ScreenBase {
     };
 
     public record Context(FriendManager friends, PrivateMessages messages, IgnoreList ignored, PartyService party,
-                          Runnable save) {
+                          MessageRoute route, Runnable save) {
     }
 
     private record Pending(String partner, String text, long sentAt) {
@@ -451,8 +451,10 @@ public class MessengerScreen extends ScreenBase {
             title = messages.displayName(partner);
             boolean offline = messages.offlineAt(partner) > 0;
             Friend friend = context.friends().find(partner);
-            status = offline ? "Не в сети — сообщения не доставлены" : friend == null ? "Не в друзьях" : "Друг";
-            statusColor = offline ? DANGER : Theme.TEXT_SOFT;
+            String network = context.route().headerLine(partner);
+            status = network != null ? network : offline ? "Не в сети — сообщения не доставлены"
+                    : friend == null ? "Не в друзьях · через /msg сервера" : "Друг · через /msg сервера";
+            statusColor = offline && network == null ? DANGER : Theme.TEXT_SOFT;
         }
         float textX = faceX + HEADER_FACE + 8;
         Draw.text(g, Draw.trim(title, CHAT_WIDTH - 80), textX, 11, Theme.TEXT, TextStyle.TITLE);
@@ -611,17 +613,12 @@ public class MessengerScreen extends ScreenBase {
         if (isNotes()) {
             messages.addNote(text, System.currentTimeMillis());
         } else {
-            ClientPacketListener connection = minecraft.getConnection();
-            if (connection == null) {
-                return false;
-            }
-            String command = "msg " + partner + " " + text;
-            Optional<String> problem = Addons.get().sendProblem(partner, command);
+            // другу по сети — сквозным шифрованием через сервер сети, остальным — /msg
+            Optional<String> problem = context.route().send(partner, text, this::warn);
             if (problem.isPresent()) {
                 warn(problem.get());
                 return false;
             }
-            connection.sendCommand(command);
 
             pending.add(new Pending(partner, text, System.currentTimeMillis()));
         }

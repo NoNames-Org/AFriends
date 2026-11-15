@@ -16,6 +16,8 @@ import dev.no.name.blooddesigner.gui.hub.PanelState;
 import dev.no.name.blooddesigner.gui.party.PartyPanel;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.theme.ThemeSettings;
+import dev.no.name.blooddesigner.net.game.LinkSettings;
+import dev.no.name.blooddesigner.net.game.NetworkGame;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
@@ -34,15 +36,20 @@ public final class FriendsUi {
     private final SocialData social;
     private final PartyService party;
     private final ThemeSettings theme;
+    private final LinkSettings linkSettings;
+    private final NetworkGame network;
     private final Runnable save;
     private final Runnable onHistoryChange;
     private final FriendsState friendsState = new FriendsState();
     private final PanelState partyState = new PanelState();
 
-    public FriendsUi(SocialData social, PartyService party, ThemeSettings theme, Runnable save, Runnable onHistoryChange) {
+    public FriendsUi(SocialData social, PartyService party, ThemeSettings theme, LinkSettings linkSettings, NetworkGame network,
+                     Runnable save, Runnable onHistoryChange) {
         this.social = social;
         this.party = party;
         this.theme = theme;
+        this.linkSettings = linkSettings;
+        this.network = network;
         this.save = save;
         this.onHistoryChange = onHistoryChange;
     }
@@ -55,7 +62,7 @@ public final class FriendsUi {
 
             SocialData.Scope scope = social.current();
             MessengerScreen.Context context = new MessengerScreen.Context(scope.friends(), scope.messages(),
-                    scope.ignored(), party, save);
+                    scope.ignored(), party, network.direct(), save);
 
             int railX = width - MARGIN - HubRail.WIDTH;
             int top = MARGIN;
@@ -68,7 +75,7 @@ public final class FriendsUi {
             FriendContextMenu menu = new FriendContextMenu(panelX, friendsState, menuItems(context));
             HubRail rail = new HubRail(railX, top, panelHeight, railButtons(context), List.of(
                     new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
-                            () -> Compat.setScreen(new SettingsScreen(screen, theme, onHistoryChange)))));
+                            () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, network.link(), onHistoryChange)))));
             friendsState.closeMenu();
             if (!BloodstoneServer.isConnected()) {
                 partyState.close();
@@ -159,7 +166,8 @@ public final class FriendsUi {
                 new FriendContextMenu.Item(Icon.MESSAGE, friend -> "Написать в ЛС",
                         friend -> Compat.setScreen(new MessengerScreen(friend.name(), context)),
                         friend -> false,
-                        friend -> addons.reachable(friend.name())),
+                        // друг по сети достижим откуда угодно, остальные — только на этом сервере
+                        friend -> addons.reachable(friend.name()) || context.route().viaNetwork(friend.name())),
                 new FriendContextMenu.Item(Icon.TRASH, friend -> "Удалить из друзей",
                         friend -> {
                             friends.remove(friend.name());
