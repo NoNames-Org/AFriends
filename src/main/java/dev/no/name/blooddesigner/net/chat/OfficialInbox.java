@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-// Личные сообщения от BloodDesigner, которые админ пишет игроку с портала.
+// Переписка игрока с BloodDesigner: сообщения, которые админы пишут с портала.
 // Сервер хранит их и шлёт событие «official», мод забирает всё, что новее последнего полученного.
 // Номер последнего хранится в файле, чтобы после перезапуска игры сообщения не пришли второй раз.
 // Живёт на потоке сети: туннель зовёт обработчики только оттуда
@@ -65,8 +65,12 @@ public final class OfficialInbox {
             if (id <= newest) {
                 continue;
             }
-            listener.official(item.get("text").getAsString(), item.get("created").getAsLong());
             newest = id;
+            // свои ответы уже в переписке: мод кладёт их туда сам, как только сервер их принял
+            if (item.has("fromPlayer") && item.get("fromPlayer").getAsBoolean()) {
+                continue;
+            }
+            listener.official(item.get("text").getAsString(), item.get("created").getAsLong());
         }
         if (newest != lastId) {
             lastId = newest;

@@ -3,6 +3,7 @@ package dev.no.name.blooddesigner.net.game;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
+import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.SocialData;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
@@ -36,6 +37,20 @@ public final class DirectMessages implements MessageRoute {
     @Override
     public Optional<String> send(String partner, String text, Consumer<String> failed) {
         LinkSnapshot state = link.snapshot();
+        // BloodDesigner: ответ админам мода через сервер сети, на портал
+        if (PrivateMessages.isOfficial(partner)) {
+            if (state.connection() != Connection.ONLINE) {
+                return Optional.of("Нет связи с сетью BloodDesigner — включи сеть в настройках");
+            }
+            link.sendOfficial(text).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+                if ("ok".equals(code)) {
+                    social.messages().add(partner, new PrivateMessage(true, text, System.currentTimeMillis()));
+                } else {
+                    failed.accept(officialProblem(code));
+                }
+            }));
+            return Optional.empty();
+        }
         LinkFriend friend = state.friendNamed(partner);
         if (friend != null) {
             if (state.connection() != Connection.ONLINE) {
@@ -62,6 +77,15 @@ public final class DirectMessages implements MessageRoute {
             connection.sendCommand(command);
         }
         return problem;
+    }
+
+    private static String officialProblem(String code) {
+        return switch (code) {
+            case "rate_limited" -> "Слишком часто — подожди минуту";
+            case "too_many" -> "Админы ещё не прочитали прошлые сообщения";
+            case "bad_text" -> "Слишком длинное сообщение";
+            default -> LinkText.sendProblem(code);
+        };
     }
 
     // строка под ником в шапке переписки; null — не друг по сети, у BloodDesigner своя подпись

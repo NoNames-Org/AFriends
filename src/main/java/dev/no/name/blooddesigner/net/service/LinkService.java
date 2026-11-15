@@ -174,6 +174,13 @@ public final class LinkService {
         });
     }
 
+    // ответ в чат «BloodDesigner»: уходит админам на портал; "ok" или код причины
+    public CompletableFuture<String> sendOfficial(String text) {
+        JsonObject data = new JsonObject();
+        data.addProperty("text", text);
+        return call(runtime -> runtime.connection.request("official.send", data));
+    }
+
     // отпечаток пары для сверки голосом; null — друг неизвестен или ключи ещё не загружены.
     // Связь с сервером не нужна: всё считается из уже проверенных ключей
     public CompletableFuture<String> safetyNumber(String friendId) {

@@ -75,7 +75,7 @@ public class MessengerScreen extends ScreenBase {
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
     private static final int ANNOUNCEMENTS_COLOR = 0xFFE0313F;
-    /** Чат BloodDesigner: личные сообщения от админов с портала. Только чтение, не игнорируется и не закрепляется. */
+    /** Чат BloodDesigner: переписка с админами мода через портал. Не игнорируется и не закрепляется. */
     private static final int OFFICIAL_COLOR = 0xFFB3122A;
     /** Чат «Объявления»: всегда первый, только для чтения, не очищается и не удаляется. Пишут с portal.no-names.com. */
     private static final String ANNOUNCEMENTS = "$announcements";
@@ -213,9 +213,9 @@ public class MessengerScreen extends ScreenBase {
         return PrivateMessages.isOfficial(partner);
     }
 
-    // сюда писать нельзя: объявления и сообщения от BloodDesigner
+    // сюда писать нельзя: объявления
     private boolean isReadOnly() {
-        return isAnnouncements() || isOfficial();
+        return isAnnouncements();
     }
 
     private List<PrivateMessage> chatMessages(String chat) {
@@ -291,8 +291,6 @@ public class MessengerScreen extends ScreenBase {
         root.render(g, hoverX, canvasY);
         if (isAnnouncements()) {
             drawReadOnly(g, "Только чтение — сюда приходят новости мода");
-        } else if (isOfficial()) {
-            drawReadOnly(g, "Только чтение — сообщения от администрации BloodDesigner");
         } else if (partner != null) {
             composer.render(g, hoverX, canvasY);
         }
@@ -531,7 +529,7 @@ public class MessengerScreen extends ScreenBase {
         } else if (isOfficial()) {
             drawOfficialTile(g, faceX, faceY, HEADER_FACE);
             title = PrivateMessages.OFFICIAL_NAME;
-            status = "Администрация мода · только чтение";
+            status = "Администрация мода · ответ видят только админы";
         } else if (isNotes()) {
             drawNotesTile(g, faceX, faceY, HEADER_FACE);
             title = "Избранное";
