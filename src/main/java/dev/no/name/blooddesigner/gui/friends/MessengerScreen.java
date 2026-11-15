@@ -75,6 +75,8 @@ public class MessengerScreen extends ScreenBase {
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
     private static final int ANNOUNCEMENTS_COLOR = 0xFFE0313F;
+    /** Чат BloodDesigner: личные сообщения от админов с портала. Только чтение, не игнорируется и не закрепляется. */
+    private static final int OFFICIAL_COLOR = 0xFFB3122A;
     /** Чат «Объявления»: всегда первый, только для чтения, не очищается и не удаляется. Пишут с portal.no-names.com. */
     private static final String ANNOUNCEMENTS = "$announcements";
     private static final String ANNOUNCEMENTS_TITLE = "Объявления";
@@ -183,7 +185,7 @@ public class MessengerScreen extends ScreenBase {
         scale = pixelScale / guiScale;
         offsetX = (window.getWidth() - WIDTH * pixelScale) / 2f / guiScale;
         offsetY = (window.getHeight() - HEIGHT * pixelScale) / 2f / guiScale;
-        if (partner != null) {
+        if (partner != null && !isReadOnly()) {
             input.focus();
         }
     }
@@ -205,6 +207,15 @@ public class MessengerScreen extends ScreenBase {
 
     private boolean isAnnouncements() {
         return ANNOUNCEMENTS.equals(partner);
+    }
+
+    private boolean isOfficial() {
+        return PrivateMessages.isOfficial(partner);
+    }
+
+    // сюда писать нельзя: объявления и сообщения от BloodDesigner
+    private boolean isReadOnly() {
+        return isAnnouncements() || isOfficial();
     }
 
     private List<PrivateMessage> chatMessages(String chat) {
@@ -234,7 +245,7 @@ public class MessengerScreen extends ScreenBase {
             result.add(PrivateMessages.NOTES);
         }
         for (String name : messages.partners()) {
-            if (query.isEmpty() || name.toLowerCase(Locale.ROOT).contains(query)) {
+            if (query.isEmpty() || messages.displayName(name).toLowerCase(Locale.ROOT).contains(query)) {
                 result.add(name);
             }
         }
@@ -272,12 +283,16 @@ public class MessengerScreen extends ScreenBase {
         Draw.rect(g, LIST_X, 1, 1, HEIGHT - 2, Theme.BORDER);
         Draw.rect(g, CHAT_X, 1, 1, HEIGHT - 2, Theme.BORDER);
 
+        // пока окно открыто, объявления подтягиваются сами (запрос не чаще раза в 15 секунд)
+        AnnouncementFeed.get().refresh();
         drawRail(g, hoverX, canvasY);
         drawList(g, hoverX, canvasY);
         drawChat(g);
         root.render(g, hoverX, canvasY);
         if (isAnnouncements()) {
-            drawReadOnly(g);
+            drawReadOnly(g, "Только чтение — сюда приходят новости мода");
+        } else if (isOfficial()) {
+            drawReadOnly(g, "Только чтение — сообщения от администрации BloodDesigner");
         } else if (partner != null) {
             composer.render(g, hoverX, canvasY);
         }
@@ -383,6 +398,8 @@ public class MessengerScreen extends ScreenBase {
         int faceY = rowY + (ROW_HEIGHT - ROW_FACE) / 2;
         if (announcements) {
             drawAnnouncementsTile(g, faceX, faceY, ROW_FACE);
+        } else if (PrivateMessages.isOfficial(entry)) {
+            drawOfficialTile(g, faceX, faceY, ROW_FACE);
         } else if (notes) {
             drawNotesTile(g, faceX, faceY, ROW_FACE);
         } else {
@@ -432,11 +449,16 @@ public class MessengerScreen extends ScreenBase {
         Draw.icon(g, Icon.BELL, x + (size - icon) / 2, y + (size - icon) / 2, icon, 0xFFFFFFFF);
     }
 
-    /** Вместо поля ввода в «Объявлениях»: писать сюда нельзя. */
-    private void drawReadOnly(Gfx g) {
+    private static void drawOfficialTile(Gfx g, float x, float y, int size) {
+        Draw.roundedRect(g, x, y, size, size, Theme.RADIUS, OFFICIAL_COLOR);
+        float icon = size * 0.55f;
+        Draw.icon(g, Icon.DROPLET, x + (size - icon) / 2, y + (size - icon) / 2, icon, 0xFFFFFFFF);
+    }
+
+    /** Вместо поля ввода в чатах только для чтения. */
+    private void drawReadOnly(Gfx g, String text) {
         float y = HEIGHT - PAD - INPUT_HEIGHT;
         Draw.box(g, CHAT_X + PAD, y, CHAT_WIDTH - PAD * 2, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
-        String text = "Только чтение — сюда приходят новости мода";
         float textX = CHAT_X + PAD + (CHAT_WIDTH - PAD * 2 - Theme.ICON_SMALL - 5 - Draw.width(text)) / 2f;
         Draw.icon(g, Icon.LOCK, textX, y + (INPUT_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, Theme.TEXT_DIM);
         Draw.text(g, text, textX + Theme.ICON_SMALL + 5, y + (INPUT_HEIGHT - 8) / 2f, Theme.TEXT_DIM);
@@ -506,6 +528,10 @@ public class MessengerScreen extends ScreenBase {
             drawAnnouncementsTile(g, faceX, faceY, HEADER_FACE);
             title = ANNOUNCEMENTS_TITLE;
             status = "Новости BloodDesigner · только чтение";
+        } else if (isOfficial()) {
+            drawOfficialTile(g, faceX, faceY, HEADER_FACE);
+            title = PrivateMessages.OFFICIAL_NAME;
+            status = "Администрация мода · только чтение";
         } else if (isNotes()) {
             drawNotesTile(g, faceX, faceY, HEADER_FACE);
             title = "Избранное";
@@ -671,7 +697,7 @@ public class MessengerScreen extends ScreenBase {
 
     // false — не ушло: нет соединения или дополнение не пустило
     private boolean sendText(String text) {
-        if (partner == null || isAnnouncements()) {
+        if (partner == null || isReadOnly()) {
             return false;
         }
         if (isNotes()) {
@@ -716,6 +742,17 @@ public class MessengerScreen extends ScreenBase {
             return;
         }
         List<ChatMenu.Item> items = new ArrayList<>();
+        // BloodDesigner нельзя игнорировать, закрепить или удалить из друзей — только почистить у себя
+        if (PrivateMessages.isOfficial(entry)) {
+            items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", true, () -> {
+                messages.clear(entry);
+                if (isOfficial()) {
+                    select(entry);
+                }
+            }));
+            menu.open(PrivateMessages.OFFICIAL_NAME, items, (float) mouseX, (float) mouseY, WIDTH, HEIGHT);
+            return;
+        }
         if (PrivateMessages.NOTES.equals(entry)) {
             items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", true, () -> {
                 messages.clear(PrivateMessages.NOTES);
@@ -788,7 +825,7 @@ public class MessengerScreen extends ScreenBase {
                 UiSounds.play(UiSound.DROPDOWN_OPEN);
             } else if (!right && !entry.equalsIgnoreCase(partner == null ? "" : partner)) {
                 select(entry);
-                if (!isAnnouncements()) {
+                if (!isReadOnly()) {
                     input.focus();
                 } else {
                     input.blur();

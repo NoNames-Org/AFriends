@@ -20,6 +20,9 @@ import java.util.regex.Pattern;
 
 public final class PrivateMessages {
     public static final String NOTES = "$notes";
+    /** Личные сообщения от BloodDesigner с портала. «$» не бывает в нике, поэтому игрок с ником BloodDesigner сюда не попадёт. */
+    public static final String OFFICIAL = "$blooddesigner";
+    public static final String OFFICIAL_NAME = "BloodDesigner";
     private static final String PINNED_KEY = "$pinned";
     private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
 
@@ -98,10 +101,18 @@ public final class PrivateMessages {
         keys.remove(NOTES);
         keys.sort(Comparator.comparing((String key) -> !pinned.contains(key))
                 .thenComparing(Comparator.comparingLong(this::lastTime).reversed()));
-        return keys.stream().map(this::displayName).toList();
+        // служебные чаты отдаются ключом: имя у них для показа, а не для поиска переписки
+        return keys.stream().map(key -> isReserved(key) ? key : displayName(key)).toList();
+    }
+
+    public static boolean isOfficial(String partner) {
+        return OFFICIAL.equals(partner);
     }
 
     public String displayName(String partner) {
+        if (isOfficial(partner)) {
+            return OFFICIAL_NAME;
+        }
         return names.getOrDefault(key(partner), partner);
     }
 
@@ -119,7 +130,11 @@ public final class PrivateMessages {
         return pinned.contains(key(partner));
     }
 
+    // чат BloodDesigner не закрепляется: он стоит среди остальных по времени последнего сообщения
     public void togglePin(String partner) {
+        if (isOfficial(partner)) {
+            return;
+        }
         if (!pinned.remove(key(partner))) {
             pinned.add(key(partner));
         }
@@ -186,7 +201,7 @@ public final class PrivateMessages {
         pinned.forEach(name -> pinnedArray.add(displayName(name)));
         json.add(PINNED_KEY, pinnedArray);
         chats.forEach((key, messages) -> {
-            String partner = NOTES.equals(key) ? NOTES : displayName(key);
+            String partner = isReserved(key) ? key : displayName(key);
             JsonArray array = new JsonArray();
             int from = Math.max(0, messages.size() - MessageHistory.limit());
             for (PrivateMessage message : messages.subList(from, messages.size())) {
@@ -224,8 +239,8 @@ public final class PrivateMessages {
                 }
                 trim(messages);
                 String partner = entry.getKey();
-                if (NOTES.equals(partner)) {
-                    chats.put(NOTES, messages);
+                if (isReserved(partner)) {
+                    chats.put(partner, messages);
                 } else {
                     chats.put(key(partner), messages);
                     names.put(key(partner), partner);
@@ -237,6 +252,11 @@ public final class PrivateMessages {
     }
 
     private static String key(String name) {
-        return NOTES.equals(name) ? NOTES : name.toLowerCase(Locale.ROOT);
+        return isReserved(name) ? name : name.toLowerCase(Locale.ROOT);
+    }
+
+    // служебные чаты: их ключ не ник и хранится как есть
+    private static boolean isReserved(String name) {
+        return NOTES.equals(name) || OFFICIAL.equals(name);
     }
 }

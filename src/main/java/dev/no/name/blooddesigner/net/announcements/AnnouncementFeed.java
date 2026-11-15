@@ -21,15 +21,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 // Объявления модов с портала portal.no-names.com. Это открытый список, поэтому он берётся обычным HTTPS-запросом,
 // без туннеля и аккаунта: объявления видны и тем, у кого сеть выключена.
-// Запрос уходит не чаще раза в минуту, ответ кладётся сюда и читается экраном сообщений
+// Свежими они приходят двумя путями: сервер сети шлёт событие «announcements», как только админ что-то
+// опубликовал или удалил (refreshNow), а пока открыт экран сообщений, список сверяется раз в 15 секунд (refresh)
 public final class AnnouncementFeed {
     private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
     private static final AnnouncementFeed INSTANCE = new AnnouncementFeed();
-    private static final long REFRESH_MS = 60_000;
+    private static final long REFRESH_MS = 15_000;
     private static final Duration TIMEOUT = Duration.ofSeconds(8);
     private static final int MAX_TEXT = 600;
 
     private final AtomicBoolean loading = new AtomicBoolean();
+    // событие пришло, пока шёл прошлый запрос: его ответ мог уже устареть, спросим ещё раз
+    private final AtomicBoolean again = new AtomicBoolean();
     private volatile List<PrivateMessage> messages = List.of();
     private volatile long fetchedAt;
     private HttpClient client;
@@ -46,12 +49,24 @@ public final class AnnouncementFeed {
         return messages;
     }
 
-    // зовётся при открытии сообщений; сам решает, пора ли спрашивать сервер
+    // зовётся каждый кадр экрана сообщений; сам решает, пора ли спрашивать сервер
     public void refresh() {
-        long now = System.currentTimeMillis();
-        if (now - fetchedAt < REFRESH_MS || !loading.compareAndSet(false, true)) {
+        if (System.currentTimeMillis() - fetchedAt >= REFRESH_MS) {
+            fetch();
+        }
+    }
+
+    // объявления точно изменились: спросить сразу, без ожидания
+    public void refreshNow() {
+        again.set(true);
+        fetch();
+    }
+
+    private void fetch() {
+        if (!loading.compareAndSet(false, true)) {
             return;
         }
+        again.set(false);
         URI address = address();
         if (address == null) {
             loading.set(false);
@@ -62,7 +77,6 @@ public final class AnnouncementFeed {
             try {
                 if (error == null && response.statusCode() == 200) {
                     messages = parse(response.body());
-                    fetchedAt = System.currentTimeMillis();
                 } else {
                     LOGGER.debug("{}: объявления не загрузились ({})", BloodDesigner.NAME,
                             error != null ? error.getClass().getSimpleName() : response.statusCode());
@@ -70,7 +84,12 @@ public final class AnnouncementFeed {
             } catch (RuntimeException e) {
                 LOGGER.debug("{}: ответ с объявлениями не разобрался", BloodDesigner.NAME, e);
             } finally {
+                // и при сбое ждём обычный интервал, а не долбим сервер каждый кадр
+                fetchedAt = System.currentTimeMillis();
                 loading.set(false);
+                if (again.get()) {
+                    fetch();
+                }
             }
         });
     }

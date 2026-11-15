@@ -1,11 +1,15 @@
 package dev.no.name.blooddesigner.net.game;
 
+import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.PrivateMessage;
+import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.ServerScope;
 import dev.no.name.blooddesigner.core.SocialData;
 import dev.no.name.blooddesigner.net.chat.InboxListener;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 
@@ -32,6 +36,11 @@ final class IncomingChat implements InboxListener {
         Minecraft.getInstance().execute(() -> deliver(from.name(), new PrivateMessage(false, UNREADABLE, time)));
     }
 
+    @Override
+    public void official(String text, long time) {
+        Minecraft.getInstance().execute(() -> deliver(PrivateMessages.OFFICIAL, new PrivateMessage(false, text, time)));
+    }
+
     // раз в тик: зашли в мир — отложенное раскладывается по перепискам
     void tick() {
         if (!parked.isEmpty() && !ServerScope.NONE.equals(ServerScope.current())) {
@@ -44,9 +53,21 @@ final class IncomingChat implements InboxListener {
             parked.add(partner, message);
             return;
         }
+        // BloodDesigner не игнорируется: это сообщения от админов мода
+        if (PrivateMessages.isOfficial(partner)) {
+            social.messages().add(partner, message);
+            Compat.localMessage(officialLine(message.text()));
+            return;
+        }
         if (social.ignored().isIgnored(partner)) {
             return;
         }
         social.messages().add(partner, message);
+    }
+
+    // строка в игровом чате: «BloodDesigner » красным, текст белым
+    private static Component officialLine(String text) {
+        return Component.literal("[" + PrivateMessages.OFFICIAL_NAME + "] ").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
     }
 }

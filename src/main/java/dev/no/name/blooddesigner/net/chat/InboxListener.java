@@ -8,4 +8,8 @@ public interface InboxListener {
 
     // конверт пришёл, но не расшифровался: подделка, сбитая сессия или сменившиеся ключи
     void unreadable(LinkFriend from, long time);
+
+    // личное сообщение от BloodDesigner с портала (не от друга, без шифрования); по умолчанию никуда не идёт
+    default void official(String text, long time) {
+    }
 }

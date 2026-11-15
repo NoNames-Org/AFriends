@@ -2,9 +2,11 @@ package dev.no.name.blooddesigner.net.service;
 
 import com.google.gson.JsonObject;
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.net.announcements.AnnouncementFeed;
 import dev.no.name.blooddesigner.net.badges.BadgeDirectory;
 import dev.no.name.blooddesigner.net.chat.ChatPayload;
 import dev.no.name.blooddesigner.net.chat.InboxListener;
+import dev.no.name.blooddesigner.net.chat.OfficialInbox;
 import dev.no.name.blooddesigner.net.e2e.SafetyNumber;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
@@ -37,6 +39,7 @@ public final class LinkService {
     private final Supplier<PlayerAccount> playerSource;
     private PlayerAccount player;
     private final InboxListener listener;
+    private final OfficialInbox official;
     private final BadgeDirectory badges = new BadgeDirectory();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, " link"));
     private final ExecutorService io = Executors.newCachedThreadPool(runnable -> daemon(runnable, " link io"));
@@ -49,6 +52,7 @@ public final class LinkService {
         this.folder = folder;
         this.playerSource = player;
         this.listener = listener;
+        this.official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
     }
 
     public LinkSnapshot snapshot() {
@@ -216,6 +220,8 @@ public final class LinkService {
     private final class Hooks implements LinkRuntime.Hooks {
         @Override
         public void ready(boolean registered) {
+            // при каждом подключении: пока были не в сети, могли опубликовать новое
+            AnnouncementFeed.get().refreshNow();
             runtime.account.register().whenComplete((outcome, error) -> {
                 if (error != null) {
                     LOGGER.debug("{}: регистрация не прошла ({})", BloodDesigner.NAME, Failures.codeOf(error));
@@ -232,6 +238,8 @@ public final class LinkService {
                 }
                 runtime.prekeys.publishSigned(System.currentTimeMillis())
                         .whenComplete((done, publishError) -> runtime.sync.request());
+                // аккаунт есть — забираем сообщения BloodDesigner, пришедшие, пока нас не было
+                official.fetch(runtime.connection);
             });
         }
 
@@ -244,6 +252,10 @@ public final class LinkService {
                 case "prekeys.low" -> runtime.prekeys.topUp(data.has("oneTimeKeys") ? data.get("oneTimeKeys").getAsInt() : 0,
                         System.currentTimeMillis());
                 case "kicked" -> runtime.connection.kicked();
+                // админ опубликовал или удалил объявление на портале
+                case "announcements" -> AnnouncementFeed.get().refreshNow();
+                // админ написал этому игроку с портала
+                case "official" -> official.fetch(runtime.connection);
                 default -> { }
             }
         }
