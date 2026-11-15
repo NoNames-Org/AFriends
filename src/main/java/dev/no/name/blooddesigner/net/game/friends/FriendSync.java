@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.net.game.friends;
 
+import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
@@ -7,8 +8,11 @@ import dev.no.name.blooddesigner.net.model.LinkRequest;
 import dev.no.name.blooddesigner.net.model.LinkSnapshot;
 import dev.no.name.blooddesigner.net.service.LinkService;
 import net.minecraft.client.Minecraft;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,6 +22,7 @@ import java.util.function.Consumer;
 // Сведение двух списков: друзья по сети сами появляются в обычном списке сервера, где ты сейчас,
 // а заявка от того, кто у тебя уже в друзьях, принимается без вопросов. Поток игры
 public final class FriendSync {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
     // удалённого друга сеть ещё помнит до следующей синхронизации — не возвращаем его в список
     private static final long FORGET_MS = 120_000;
 
@@ -25,6 +30,9 @@ public final class FriendSync {
     private final FriendRemovals removals;
     private final Map<String, Long> removedAt = new ConcurrentHashMap<>();
     private final Map<String, Long> answered = new ConcurrentHashMap<>();
+    // заявки, сделанные, пока сеть переподключалась: уйдут, как только связь появится
+    private final Map<String, Consumer<String>> waiting = new LinkedHashMap<>();
+    private boolean wasOnline;
     private LinkSnapshot merged;
     private String mergedScope;
 
@@ -34,9 +42,19 @@ public final class FriendSync {
         this.removals = new FriendRemovals(link::snapshot, this::removedByMe, removeEverywhere);
     }
 
-    // раз в тик, на сервере и в меню: не удалил ли нас кто-то из друзей
+    // раз в тик, на сервере и в меню: не удалил ли нас кто-то из друзей, не пора ли отправить отложенные заявки
     public void tick() {
+        boolean online = active();
+        if (online != wasOnline) {
+            wasOnline = online;
+            LOGGER.info("{}: сеть {}", BloodDesigner.NAME, online ? "подключена" : "отключена (" + link.snapshot().connection() + ")");
+        }
         removals.tick();
+        if (!waiting.isEmpty() && active()) {
+            Map<String, Consumer<String>> ready = new LinkedHashMap<>(waiting);
+            waiting.clear();
+            ready.forEach(this::request);
+        }
     }
 
     private boolean removedByMe(String name) {
@@ -62,16 +80,33 @@ public final class FriendSync {
         return names;
     }
 
-    // друга добавили по нику: если у него есть мод, сеть позовёт его в друзья
+    // друга добавили по нику: если у него есть мод, сеть позовёт его в друзья.
+    // Связи сейчас нет — заявка не теряется, а ждёт подключения
     public void added(String name, Consumer<String> notice) {
         removedAt.remove(key(name));
-        if (!active() || friend(name) != null) {
+        if (friend(name) != null) {
             return;
         }
-        // нет мода — not_found, это обычный друг, молчим
+        if (!active()) {
+            LOGGER.info("{}: заявка {} ждёт подключения к сети", BloodDesigner.NAME, name);
+            waiting.put(name, notice);
+            return;
+        }
+        request(name, notice);
+    }
+
+    private void request(String name, Consumer<String> notice) {
         link.requestFriend(name).thenAccept(code -> {
-            if ("ok".equals(code)) {
-                Minecraft.getInstance().execute(() -> notice.accept("У " + name + " тоже BloodDesigner — заявка ушла в сеть"));
+            LOGGER.info("{}: заявка в друзья {} — {}", BloodDesigner.NAME, name, code);
+            // not_found — у него нет мода, это обычный друг, молчим
+            String text = switch (code) {
+                case "ok" -> "У " + name + " тоже BloodDesigner — заявка ушла в сеть";
+                case "not_found", "already_friends" -> null;
+                case "limit" -> "Заявка в сеть не ушла: слишком много друзей или заявок";
+                default -> "Заявка в сеть не ушла (" + code + "), попробуй ещё раз";
+            };
+            if (text != null) {
+                Minecraft.getInstance().execute(() -> notice.accept(text));
             }
         });
     }
@@ -80,15 +115,18 @@ public final class FriendSync {
         removedAt.put(key(name), System.currentTimeMillis());
         LinkFriend friend = friend(name);
         if (friend != null) {
-            link.removeFriend(friend.id());
+            link.removeFriend(friend.id()).thenAccept(code ->
+                    LOGGER.info("{}: удаление из друзей {} — {}", BloodDesigner.NAME, name, code));
         }
+        waiting.remove(name);
     }
 
     public void respond(String name, boolean accept) {
         for (LinkRequest request : link.snapshot().incoming()) {
             if (request.name().equalsIgnoreCase(name)) {
                 answered.put(key(name), System.currentTimeMillis());
-                link.respond(request.id(), accept);
+                link.respond(request.id(), accept).thenAccept(code ->
+                        LOGGER.info("{}: ответ на заявку {} ({}) — {}", BloodDesigner.NAME, name, accept ? "да" : "нет", code));
             }
         }
     }

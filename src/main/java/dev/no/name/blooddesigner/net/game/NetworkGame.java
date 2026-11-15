@@ -13,11 +13,11 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 
 import java.nio.file.Path;
+import java.util.List;
 
 // Сеть внутри игры: создаёт службу, раз в тик сообщает ей статус игрока, подмешивает друзей по сети
 // в список сервера и раскладывает отложенные сообщения. Всё здесь — на потоке игры
 public final class NetworkGame {
-    private static final int LOOKUP_EVERY_TICKS = 300;
 
     private final SocialData social;
     private final LinkSettings settings;
@@ -27,8 +27,8 @@ public final class NetworkGame {
     private final DirectMessages direct;
     private final PresenceSource presence = new PresenceSource();
     private LocalProfile lastProfile;
-    // первый запрос значков — через пару секунд после входа, дальше раз в 15 секунд
-    private int lookupTicks = LOOKUP_EVERY_TICKS - 40;
+    private final TabWatcher tab = new TabWatcher();
+    private boolean wasOnline;
     private boolean running;
 
     // save — записать конфиг, когда друг сам удалил нас и список изменился
@@ -83,10 +83,23 @@ public final class NetworkGame {
         String scope = ServerScope.current();
         if (!ServerScope.NONE.equals(scope)) {
             friends.merge(social.friends(), scope);
-            if (++lookupTicks >= LOOKUP_EVERY_TICKS) {
-                lookupTicks = 0;
-                link.lookup(FriendManager.onlinePlayerNames());
-            }
+            lookupArrivals();
+        }
+    }
+
+    // значки: только когда в табе кто-то новый или связь только что появилась, без опроса по таймеру
+    private void lookupArrivals() {
+        boolean online = friends.active();
+        if (online && !wasOnline) {
+            tab.forget();
+        }
+        wasOnline = online;
+        if (!online) {
+            return;
+        }
+        List<String> arrived = tab.arrived(FriendManager.onlinePlayerNames());
+        if (!arrived.isEmpty()) {
+            link.lookup(arrived);
         }
     }
 

@@ -13,8 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Кто из игроков рядом тоже в сети. Спрашиваем сервер только о новых никах и помним ответ 10 минут,
-// поэтому на сервере со 100 игроками это один запрос при заходе и редкие догрузки.
+// Кто из игроков рядом тоже в сети. Спрашиваем сервер, только когда в табе появился новый ник,
+// и помним ответ 10 минут: на сервере со 100 игроками это один запрос при заходе.
 // badge() читается с потока игры, check() зовётся с потока сети
 public final class BadgeDirectory {
     private static final long ANSWER_TTL_MS = 600_000;
@@ -24,6 +24,8 @@ public final class BadgeDirectory {
     }
 
     private final Map<String, Entry> known = new ConcurrentHashMap<>();
+    // ники, пришедшие, пока ждали прошлый ответ: спросим сразу после него
+    private final List<String> waiting = new ArrayList<>();
     private boolean inFlight;
 
     // null — игрок не в сети мода (или ещё не знаем)
@@ -47,6 +49,7 @@ public final class BadgeDirectory {
 
     public void check(LinkCalls calls, List<String> names, long now) {
         if (inFlight) {
+            waiting.addAll(names);
             return;
         }
         List<String> unknown = new ArrayList<>();
@@ -69,19 +72,27 @@ public final class BadgeDirectory {
         data.add("names", array);
         calls.request("lookup", data).whenComplete((json, error) -> {
             inFlight = false;
-            if (error != null) {
-                return;
+            if (error == null) {
+                remember(unknown, json);
             }
-            long checked = System.currentTimeMillis();
-            // кого не вернули — не в сети мода; запоминаем и это, чтобы не спрашивать снова
-            unknown.forEach(name -> known.put(key(name), new Entry(null, checked)));
-            for (JsonElement element : json.getAsJsonArray("users")) {
-                JsonObject user = element.getAsJsonObject();
-                Badge badge = new Badge(ClientKind.fromWire(user.has("client") ? user.get("client").getAsString() : ""),
-                        user.get("verified").getAsBoolean());
-                known.put(key(user.get("name").getAsString()), new Entry(badge, checked));
+            if (!waiting.isEmpty()) {
+                List<String> next = List.copyOf(waiting);
+                waiting.clear();
+                check(calls, next, System.currentTimeMillis());
             }
         });
+    }
+
+    private void remember(List<String> unknown, JsonObject json) {
+        long checked = System.currentTimeMillis();
+        // кого не вернули — не в сети мода; запоминаем и это, чтобы не спрашивать снова
+        unknown.forEach(name -> known.put(key(name), new Entry(null, checked)));
+        for (JsonElement element : json.getAsJsonArray("users")) {
+            JsonObject user = element.getAsJsonObject();
+            Badge badge = new Badge(ClientKind.fromWire(user.has("client") ? user.get("client").getAsString() : ""),
+                    user.get("verified").getAsBoolean());
+            known.put(key(user.get("name").getAsString()), new Entry(badge, checked));
+        }
     }
 
     public void clear() {
