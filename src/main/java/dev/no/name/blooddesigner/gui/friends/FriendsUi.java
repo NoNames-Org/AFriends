@@ -1,5 +1,7 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.core.FeatureToggles;
+import dev.no.name.blooddesigner.core.FeatureToggles.Feature;
 import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.FriendAction;
@@ -77,8 +79,11 @@ public final class FriendsUi {
                     new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
                             () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, network.link(), onHistoryChange)))));
             friendsState.closeMenu();
-            if (!BloodstoneServer.isConnected()) {
+            if (!BloodstoneServer.isConnected() || !FeatureToggles.enabled(Feature.PARTY)) {
                 partyState.close();
+            }
+            if (!FeatureToggles.enabled(Feature.FRIENDS)) {
+                friendsState.close();
             }
             party.setPanelOpen(partyState.isOpen());
 
@@ -114,10 +119,12 @@ public final class FriendsUi {
         PrivateMessages messages = context.messages();
         PartyState partyInfo = party.state();
         List<HubRail.Button> buttons = new ArrayList<>();
-        buttons.add(new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
-                () -> Addons.get().requests().isEmpty() ? null : "!", () -> toggle(Tab.FRIENDS)));
+        if (FeatureToggles.enabled(Feature.FRIENDS)) {
+            buttons.add(new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
+                    () -> Addons.get().requests().isEmpty() ? null : "!", () -> toggle(Tab.FRIENDS)));
+        }
         // Команды /party есть только на bloodstone, на других серверах кнопка бесполезна.
-        if (BloodstoneServer.isConnected()) {
+        if (FeatureToggles.enabled(Feature.PARTY) && BloodstoneServer.isConnected()) {
             buttons.add(new HubRail.Button(Icon.FLAG, "Пати", partyState::isOpen, () -> {
                 if (partyInfo.incomingInvite(System.currentTimeMillis()) != null) {
                     return "!";
@@ -126,10 +133,12 @@ public final class FriendsUi {
                 return members > 1 ? String.valueOf(members) : null;
             }, () -> toggle(Tab.PARTY)));
         }
-        buttons.add(new HubRail.Button(Icon.MESSAGE, "Сообщения", () -> false, () -> {
-            int unread = messages.totalUnread();
-            return unread > 0 ? String.valueOf(unread) : null;
-        }, () -> Compat.setScreen(new MessengerScreen(null, context))));
+        if (FeatureToggles.enabled(Feature.MESSENGER)) {
+            buttons.add(new HubRail.Button(Icon.MESSAGE, "Сообщения", () -> false, () -> {
+                int unread = messages.totalUnread();
+                return unread > 0 ? String.valueOf(unread) : null;
+            }, () -> Compat.setScreen(new MessengerScreen(null, context))));
+        }
         return List.copyOf(buttons);
     }
 
@@ -167,7 +176,8 @@ public final class FriendsUi {
                         friend -> Compat.setScreen(new MessengerScreen(friend.name(), context)),
                         friend -> false,
                         // друг по сети достижим откуда угодно, остальные — только на этом сервере
-                        friend -> addons.reachable(friend.name()) || context.route().viaNetwork(friend.name())),
+                        friend -> FeatureToggles.enabled(Feature.MESSENGER)
+                                && (addons.reachable(friend.name()) || context.route().viaNetwork(friend.name()))),
                 new FriendContextMenu.Item(Icon.TRASH, friend -> "Удалить из друзей",
                         friend -> {
                             friends.remove(friend.name());

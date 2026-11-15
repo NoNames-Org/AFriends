@@ -20,6 +20,10 @@ public final class Draw {
     private Draw() {
     }
 
+    public static int pixelScale() {
+        return pixelScale;
+    }
+
     public static void setPixelScale(int scale) {
         pixelScale = Math.max(1, scale);
     }

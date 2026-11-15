@@ -81,4 +81,15 @@ public final class Gfx {
         graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0, 0, size, size,
                 textureSize, textureSize, textureSize, textureSize);
     }
+
+    /** Предмет 16×16 со счётчиком и полоской прочности, как в инвентаре. */
+    public void item(Font font, net.minecraft.world.item.ItemStack stack, int x, int y) {
+        graphics.renderItem(stack, x, y);
+        graphics.renderItemDecorations(font, stack, x, y);
+    }
+
+    /** Ванильная подсказка предмета (название и описание с сервера) поверх всего на этом кадре. */
+    public void itemTooltip(Font font, net.minecraft.world.item.ItemStack stack, int x, int y) {
+        graphics.setTooltipForNextFrame(font, stack, x, y);
+    }
 }

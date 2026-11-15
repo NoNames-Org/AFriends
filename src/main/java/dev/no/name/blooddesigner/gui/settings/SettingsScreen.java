@@ -32,8 +32,8 @@ import org.joml.Matrix3x2fStack;
 
 /** Полноэкранные настройки в стиле навигатора режимов: разделы слева, содержимое справа. */
 public class SettingsScreen extends ScreenBase {
-    private static final int WIDTH = 420;
-    private static final int BODY_HEIGHT = 226;
+    private static final int WIDTH = 460;
+    private static final int BODY_HEIGHT = 262;
     private static final float SCREEN_SHARE = 0.5f;
     private static final int MIN_TOP = 14;
     private static final int BAR_HEIGHT = 30;
@@ -67,7 +67,8 @@ public class SettingsScreen extends ScreenBase {
     private enum Section {
         THEME("Оформление", "Тема панели и меню", Icon.BRUSH),
         MESSAGES("Сообщения", "История личных сообщений", Icon.MESSAGE),
-        NETWORK("Сеть", "Друзья на любом сервере и защищённые ЛС", Icon.GLOBE);
+        NETWORK("Сеть", "Друзья на любом сервере и защищённые ЛС", Icon.GLOBE),
+        MENUS("Меню", "Какие меню мода включены", Icon.LIST);
 
         private final String title;
         private final String subtitle;
@@ -86,6 +87,7 @@ public class SettingsScreen extends ScreenBase {
     private final ThemeSettings theme;
     private final Runnable onHistoryChange;
     private final NetworkSection network;
+    private final MenusSection menus;
     private final ButtonWidget close = new ButtonWidget(Icon.CLOSE, this::onClose);
     private final TextFieldWidget historyField = new TextFieldWidget(Icon.MESSAGE, String.valueOf(MessageHistory.DEFAULT))
             .withMaxLength(HISTORY_DIGITS);
@@ -109,6 +111,7 @@ public class SettingsScreen extends ScreenBase {
         this.parent = parent;
         this.theme = theme;
         this.network = new NetworkSection(linkSettings, link);
+        this.menus = new MenusSection(onHistoryChange);
         this.onHistoryChange = onHistoryChange;
         float[] bg = Colors.toHsv(0xFF000000 | theme.customBackground());
         bgHue = bg[0];
@@ -164,7 +167,7 @@ public class SettingsScreen extends ScreenBase {
     }
 
     private int tilesTop() {
-        return bodyTop() + 22;
+        return bodyTop() + 26;
     }
 
     private int tileWidth() {
@@ -198,7 +201,7 @@ public class SettingsScreen extends ScreenBase {
     }
 
     private int historyRowY() {
-        return bodyTop() + 30;
+        return bodyTop() + 32;
     }
 
     // ---------- отрисовка ----------
@@ -231,6 +234,7 @@ public class SettingsScreen extends ScreenBase {
             case THEME -> drawTheme(g, x, y);
             case MESSAGES -> drawMessages(g, x, y);
             case NETWORK -> network.draw(g, innerX(), bodyTop() + 26, innerWidth(), x, y);
+            case MENUS -> menus.draw(g, innerX(), bodyTop() + 28, innerWidth());
         }
         Draw.popOffset(g);
         Draw.popAlpha();
@@ -275,7 +279,7 @@ public class SettingsScreen extends ScreenBase {
 
     private void drawContentPanel(Gfx g) {
         drawPanel(g, contentX(), bodyTop(), contentWidth(), BODY_HEIGHT);
-        Draw.text(g, section.subtitle, innerX(), bodyTop() + 9, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, section.subtitle, innerX(), bodyTop() + 10, Theme.TEXT_SOFT);
     }
 
     private void drawTheme(Gfx g, int mouseX, int mouseY) {
@@ -289,15 +293,15 @@ public class SettingsScreen extends ScreenBase {
             drawTile(g, tileX(i), tileY(i), title, background, accent, id.equals(theme.selectedId()), mouseX, mouseY);
         }
         int x = innerX();
-        Draw.text(g, "Своя тема", x, customTop() - 2, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, "Своя тема", x, customTop() - 4, Theme.TEXT_SOFT);
         drawColorRow(g, "Фон", 0xFF000000 | theme.customBackground(), sliderY(Slider.BG_HUE) - 12);
         drawHue(g, sliderY(Slider.BG_HUE), bgHue);
         drawValue(g, sliderY(Slider.BG_VALUE), background(bgHue, 0), background(bgHue, 1), bgValue);
         drawColorRow(g, "Акцент", theme.customAccent(), sliderY(Slider.ACCENT_HUE) - 12);
         drawHue(g, sliderY(Slider.ACCENT_HUE), accentHue);
         drawValue(g, sliderY(Slider.ACCENT_VALUE), accent(accentHue, 0), accent(accentHue, 1), accentValue);
-        Draw.text(g, Draw.trim("Двигай ползунки — тема «Своя» включится сама", innerWidth(), TextStyle.SMALL),
-                x, sliderY(Slider.ACCENT_VALUE) + 15, Theme.TEXT_FAINT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim("Двигай ползунки — тема «Своя» включится сама", innerWidth()),
+                x, sliderY(Slider.ACCENT_VALUE) + 16, Theme.TEXT_DIM);
     }
 
     private void drawTile(Gfx g, int x, int y, String title, int background, int accent, boolean selected,
@@ -348,10 +352,9 @@ public class SettingsScreen extends ScreenBase {
         historyField.render(g, mouseX, mouseY);
         String range = "От " + MessageHistory.MIN + " до " + MessageHistory.MAX + " сообщений, по умолчанию "
                 + MessageHistory.DEFAULT + ".";
-        Draw.text(g, Draw.trim(range, innerWidth(), TextStyle.SMALL), x, rowY + FIELD_HEIGHT + 8,
-                Theme.TEXT_FAINT, TextStyle.SMALL);
-        Draw.text(g, Draw.trim("Enter или клик мимо поля — сохранить, Esc — отменить.", innerWidth(), TextStyle.SMALL),
-                x, rowY + FIELD_HEIGHT + 18, Theme.TEXT_FAINT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(range, innerWidth()), x, rowY + FIELD_HEIGHT + 10, Theme.TEXT_DIM);
+        Draw.text(g, Draw.trim("Enter или клик мимо поля — сохранить, Esc — отменить.", innerWidth()),
+                x, rowY + FIELD_HEIGHT + 22, Theme.TEXT_DIM);
     }
 
     // ---------- ввод ----------
@@ -369,6 +372,9 @@ public class SettingsScreen extends ScreenBase {
         }
         if (section == Section.NETWORK) {
             return network.click(x, y, innerX(), bodyTop() + 26, innerWidth());
+        }
+        if (section == Section.MENUS) {
+            return menus.click(x, y, innerX(), bodyTop() + 28, innerWidth());
         }
         if (section == Section.MESSAGES) {
             boolean wasTyping = historyField.isFocused();

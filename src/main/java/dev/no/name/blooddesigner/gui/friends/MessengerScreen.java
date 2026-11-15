@@ -73,6 +73,15 @@ public class MessengerScreen extends ScreenBase {
     private static final int MAX_TEXT = 200;
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
+    private static final int ANNOUNCEMENTS_COLOR = 0xFFE0313F;
+    /** Чат «Объявления»: всегда первый, только для чтения, не очищается и не удаляется. Пока заглушка. */
+    private static final String ANNOUNCEMENTS = "$announcements";
+    private static final String ANNOUNCEMENTS_TITLE = "Объявления";
+    private static final long ANNOUNCEMENTS_SINCE = java.time.LocalDate.of(2026, 11, 16)
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    private static final List<PrivateMessage> ANNOUNCEMENT_LIST = List.of(new PrivateMessage(false,
+            "Здесь будут объявления BloodDesigner: новости мода и важные изменения. Писать сюда нельзя.",
+            ANNOUNCEMENTS_SINCE));
     private static final long WARNING_MS = 4000;
 
     private static final long APPEAR_MS = 260;
@@ -105,6 +114,7 @@ public class MessengerScreen extends ScreenBase {
 
     private final Map<Integer, Long> appearAt = new HashMap<>();
     private final ContainerWidget root = new ContainerWidget();
+    private final ContainerWidget composer = new ContainerWidget();
     private final TextFieldWidget search = new TextFieldWidget(Icon.SEARCH, "Поиск").withMaxLength(16);
     private final TextFieldWidget input;
     private final ChatMenu menu = new ChatMenu();
@@ -141,7 +151,7 @@ public class MessengerScreen extends ScreenBase {
             int buttonX = WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth + i * (INPUT_HEIGHT + 4);
             ButtonWidget button = new ButtonWidget(action.icon(), () -> openCompose(action, buttonX));
             button.setBounds(buttonX, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
-            root.addChild(button);
+            composer.addChild(button);
         }
         search.setBounds(LIST_X + PAD, PAD, LIST_WIDTH - PAD * 2, FIELD_HEIGHT);
         ButtonWidget send = new ButtonWidget(Icon.SEND, this::send);
@@ -150,9 +160,10 @@ public class MessengerScreen extends ScreenBase {
         close.setBounds(WIDTH - PAD - 16, (HEADER_HEIGHT - 16) / 2, 16, 16);
         root.setBounds(0, 0, WIDTH, HEIGHT);
         root.addChild(search);
-        root.addChild(input);
-        root.addChild(send);
         root.addChild(close);
+        composer.setBounds(0, 0, WIDTH, HEIGHT);
+        composer.addChild(input);
+        composer.addChild(send);
         String first = partner != null ? partner : messages.partners().stream().findFirst().orElse(null);
         select(first);
         windowOpen.setTarget(1);
@@ -182,9 +193,23 @@ public class MessengerScreen extends ScreenBase {
         chatScroll = 0;
         chatScrollView.snap(0);
         if (chat != null) {
-            messages.open(chat);
-            shownCount = messages.chat(chat).size();
+            if (!ANNOUNCEMENTS.equals(chat)) {
+                messages.open(chat);
+            }
+            shownCount = chatMessages(chat).size();
         }
+    }
+
+    private boolean isAnnouncements() {
+        return ANNOUNCEMENTS.equals(partner);
+    }
+
+    private List<PrivateMessage> chatMessages(String chat) {
+        return ANNOUNCEMENTS.equals(chat) ? ANNOUNCEMENT_LIST : messages.chat(chat);
+    }
+
+    private PrivateMessage lastMessage(String entry) {
+        return ANNOUNCEMENTS.equals(entry) ? ANNOUNCEMENT_LIST.get(ANNOUNCEMENT_LIST.size() - 1) : messages.last(entry);
     }
 
     private boolean isNotes() {
@@ -194,6 +219,9 @@ public class MessengerScreen extends ScreenBase {
     private List<String> listEntries() {
         String query = search.getText().strip().toLowerCase(Locale.ROOT);
         List<String> result = new ArrayList<>();
+        if (query.isEmpty() || "объявления".contains(query)) {
+            result.add(ANNOUNCEMENTS);
+        }
         if (query.isEmpty() || "избранное".contains(query)) {
             result.add(PrivateMessages.NOTES);
         }
@@ -240,6 +268,11 @@ public class MessengerScreen extends ScreenBase {
         drawList(g, hoverX, canvasY);
         drawChat(g);
         root.render(g, hoverX, canvasY);
+        if (isAnnouncements()) {
+            drawReadOnly(g);
+        } else if (partner != null) {
+            composer.render(g, hoverX, canvasY);
+        }
         g.nextStratum();
         drawRailTooltip(g, hoverX, canvasY);
         menu.draw(g, canvasX, canvasY);
@@ -336,23 +369,26 @@ public class MessengerScreen extends ScreenBase {
         } else if (hovered) {
             Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_HOVER);
         }
-        boolean notes = PrivateMessages.NOTES.equals(entry);
+        boolean announcements = ANNOUNCEMENTS.equals(entry);
+        boolean notes = announcements || PrivateMessages.NOTES.equals(entry);
         int faceX = x + 6;
         int faceY = rowY + (ROW_HEIGHT - ROW_FACE) / 2;
-        if (notes) {
+        if (announcements) {
+            drawAnnouncementsTile(g, faceX, faceY, ROW_FACE);
+        } else if (notes) {
             drawNotesTile(g, faceX, faceY, ROW_FACE);
         } else {
             drawFace(g, context.friends().skinOf(entry), faceX, faceY, ROW_FACE);
         }
 
         float textX = faceX + ROW_FACE + 7;
-        PrivateMessage last = messages.last(entry);
+        PrivateMessage last = lastMessage(entry);
         String date = last == null ? "" : formatDate(last.time());
         float dateWidth = Draw.width(date, TextStyle.SMALL);
         boolean pinned = !notes && messages.isPinned(entry);
         float pinSpace = pinned ? Theme.ICON_SMALL + 3 : 0;
         int nameWidth = (int) (x + width - 6 - textX - dateWidth - pinSpace - 4);
-        String title = notes ? "Избранное" : messages.displayName(entry);
+        String title = announcements ? ANNOUNCEMENTS_TITLE : notes ? "Избранное" : messages.displayName(entry);
         Draw.text(g, Draw.trim(title, nameWidth), textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
         Draw.text(g, date, x + width - 6 - dateWidth, rowY + 7, Theme.TEXT_DIM, TextStyle.SMALL);
         if (pinned) {
@@ -380,6 +416,22 @@ public class MessengerScreen extends ScreenBase {
         }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
         return card == null ? last.text() : card.title();
+    }
+
+    private static void drawAnnouncementsTile(Gfx g, float x, float y, int size) {
+        Draw.roundedRect(g, x, y, size, size, Theme.RADIUS, ANNOUNCEMENTS_COLOR);
+        float icon = size * 0.55f;
+        Draw.icon(g, Icon.BELL, x + (size - icon) / 2, y + (size - icon) / 2, icon, 0xFFFFFFFF);
+    }
+
+    /** Вместо поля ввода в «Объявлениях»: писать сюда нельзя. */
+    private void drawReadOnly(Gfx g) {
+        float y = HEIGHT - PAD - INPUT_HEIGHT;
+        Draw.box(g, CHAT_X + PAD, y, CHAT_WIDTH - PAD * 2, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
+        String text = "Только чтение — сюда приходят новости мода";
+        float textX = CHAT_X + PAD + (CHAT_WIDTH - PAD * 2 - Theme.ICON_SMALL - 5 - Draw.width(text)) / 2f;
+        Draw.icon(g, Icon.LOCK, textX, y + (INPUT_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, Theme.TEXT_DIM);
+        Draw.text(g, text, textX + Theme.ICON_SMALL + 5, y + (INPUT_HEIGHT - 8) / 2f, Theme.TEXT_DIM);
     }
 
     private static void drawNotesTile(Gfx g, float x, float y, int size) {
@@ -442,7 +494,11 @@ public class MessengerScreen extends ScreenBase {
         String title;
         String status;
         int statusColor = Theme.TEXT_SOFT;
-        if (isNotes()) {
+        if (isAnnouncements()) {
+            drawAnnouncementsTile(g, faceX, faceY, HEADER_FACE);
+            title = ANNOUNCEMENTS_TITLE;
+            status = "Новости BloodDesigner · только чтение";
+        } else if (isNotes()) {
             drawNotesTile(g, faceX, faceY, HEADER_FACE);
             title = "Избранное";
             status = "Твой личный чат для заметок";
@@ -465,7 +521,7 @@ public class MessengerScreen extends ScreenBase {
     private void drawMessages(Gfx g) {
         int top = HEADER_HEIGHT + 4;
         int bottom = HEIGHT - PAD - INPUT_HEIGHT - 6;
-        List<PrivateMessage> chat = messages.chat(partner);
+        List<PrivateMessage> chat = chatMessages(partner);
         trackNewMessages(chat);
         long now = System.currentTimeMillis();
         pending.removeIf(item -> !isFailed(item) && now - item.sentAt() > PENDING_TIMEOUT_MS);
@@ -607,7 +663,7 @@ public class MessengerScreen extends ScreenBase {
 
     // false — не ушло: нет соединения или дополнение не пустило
     private boolean sendText(String text) {
-        if (partner == null) {
+        if (partner == null || isAnnouncements()) {
             return false;
         }
         if (isNotes()) {
@@ -648,6 +704,9 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void openMenu(String entry, double mouseX, double mouseY) {
+        if (ANNOUNCEMENTS.equals(entry)) {
+            return;
+        }
         List<ChatMenu.Item> items = new ArrayList<>();
         if (PrivateMessages.NOTES.equals(entry)) {
             items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", true, () -> {
@@ -716,17 +775,25 @@ public class MessengerScreen extends ScreenBase {
         }
         String entry = entryAt(x, y);
         if (entry != null) {
-            if (right) {
+            if (right && !ANNOUNCEMENTS.equals(entry)) {
                 openMenu(entry, x, y);
                 UiSounds.play(UiSound.DROPDOWN_OPEN);
-            } else if (!entry.equalsIgnoreCase(partner == null ? "" : partner)) {
+            } else if (!right && !entry.equalsIgnoreCase(partner == null ? "" : partner)) {
                 select(entry);
-                input.focus();
+                if (!isAnnouncements()) {
+                    input.focus();
+                } else {
+                    input.blur();
+                }
                 UiSounds.play(UiSound.CLICK);
             }
             return true;
         }
-        return !right && root.mouseClicked(x, y, Widget.LEFT_BUTTON);
+        if (right) {
+            return false;
+        }
+        boolean composing = partner != null && !isAnnouncements() && composer.mouseClicked(x, y, Widget.LEFT_BUTTON);
+        return root.mouseClicked(x, y, Widget.LEFT_BUTTON) || composing;
     }
 
     private boolean clickCard(double x, double y) {
@@ -809,7 +876,7 @@ public class MessengerScreen extends ScreenBase {
             send();
             return true;
         }
-        if (key != InputConstants.KEY_ESCAPE && root.keyPressed(key)) {
+        if (key != InputConstants.KEY_ESCAPE && (root.keyPressed(key) || !isAnnouncements() && composer.keyPressed(key))) {
             return true;
         }
         return super.keyPressed(event);
@@ -817,7 +884,8 @@ public class MessengerScreen extends ScreenBase {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        boolean typed = root.charTyped(event.codepointAsString());
+        String text = event.codepointAsString();
+        boolean typed = root.charTyped(text) || !isAnnouncements() && composer.charTyped(text);
         if (typed && search.isFocused()) {
             listScroll = 0;
             listScrollView.setTarget(0);

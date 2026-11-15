@@ -1,5 +1,7 @@
 package dev.no.name.blooddesigner.gui.modes;
 
+import dev.no.name.blooddesigner.core.FeatureToggles;
+import dev.no.name.blooddesigner.core.FeatureToggles.Feature;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.core.modes.ModeFavorites;
@@ -27,6 +29,9 @@ public final class PauseMenuHook {
 
     public void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+            if (!FeatureToggles.enabled(Feature.MODES)) {
+                return;
+            }
             if (!(screen instanceof PauseScreen pause) || !pause.showsPauseMenu() || !BloodstoneServer.isConnected()) {
                 return;
             }

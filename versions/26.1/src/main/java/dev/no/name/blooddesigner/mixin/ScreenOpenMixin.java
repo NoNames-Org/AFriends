@@ -1,5 +1,7 @@
 package dev.no.name.blooddesigner.mixin;
 
+import dev.no.name.blooddesigner.compat.Compat;
+import dev.no.name.blooddesigner.core.battlepass.BattlePassHook;
 import dev.no.name.blooddesigner.core.modes.ModeLauncher;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,6 +16,14 @@ public abstract class ScreenOpenMixin {
     private void blooddesigner$hideServerMenu(Screen screen, CallbackInfo callback) {
         if (ModeLauncher.hideScreen(screen)) {
             callback.cancel();
+            return;
+        }
+        Screen replacement = BattlePassHook.replace(screen);
+        if (replacement != screen) {
+            callback.cancel();
+            if (replacement != null) {
+                Compat.setScreen(replacement);
+            }
         }
     }
 }

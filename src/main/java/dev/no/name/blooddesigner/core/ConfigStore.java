@@ -28,6 +28,7 @@ public final class ConfigStore {
     private static final String THEME = "theme";
     private static final String MESSAGE_LIMIT = "messageLimit";
     private static final String NETWORK = "network";
+    private static final String FEATURES = "features";
 
     private final SocialData social;
     private final ModeFavorites favorites;
@@ -66,6 +67,9 @@ public final class ConfigStore {
             if (json.has(THEME)) {
                 theme.fromJson(json.get(THEME));
             }
+            if (json.has(FEATURES)) {
+                FeatureToggles.fromJson(json.get(FEATURES));
+            }
             if (json.has(NETWORK)) {
                 network.fromJson(json.get(NETWORK));
             }
@@ -85,6 +89,7 @@ public final class ConfigStore {
         json.add(THEME, theme.toJson());
         json.addProperty(MESSAGE_LIMIT, MessageHistory.limit());
         json.add(NETWORK, network.toJson());
+        json.add(FEATURES, FeatureToggles.toJson());
         try {
             Files.createDirectories(file.getParent());
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");

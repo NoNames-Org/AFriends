@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner;
 
+import dev.no.name.blooddesigner.core.battlepass.BattlePassNavigator;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.ChatFilter;
@@ -60,6 +61,7 @@ public class BloodDesignerClient implements ClientModInitializer {
         ModeLauncher launcher = new ModeLauncher();
         launcher.register();
         new PauseMenuHook(modeFavorites, launcher).register();
+        BattlePassNavigator.register();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             socialData.tick();

@@ -43,6 +43,22 @@ public final class Compat {
         return Minecraft.getInstance().screen;
     }
 
+    /** Shift+ЛКМ по слоту серверного меню. */
+    public static void quickMoveSlot(int containerId, int slot) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.gameMode != null && minecraft.player != null) {
+            minecraft.gameMode.handleInventoryMouseClick(containerId, slot, 0, ClickType.QUICK_MOVE, minecraft.player);
+        }
+    }
+
+    /** Закрыть серверное меню так же, как Esc в ванильном сундуке: сервер получает пакет закрытия. */
+    public static void closeContainer() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.closeContainer();
+        }
+    }
+
     public static void clickSlot(int containerId, int slot) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.gameMode != null && minecraft.player != null) {
