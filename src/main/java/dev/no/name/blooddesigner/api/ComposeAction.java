@@ -11,10 +11,11 @@ public interface ComposeAction {
     // заголовок списка
     String title(String partner);
 
-    // пусто — показать empty()
+    // пусто — показать empty(partner)
     List<Option> options(String partner);
 
-    String empty();
+    // почему вариантов нет
+    String empty(String partner);
 
     record Option(Icon icon, String label, String text) {
     }

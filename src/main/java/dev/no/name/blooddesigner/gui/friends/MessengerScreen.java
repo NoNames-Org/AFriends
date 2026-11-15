@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.ComposeAction;
+import dev.no.name.blooddesigner.api.MessageCard;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.compat.ScreenBase;
@@ -360,7 +361,7 @@ public class MessengerScreen extends ScreenBase {
         int unread = notes ? 0 : messages.unread(entry);
         float badgeWidth = unread > 0 ? Draw.width(String.valueOf(unread), TextStyle.SMALL) + 8 : 0;
         String preview = last == null ? (notes ? "Твой личный чат для заметок" : "Пусто")
-                : (last.fromMe() && !notes ? "Ты: " : "") + (Addons.get().hideMessages() ? "Скрыто" : last.text());
+                : (last.fromMe() && !notes ? "Ты: " : "") + previewText(entry, last);
         int previewWidth = (int) (x + width - 6 - textX - badgeWidth - (badgeWidth > 0 ? 4 : 0));
         Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
         if (unread > 0) {
@@ -368,6 +369,16 @@ public class MessengerScreen extends ScreenBase {
             Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.ACCENT);
             Draw.text(g, String.valueOf(unread), badgeX + 4, rowY + 18, Theme.ACCENT_TEXT, TextStyle.SMALL);
         }
+    }
+
+    // текст в списке чатов: скрыт для стримера, у карточки дополнения — её заголовок
+    private static String previewText(String entry, PrivateMessage last) {
+        Addons addons = Addons.get();
+        if (addons.hideMessages()) {
+            return "Скрыто";
+        }
+        MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
+        return card == null ? last.text() : card.title();
     }
 
     private static void drawNotesTile(Gfx g, float x, float y, int size) {
@@ -631,7 +642,7 @@ public class MessengerScreen extends ScreenBase {
             items.add(new ChatMenu.Item(option.icon(), option.label(), false, () -> sendText(option.text())));
         }
         if (items.isEmpty()) {
-            items.add(new ChatMenu.Item(Icon.INFO, addons.guard("composeAction", action::empty, ""), false, () -> { }));
+            items.add(new ChatMenu.Item(Icon.INFO, addons.guard("composeAction", () -> action.empty(partner), ""), false, () -> { }));
         }
         String title = addons.guard("composeAction", () -> action.title(partner), "");
         menu.open(title, items, buttonX, HEIGHT - PAD - INPUT_HEIGHT, WIDTH, HEIGHT);
