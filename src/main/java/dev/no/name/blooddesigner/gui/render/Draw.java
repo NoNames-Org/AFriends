@@ -143,11 +143,16 @@ public final class Draw {
     }
 
     public static String trim(String text, int maxWidth) {
-        if (width(text) <= maxWidth) {
+        return trim(text, maxWidth, TextStyle.BODY);
+    }
+
+    // обрезка по ширине того шрифта, которым текст будет нарисован
+    public static String trim(String text, int maxWidth, TextStyle style) {
+        if (width(text, style) <= maxWidth) {
             return text;
         }
         String result = text;
-        while (!result.isEmpty() && width(result + "...") > maxWidth) {
+        while (!result.isEmpty() && width(result + "...", style) > maxWidth) {
             result = result.substring(0, result.length() - 1);
         }
         return result + "...";

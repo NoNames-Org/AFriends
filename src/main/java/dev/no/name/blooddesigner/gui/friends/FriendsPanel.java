@@ -130,7 +130,7 @@ public class FriendsPanel extends WidgetBase {
         } else {
             String status = Addons.get().guard("profileStatus", profile::get, "");
             String shown = status.isEmpty() ? "Нажми, чтобы задать статус" : "«" + status + "»";
-            Draw.text(g, Draw.trim(shown, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 25,
+            Draw.text(g, Draw.trim(shown, (int) (getX() + panelWidth - PADDING - textX), TextStyle.SMALL), textX, getY() + 25,
                     status.isEmpty() ? Theme.TEXT_FAINT : Theme.TEXT_DIM, TextStyle.SMALL);
         }
         Draw.rect(g, getX() + PADDING, getY() + HEADER_HEIGHT, panelWidth - PADDING * 2, 1, Theme.BORDER);
@@ -259,8 +259,8 @@ public class FriendsPanel extends WidgetBase {
         drawFace(g, friends.skinOf(request.name()), faceX, rowY + (ROW_HEIGHT - FACE) / 2);
         float textX = faceX + FACE + 8;
         int textWidth = (int) (acceptX() - 4 - textX);
-        Draw.text(g, Draw.trim(request.name(), textWidth), textX, rowY + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, Draw.trim(request.hint(), textWidth), textX, rowY + 14, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(request.name(), textWidth, TextStyle.BODY_MEDIUM), textX, rowY + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(request.hint(), textWidth, TextStyle.SMALL), textX, rowY + 14, Theme.TEXT_DIM, TextStyle.SMALL);
         drawRequestButton(g, acceptX(), rowY, Icon.CHECK, SUCCESS, mouseX, mouseY);
         drawRequestButton(g, declineX(), rowY, Icon.CLOSE, DANGER, mouseX, mouseY);
     }
@@ -310,18 +310,18 @@ public class FriendsPanel extends WidgetBase {
         String line = isIgnored ? "Игнорируется" : status == null ? null : status.line();
         boolean twoLines = line != null && !line.isEmpty();
         float nameY = twoLines ? rowY + 5 : rowY + (ROW_HEIGHT - 8) / 2f;
-        String name = Draw.trim(friend.name(), textWidth);
+        String name = Draw.trim(friend.name(), textWidth, TextStyle.BODY_MEDIUM);
         Draw.text(g, name, textX, nameY, isIgnored || status != null && !online ? Theme.TEXT_SOFT : Theme.TEXT, TextStyle.BODY_MEDIUM);
         String note = status == null || isIgnored ? null : status.note();
         if (note != null && !note.isEmpty()) {
             float noteX = textX + Draw.width(name, TextStyle.BODY_MEDIUM) + 4;
             int room = (int) (textX + textWidth - noteX);
             if (room > 20) {
-                Draw.text(g, Draw.trim("«" + note + "»", room), noteX, nameY + 1, Theme.TEXT_FAINT, TextStyle.SMALL);
+                Draw.text(g, Draw.trim("«" + note + "»", room, TextStyle.SMALL), noteX, nameY + 1, Theme.TEXT_FAINT, TextStyle.SMALL);
             }
         }
         if (twoLines) {
-            Draw.text(g, Draw.trim(line, textWidth), textX, rowY + 14, !isIgnored && online ? SUCCESS : Theme.TEXT_FAINT,
+            Draw.text(g, Draw.trim(line, textWidth, TextStyle.SMALL), textX, rowY + 14, !isIgnored && online ? SUCCESS : Theme.TEXT_FAINT,
                     TextStyle.SMALL);
         }
         if (unread > 0) {

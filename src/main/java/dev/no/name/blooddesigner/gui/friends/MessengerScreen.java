@@ -415,7 +415,7 @@ public class MessengerScreen extends ScreenBase {
         float x = CHAT_X + (CHAT_WIDTH - width) / 2f;
         float y = HEIGHT - PAD - INPUT_HEIGHT - 18;
         Draw.box(g, x, y, width, 14, Theme.RADIUS, Theme.POPUP, DANGER);
-        Draw.text(g, Draw.trim(warning, (int) width - 12), x + 6, y + 4, DANGER, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(warning, (int) width - 12, TextStyle.SMALL), x + 6, y + 4, DANGER, TextStyle.SMALL);
     }
 
     private void warn(String text) {

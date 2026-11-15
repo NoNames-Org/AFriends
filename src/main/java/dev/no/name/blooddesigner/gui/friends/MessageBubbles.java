@@ -134,7 +134,7 @@ final class MessageBubbles {
         int textWidth = (int) (x + bubble.width() - PADDING_X - textX);
         Draw.icon(g, card.icon(), x + PADDING_X, top + PADDING_Y + 3, CARD_ICON, textColor);
         Draw.text(g, Draw.trim(card.title(), textWidth), textX, top + PADDING_Y, textColor);
-        Draw.text(g, Draw.trim(card.subtitle(), textWidth), textX, top + PADDING_Y + LINE_HEIGHT + 1,
+        Draw.text(g, Draw.trim(card.subtitle(), textWidth, TextStyle.SMALL), textX, top + PADDING_Y + LINE_HEIGHT + 1,
                 Colors.fade(textColor, 0.7f), TextStyle.SMALL);
         if (card.button() == null) {
             return null;
@@ -144,7 +144,7 @@ final class MessageBubbles {
         float buttonWidth = bubble.width() - PADDING_X * 2;
         Draw.roundedRect(g, buttonX, buttonY, buttonWidth, CARD_BUTTON, RADIUS - 1,
                 card.done() ? Colors.fade(textColor, 0.08f) : Colors.fade(textColor, 0.16f));
-        String label = Draw.trim(card.button(), (int) buttonWidth - 8);
+        String label = Draw.trim(card.button(), (int) buttonWidth - 8, TextStyle.SMALL);
         Draw.text(g, label, buttonX + (buttonWidth - Draw.width(label, TextStyle.SMALL)) / 2f, buttonY + 4,
                 card.done() ? Colors.fade(textColor, 0.5f) : textColor, TextStyle.SMALL);
         return card.done() ? null : new CardButton(buttonX, buttonY, buttonWidth, CARD_BUTTON, card);
