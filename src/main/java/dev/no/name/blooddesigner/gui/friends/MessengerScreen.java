@@ -2,6 +2,8 @@ package dev.no.name.blooddesigner.gui.friends;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
+import dev.no.name.blooddesigner.addon.Addons;
+import dev.no.name.blooddesigner.api.ComposeAction;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.compat.ScreenBase;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 public class MessengerScreen extends ScreenBase {
     private static final int WIDTH = 470;
@@ -68,6 +71,7 @@ public class MessengerScreen extends ScreenBase {
     private static final int MAX_TEXT = 200;
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
+    private static final long WARNING_MS = 4000;
 
     private static final long APPEAR_MS = 260;
     private static final long PENDING_TIMEOUT_MS = 6000;
@@ -102,6 +106,11 @@ public class MessengerScreen extends ScreenBase {
     private final TextFieldWidget search = new TextFieldWidget(Icon.SEARCH, "Поиск").withMaxLength(16);
     private final TextFieldWidget input;
     private final ChatMenu menu = new ChatMenu();
+    // кнопки карточек дополнений, нарисованные в этом кадре
+    private final List<MessageBubbles.CardButton> cardButtons = new ArrayList<>();
+    // почему сообщение не ушло: подпись над полем ввода
+    private String warning = "";
+    private long warningAt;
     private final Animated windowOpen = new Animated(0, Motion.SLOW);
     private final Animated chatScrollView = new Animated(0, Motion.FAST);
     private final Animated listScrollView = new Animated(0, Motion.FAST);
@@ -121,7 +130,17 @@ public class MessengerScreen extends ScreenBase {
         this.context = context;
         this.messages = context.messages();
         input = new TextFieldWidget(Icon.MESSAGE, "Напишите сообщение…").withMaxLength(MAX_TEXT);
-        input.setBounds(CHAT_X + PAD, HEIGHT - PAD - INPUT_HEIGHT, CHAT_WIDTH - PAD * 2 - SEND_WIDTH - 4, INPUT_HEIGHT);
+        // кнопки дополнений встают между полем и «отправить»
+        List<ComposeAction> actions = Addons.get().composeActions();
+        int actionsWidth = actions.size() * (INPUT_HEIGHT + 4);
+        input.setBounds(CHAT_X + PAD, HEIGHT - PAD - INPUT_HEIGHT, CHAT_WIDTH - PAD * 2 - SEND_WIDTH - 4 - actionsWidth, INPUT_HEIGHT);
+        for (int i = 0; i < actions.size(); i++) {
+            ComposeAction action = actions.get(i);
+            int buttonX = WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth + i * (INPUT_HEIGHT + 4);
+            ButtonWidget button = new ButtonWidget(action.icon(), () -> openCompose(action, buttonX));
+            button.setBounds(buttonX, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
+            root.addChild(button);
+        }
         search.setBounds(LIST_X + PAD, PAD, LIST_WIDTH - PAD * 2, FIELD_HEIGHT);
         ButtonWidget send = new ButtonWidget(Icon.SEND, this::send);
         send.setBounds(WIDTH - PAD - SEND_WIDTH, HEIGHT - PAD - INPUT_HEIGHT, SEND_WIDTH, INPUT_HEIGHT);
@@ -341,7 +360,7 @@ public class MessengerScreen extends ScreenBase {
         int unread = notes ? 0 : messages.unread(entry);
         float badgeWidth = unread > 0 ? Draw.width(String.valueOf(unread), TextStyle.SMALL) + 8 : 0;
         String preview = last == null ? (notes ? "Твой личный чат для заметок" : "Пусто")
-                : (last.fromMe() && !notes ? "Ты: " : "") + last.text();
+                : (last.fromMe() && !notes ? "Ты: " : "") + (Addons.get().hideMessages() ? "Скрыто" : last.text());
         int previewWidth = (int) (x + width - 6 - textX - badgeWidth - (badgeWidth > 0 ? 4 : 0));
         Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
         if (unread > 0) {
@@ -385,6 +404,24 @@ public class MessengerScreen extends ScreenBase {
         }
         drawHeader(g);
         drawMessages(g);
+        drawWarning(g);
+    }
+
+    private void drawWarning(Gfx g) {
+        if (warning.isEmpty() || System.currentTimeMillis() - warningAt > WARNING_MS) {
+            return;
+        }
+        float width = Math.min(CHAT_WIDTH - PAD * 2, Draw.width(warning, TextStyle.SMALL) + 12);
+        float x = CHAT_X + (CHAT_WIDTH - width) / 2f;
+        float y = HEIGHT - PAD - INPUT_HEIGHT - 18;
+        Draw.box(g, x, y, width, 14, Theme.RADIUS, Theme.POPUP, DANGER);
+        Draw.text(g, Draw.trim(warning, (int) width - 12), x + 6, y + 4, DANGER, TextStyle.SMALL);
+    }
+
+    private void warn(String text) {
+        warning = text;
+        warningAt = System.currentTimeMillis();
+        UiSounds.play(UiSound.CLICK);
     }
 
     private void drawHeader(Gfx g) {
@@ -430,7 +467,8 @@ public class MessengerScreen extends ScreenBase {
         }
         float left = CHAT_X + PAD;
         float right = WIDTH - PAD;
-        List<Row> rows = buildRows(shown, right - left, chat.size());
+        List<Row> rows = buildRows(shown, right - left, chat.size(), partner);
+        cardButtons.clear();
         float content = 0;
         for (Row row : rows) {
             content += row.height();
@@ -453,7 +491,10 @@ public class MessengerScreen extends ScreenBase {
                     long start = isPending ? item.sentAt() : appearAt.getOrDefault(row.index(), 0L);
                     MessageBubbles.Stamp stamp = !isPending ? MessageBubbles.Stamp.TIME
                             : isFailed(item) ? MessageBubbles.Stamp.FAILED : MessageBubbles.Stamp.PENDING;
-                    drawAnimated(g, row.bubble(), left, right, y, start, stamp, now);
+                    MessageBubbles.CardButton button = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now);
+                    if (button != null && y >= top && y + row.height() <= bottom) {
+                        cardButtons.add(button);
+                    }
                 }
             }
             y += row.height();
@@ -461,8 +502,8 @@ public class MessengerScreen extends ScreenBase {
         g.disableScissor();
     }
 
-    private static List<Row> buildRows(List<PrivateMessage> shown, float areaWidth, int firstPending) {
-        List<MessageBubbles.Bubble> bubbles = MessageBubbles.layout(shown, areaWidth, firstPending);
+    private static List<Row> buildRows(List<PrivateMessage> shown, float areaWidth, int firstPending, String partner) {
+        List<MessageBubbles.Bubble> bubbles = MessageBubbles.layout(shown, areaWidth, firstPending, partner);
         List<Row> rows = new ArrayList<>();
         LocalDate previous = null;
         for (int i = 0; i < bubbles.size(); i++) {
@@ -525,8 +566,8 @@ public class MessengerScreen extends ScreenBase {
         shownCount = chat.size();
     }
 
-    private static void drawAnimated(Gfx g, MessageBubbles.Bubble bubble, float left, float right,
-                                     float y, long start, MessageBubbles.Stamp stamp, long now) {
+    private static MessageBubbles.CardButton drawAnimated(Gfx g, MessageBubbles.Bubble bubble, float left, float right,
+                                                          float y, long start, MessageBubbles.Stamp stamp, long now) {
         float progress = start == 0 ? 1 : Math.min(1, (now - start) / (float) APPEAR_MS);
         float eased = Easing.outCubic(progress);
         float alpha = eased * (stamp == MessageBubbles.Stamp.TIME ? 1 : PENDING_ALPHA);
@@ -537,31 +578,64 @@ public class MessengerScreen extends ScreenBase {
         float slideX = bubble.message().fromMe() ? (1 - eased) * SLIDE_X : 0;
         Draw.pushAlpha(alpha);
         Draw.pushOffset(g, slideX, (1 - eased) * SLIDE_Y);
-        MessageBubbles.draw(g, bubble, left, right, y, stamp);
+        MessageBubbles.CardButton button = MessageBubbles.draw(g, bubble, left, right, y, stamp);
         Draw.popOffset(g);
         Draw.popAlpha();
+        return button;
     }
 
     private void send() {
         String text = input.getText().strip();
-        if (text.isEmpty() || partner == null) {
-            return;
+        if (!text.isEmpty() && sendText(text)) {
+            input.setText("");
+        }
+    }
+
+    // false — не ушло: нет соединения или дополнение не пустило
+    private boolean sendText(String text) {
+        if (partner == null) {
+            return false;
         }
         if (isNotes()) {
             messages.addNote(text, System.currentTimeMillis());
         } else {
             ClientPacketListener connection = minecraft.getConnection();
             if (connection == null) {
-                return;
+                return false;
             }
-            connection.sendCommand("msg " + partner + " " + text);
+            String command = "msg " + partner + " " + text;
+            Optional<String> problem = Addons.get().sendProblem(partner, command);
+            if (problem.isPresent()) {
+                warn(problem.get());
+                return false;
+            }
+            connection.sendCommand(command);
 
             pending.add(new Pending(partner, text, System.currentTimeMillis()));
         }
-        input.setText("");
+        warning = "";
         chatScroll = 0;
         chatScrollView.setTarget(0);
         UiSounds.play(UiSound.CLICK);
+        return true;
+    }
+
+    // кнопка дополнения у поля ввода: список вариантов, выбранный уходит сообщением
+    private void openCompose(ComposeAction action, int buttonX) {
+        if (partner == null) {
+            return;
+        }
+        Addons addons = Addons.get();
+        List<ChatMenu.Item> items = new ArrayList<>();
+        for (ComposeAction.Option option : addons.guard("composeAction", () -> action.options(partner), List.<ComposeAction.Option>of())) {
+            items.add(new ChatMenu.Item(option.icon(), option.label(), false, () -> sendText(option.text())));
+        }
+        if (items.isEmpty()) {
+            items.add(new ChatMenu.Item(Icon.INFO, addons.guard("composeAction", action::empty, ""), false, () -> { }));
+        }
+        String title = addons.guard("composeAction", () -> action.title(partner), "");
+        menu.open(title, items, buttonX, HEIGHT - PAD - INPUT_HEIGHT, WIDTH, HEIGHT);
+        UiSounds.play(UiSound.DROPDOWN_OPEN);
     }
 
     private void openMenu(String entry, double mouseX, double mouseY) {
@@ -584,8 +658,9 @@ public class MessengerScreen extends ScreenBase {
                 friend, () -> {
                     if (friend) {
                         friends.remove(name);
-                    } else {
-                        friends.add(name);
+                        Addons.get().removed(name);
+                    } else if (friends.add(name) == FriendManager.AddResult.ADDED) {
+                        Addons.get().added(name, this::warnInfo);
                     }
                     context.save().run();
                 }));
@@ -594,7 +669,10 @@ public class MessengerScreen extends ScreenBase {
             ignored.toggle(name);
             context.save().run();
         }));
-        items.add(new ChatMenu.Item(Icon.FLAG, "Пригласить в пати", false, () -> context.party().invite(name)));
+        // в пати зовём только того, кто на этом же сервере
+        if (Addons.get().reachable(name)) {
+            items.add(new ChatMenu.Item(Icon.FLAG, "Пригласить в пати", false, () -> context.party().invite(name)));
+        }
         boolean pinned = messages.isPinned(name);
         items.add(new ChatMenu.Item(Icon.PIN, pinned ? "Открепить чат" : "Закрепить чат", false, () -> messages.togglePin(name)));
         items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", false, () -> {
@@ -621,6 +699,9 @@ public class MessengerScreen extends ScreenBase {
             UiSounds.play(UiSound.CLICK);
             return true;
         }
+        if (!right && clickCard(x, y)) {
+            return true;
+        }
         if (!right && clickRail(x, y)) {
             return true;
         }
@@ -637,6 +718,23 @@ public class MessengerScreen extends ScreenBase {
             return true;
         }
         return !right && root.mouseClicked(x, y, Widget.LEFT_BUTTON);
+    }
+
+    private boolean clickCard(double x, double y) {
+        for (MessageBubbles.CardButton button : cardButtons) {
+            if (button.contains(x, y)) {
+                Addons.get().run("messageCard", button.card().action());
+                UiSounds.play(UiSound.SELECT);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // подпись от дополнения (не ошибка) — тем же местом над полем ввода
+    private void warnInfo(String text) {
+        warning = text;
+        warningAt = System.currentTimeMillis();
     }
 
     private boolean clickRail(double x, double y) {

@@ -1,5 +1,7 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.addon.Addons;
+import dev.no.name.blooddesigner.api.FriendAction;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.core.IgnoreList;
@@ -18,6 +20,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.gui.screens.ChatScreen;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class FriendsUi {
@@ -105,7 +108,8 @@ public final class FriendsUi {
         PrivateMessages messages = context.messages();
         PartyState partyInfo = party.state();
         return List.of(
-                new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen, () -> null, () -> toggle(Tab.FRIENDS)),
+                new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
+                        () -> Addons.get().requests().isEmpty() ? null : "!", () -> toggle(Tab.FRIENDS)),
                 new HubRail.Button(Icon.FLAG, "Пати", partyState::isOpen, () -> {
                     if (partyInfo.incomingInvite(System.currentTimeMillis()) != null) {
                         return "!";
@@ -144,14 +148,26 @@ public final class FriendsUi {
     private List<FriendContextMenu.Item> menuItems(MessengerScreen.Context context) {
         FriendManager friends = context.friends();
         IgnoreList ignored = context.ignored();
-        return List.of(
+        Addons addons = Addons.get();
+        List<FriendContextMenu.Item> items = new ArrayList<>();
+        // пункты дополнений — сверху
+        for (FriendAction action : addons.actions()) {
+            items.add(new FriendContextMenu.Item(action.icon(),
+                    friend -> addons.guard("friendAction", () -> action.label().apply(friend.name()), ""),
+                    friend -> addons.run("friendAction", () -> action.action().accept(friend.name())),
+                    friend -> action.danger(),
+                    friend -> addons.guard("friendAction", () -> action.visible().test(friend.name()), false)));
+        }
+        items.addAll(List.of(
                 new FriendContextMenu.Item(Icon.MESSAGE, friend -> "Написать в ЛС",
                         friend -> Compat.setScreen(new MessengerScreen(friend.name(), context)),
-                        friend -> false),
+                        friend -> false,
+                        friend -> addons.reachable(friend.name())),
                 new FriendContextMenu.Item(Icon.TRASH, friend -> "Удалить из друзей",
                         friend -> {
                             friends.remove(friend.name());
                             save.run();
+                            addons.removed(friend.name());
                         },
                         friend -> true),
                 new FriendContextMenu.Item(Icon.BAN,
@@ -160,6 +176,7 @@ public final class FriendsUi {
                             ignored.toggle(friend.name());
                             save.run();
                         },
-                        friend -> false));
+                        friend -> false)));
+        return items;
     }
 }

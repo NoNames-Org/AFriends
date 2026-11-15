@@ -1,6 +1,9 @@
 package dev.no.name.blooddesigner.gui.friends;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.no.name.blooddesigner.addon.Addons;
+import dev.no.name.blooddesigner.api.FriendStatus;
+import dev.no.name.blooddesigner.api.ProfileStatus;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.compat.WidgetBase;
 import dev.no.name.blooddesigner.core.Friend;
@@ -27,6 +30,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.joml.Matrix3x2fStack;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -44,6 +49,9 @@ public class FriendsPanel extends WidgetBase {
     private static final int SUCCESS = 0xFF5CFFB0;
     private static final int DANGER = 0xFFFF6B6B;
     private static final Pattern NAME_CHAR = Pattern.compile("[A-Za-z0-9_]");
+    private static final int STATUS_LENGTH = 40;
+    private static final int DOT = 6;
+    private static final int REQUEST_BUTTON = 14;
 
     private final FriendManager friends;
     private final PrivateMessages messages;
@@ -52,6 +60,9 @@ public class FriendsPanel extends WidgetBase {
     private final Runnable save;
     private final int panelWidth;
     private final TextFieldWidget field = new TextFieldWidget(Icon.SEARCH, "Ник игрока").withMaxLength(NAME_LENGTH);
+    // свой статус от дополнения: поле появляется по клику на строку под ником в шапке
+    private final TextFieldWidget statusField = new TextFieldWidget(Icon.EDIT, "Твой статус").withMaxLength(STATUS_LENGTH);
+    private boolean editingStatus;
     private final Animated scrollView = new Animated(0, Motion.FAST);
     private final Animated addHover = new Animated(0, Motion.FAST);
     private int scroll;
@@ -109,7 +120,19 @@ public class FriendsPanel extends WidgetBase {
         String name = self == null ? "—" : self.getGameProfile().name();
         Draw.text(g, Draw.trim(name, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 13, Theme.TEXT,
                 TextStyle.BODY_MEDIUM);
-        Draw.text(g, "Твой профиль", textX, getY() + 25, Theme.TEXT_DIM, TextStyle.SMALL);
+        ProfileStatus profile = Addons.get().profile();
+        if (profile == null) {
+            editingStatus = false;
+            Draw.text(g, "Твой профиль", textX, getY() + 25, Theme.TEXT_DIM, TextStyle.SMALL);
+        } else if (editingStatus) {
+            statusField.setBounds((int) textX - 2, getY() + 21, (int) (getX() + panelWidth - PADDING - textX + 2), 14);
+            statusField.render(g, -1000, -1000);
+        } else {
+            String status = Addons.get().guard("profileStatus", profile::get, "");
+            String shown = status.isEmpty() ? "Нажми, чтобы задать статус" : "«" + status + "»";
+            Draw.text(g, Draw.trim(shown, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 25,
+                    status.isEmpty() ? Theme.TEXT_FAINT : Theme.TEXT_DIM, TextStyle.SMALL);
+        }
         Draw.rect(g, getX() + PADDING, getY() + HEADER_HEIGHT, panelWidth - PADDING * 2, 1, Theme.BORDER);
     }
 
@@ -158,6 +181,7 @@ public class FriendsPanel extends WidgetBase {
                 field.setText("");
                 notify(name + " добавлен в друзья", SUCCESS);
                 UiSounds.play(UiSound.SELECT);
+                Addons.get().added(name, text -> notify(text, SUCCESS));
             }
             case ALREADY -> notify(name + " уже в друзьях", Theme.TEXT_SOFT);
             case SELF -> notify("Себя добавить нельзя", DANGER);
@@ -173,8 +197,22 @@ public class FriendsPanel extends WidgetBase {
 
     private List<Friend> visible() {
         String query = field.getText().strip().toLowerCase(Locale.ROOT);
-        List<Friend> all = friends.sorted();
+        List<Friend> all = new ArrayList<>(friends.sorted());
+        // кто в сети по данным дополнения — наверх
+        all.sort(Comparator.comparing((Friend friend) -> !online(friend)));
         return query.isEmpty() ? all : all.stream().filter(friend -> friend.name().toLowerCase(Locale.ROOT).contains(query)).toList();
+    }
+
+    // заявки от дополнений, по поиску
+    private List<Addons.Request> requests() {
+        String query = field.getText().strip().toLowerCase(Locale.ROOT);
+        return Addons.get().requests().stream()
+                .filter(request -> query.isEmpty() || request.name().toLowerCase(Locale.ROOT).contains(query)).toList();
+    }
+
+    private static boolean online(Friend friend) {
+        FriendStatus.Status status = Addons.get().status(friend.name());
+        return status != null && status.online();
     }
 
     private int listTop() {
@@ -186,25 +224,61 @@ public class FriendsPanel extends WidgetBase {
     }
 
     private void drawList(Gfx g, int mouseX, int mouseY) {
+        List<Addons.Request> requests = requests();
         List<Friend> list = visible();
         int top = listTop();
         int bottom = listBottom();
-        contentHeight = list.size() * ROW_HEIGHT;
+        contentHeight = (requests.size() + list.size()) * ROW_HEIGHT;
         clampScroll(bottom - top);
-        if (list.isEmpty()) {
+        if (list.isEmpty() && requests.isEmpty()) {
             drawEmpty(g, top, bottom);
             return;
         }
         int shownScroll = Math.round(scrollView.get());
         g.enableScissor(getX(), top, getX() + panelWidth, bottom);
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < requests.size() + list.size(); i++) {
             int rowY = top + i * ROW_HEIGHT - shownScroll;
             if (rowY + ROW_HEIGHT < top || rowY > bottom) {
                 continue;
             }
-            drawRow(g, list.get(i), rowY, mouseX, mouseY);
+            if (i < requests.size()) {
+                drawRequest(g, requests.get(i), rowY, mouseX, mouseY);
+            } else {
+                drawRow(g, list.get(i - requests.size()), rowY, mouseX, mouseY);
+            }
         }
         g.disableScissor();
+    }
+
+    // заявка в друзья: ник, подпись дополнения, «принять» и «отклонить»
+    private void drawRequest(Gfx g, Addons.Request request, int rowY, int mouseX, int mouseY) {
+        int rowX = getX() + 4;
+        int rowWidth = panelWidth - 8;
+        Draw.box(g, rowX, rowY + 1, rowWidth, ROW_HEIGHT - 2, Theme.RADIUS, Theme.CARD_SELECTED, Theme.BORDER_HOVER);
+        int faceX = getX() + PADDING + 2;
+        drawFace(g, friends.skinOf(request.name()), faceX, rowY + (ROW_HEIGHT - FACE) / 2);
+        float textX = faceX + FACE + 8;
+        int textWidth = (int) (acceptX() - 4 - textX);
+        Draw.text(g, Draw.trim(request.name(), textWidth), textX, rowY + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(request.hint(), textWidth), textX, rowY + 14, Theme.TEXT_DIM, TextStyle.SMALL);
+        drawRequestButton(g, acceptX(), rowY, Icon.CHECK, SUCCESS, mouseX, mouseY);
+        drawRequestButton(g, declineX(), rowY, Icon.CLOSE, DANGER, mouseX, mouseY);
+    }
+
+    private void drawRequestButton(Gfx g, int x, int rowY, Icon icon, int color, int mouseX, int mouseY) {
+        int y = rowY + (ROW_HEIGHT - REQUEST_BUTTON) / 2;
+        boolean hovered = mouseX >= x && mouseX < x + REQUEST_BUTTON && mouseY >= y && mouseY < y + REQUEST_BUTTON;
+        Draw.roundedRect(g, x, y, REQUEST_BUTTON, REQUEST_BUTTON, Theme.RADIUS, hovered ? Theme.CARD_PRESSED : Theme.CARD_HOVER);
+        Draw.icon(g, icon, x + (REQUEST_BUTTON - Theme.ICON_SMALL) / 2f, y + (REQUEST_BUTTON - Theme.ICON_SMALL) / 2f,
+                Theme.ICON_SMALL, color);
+    }
+
+    private int declineX() {
+        return getX() + panelWidth - PADDING - REQUEST_BUTTON;
+    }
+
+    private int acceptX() {
+        return declineX() - 3 - REQUEST_BUTTON;
     }
 
     private void drawRow(Gfx g, Friend friend, int rowY, int mouseX, int mouseY) {
@@ -226,10 +300,29 @@ public class FriendsPanel extends WidgetBase {
         float badgeWidth = unread > 0 ? Draw.width(String.valueOf(unread), TextStyle.SMALL) + 8 : 0;
         int textWidth = (int) (getX() + panelWidth - PADDING - textX - badgeWidth - (badgeWidth > 0 ? 4 : 0));
         boolean isIgnored = ignored.isIgnored(friend.name());
-        float nameY = isIgnored ? rowY + 5 : rowY + (ROW_HEIGHT - 8) / 2f;
-        Draw.text(g, Draw.trim(friend.name(), textWidth), textX, nameY, isIgnored ? Theme.TEXT_SOFT : Theme.TEXT, TextStyle.BODY_MEDIUM);
-        if (isIgnored) {
-            Draw.text(g, "Игнорируется", textX, rowY + 14, Theme.TEXT_FAINT, TextStyle.SMALL);
+        // что про друга говорит дополнение: онлайн, строка под ником, подпись после ника
+        FriendStatus.Status status = Addons.get().status(friend.name());
+        boolean online = status != null && status.online();
+        if (online) {
+            Draw.roundedRect(g, faceX + FACE - DOT + 2, faceY + FACE - DOT + 2, DOT, DOT, DOT / 2f, Theme.PANEL_BOTTOM);
+            Draw.roundedRect(g, faceX + FACE - DOT + 3, faceY + FACE - DOT + 3, DOT - 2, DOT - 2, (DOT - 2) / 2f, SUCCESS);
+        }
+        String line = isIgnored ? "Игнорируется" : status == null ? null : status.line();
+        boolean twoLines = line != null && !line.isEmpty();
+        float nameY = twoLines ? rowY + 5 : rowY + (ROW_HEIGHT - 8) / 2f;
+        String name = Draw.trim(friend.name(), textWidth);
+        Draw.text(g, name, textX, nameY, isIgnored || status != null && !online ? Theme.TEXT_SOFT : Theme.TEXT, TextStyle.BODY_MEDIUM);
+        String note = status == null || isIgnored ? null : status.note();
+        if (note != null && !note.isEmpty()) {
+            float noteX = textX + Draw.width(name, TextStyle.BODY_MEDIUM) + 4;
+            int room = (int) (textX + textWidth - noteX);
+            if (room > 20) {
+                Draw.text(g, Draw.trim("«" + note + "»", room), noteX, nameY + 1, Theme.TEXT_FAINT, TextStyle.SMALL);
+            }
+        }
+        if (twoLines) {
+            Draw.text(g, Draw.trim(line, textWidth), textX, rowY + 14, !isIgnored && online ? SUCCESS : Theme.TEXT_FAINT,
+                    TextStyle.SMALL);
         }
         if (unread > 0) {
             float badgeX = getX() + panelWidth - PADDING - badgeWidth;
@@ -285,6 +378,10 @@ public class FriendsPanel extends WidgetBase {
     public void onClick(MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x();
         double mouseY = event.y();
+        if (clickStatus(mouseX, mouseY)) {
+            takeFocus = true;
+            return;
+        }
         field.mouseClicked(mouseX, mouseY, Widget.LEFT_BUTTON);
         takeFocus = field.isFocused();
         if (mouseX >= addX() && mouseX < addX() + FIELD_HEIGHT && mouseY >= fieldY() && mouseY < fieldY() + FIELD_HEIGHT) {
@@ -295,8 +392,14 @@ public class FriendsPanel extends WidgetBase {
         if (mouseY < listTop()) {
             return;
         }
+        List<Addons.Request> requests = requests();
         List<Friend> list = visible();
         int index = (int) Math.floor((mouseY - listTop() + Math.round(scrollView.get())) / ROW_HEIGHT);
+        if (index >= 0 && index < requests.size()) {
+            clickRequest(requests.get(index), mouseX);
+            return;
+        }
+        index -= requests.size();
         if (index < 0 || index >= list.size()) {
             state.closeMenu();
             return;
@@ -311,7 +414,67 @@ public class FriendsPanel extends WidgetBase {
         state.openMenu(friend, rowY);
     }
 
+    // ✓ или ✕ в строке заявки
+    private void clickRequest(Addons.Request request, double mouseX) {
+        boolean accept = mouseX >= acceptX() && mouseX < acceptX() + REQUEST_BUTTON;
+        boolean decline = mouseX >= declineX() && mouseX < declineX() + REQUEST_BUTTON;
+        if (!accept && !decline) {
+            return;
+        }
+        UiSounds.play(accept ? UiSound.SELECT : UiSound.CLICK);
+        Addons.get().run("friendRequests", () -> request.owner().respond(request.name(), accept));
+        if (accept && friends.add(request.name()) == FriendManager.AddResult.ADDED) {
+            save.run();
+            notify(request.name() + " добавлен в друзья", SUCCESS);
+        }
+    }
+
+    // клик по строке статуса в шапке: начать правку
+    private boolean clickStatus(double mouseX, double mouseY) {
+        ProfileStatus profile = Addons.get().profile();
+        boolean onLine = mouseY >= getY() + 20 && mouseY < getY() + HEADER_HEIGHT - 4
+                && mouseX >= getX() + PADDING + OWN_FACE + 6;
+        if (profile == null || !onLine) {
+            if (editingStatus) {
+                finishStatus(false);
+            }
+            return false;
+        }
+        if (!editingStatus) {
+            editingStatus = true;
+            statusField.setText(Addons.get().guard("profileStatus", profile::get, ""));
+            UiSounds.play(UiSound.CLICK);
+        }
+        field.blur();
+        statusField.focus();
+        return true;
+    }
+
+    private void finishStatus(boolean apply) {
+        ProfileStatus profile = Addons.get().profile();
+        if (apply && profile != null) {
+            String status = statusField.getText().strip();
+            Addons.get().run("profileStatus", () -> profile.set(status));
+            UiSounds.play(UiSound.SELECT);
+        }
+        editingStatus = false;
+        statusField.blur();
+    }
+
     public boolean handleKey(KeyEvent event) {
+        if (editingStatus && statusField.isFocused() && state.isOpen()) {
+            int key = event.key();
+            if (key == InputConstants.KEY_ESCAPE) {
+                finishStatus(false);
+                return true;
+            }
+            if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
+                finishStatus(true);
+                return true;
+            }
+            statusField.keyPressed(key);
+            return true;
+        }
         if (!field.isFocused() || !state.isOpen()) {
             return false;
         }
@@ -335,6 +498,10 @@ public class FriendsPanel extends WidgetBase {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (editingStatus && statusField.isFocused()) {
+            statusField.charTyped(event.codepointAsString());
+            return true;
+        }
         if (!field.isFocused()) {
             return false;
         }
@@ -356,6 +523,9 @@ public class FriendsPanel extends WidgetBase {
         super.setFocused(focused);
         if (!focused) {
             field.blur();
+            if (editingStatus) {
+                finishStatus(false);
+            }
         } else {
             field.refocus();
         }
@@ -363,6 +533,9 @@ public class FriendsPanel extends WidgetBase {
 
     public void blur() {
         field.blur();
+        if (editingStatus) {
+            finishStatus(false);
+        }
     }
 
     @Override

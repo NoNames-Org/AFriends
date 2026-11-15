@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.core;
 
+import dev.no.name.blooddesigner.addon.Addons;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -49,6 +50,7 @@ public final class FriendCommands {
             case ADDED -> {
                 save.run();
                 reply(context, name + " добавлен в друзья", ChatFormatting.GREEN);
+                Addons.get().added(name, notice -> reply(context, notice, ChatFormatting.GRAY));
                 return 1;
             }
             case ALREADY -> reply(context, name + " уже в друзьях", ChatFormatting.YELLOW);
@@ -65,6 +67,7 @@ public final class FriendCommands {
             return 0;
         }
         save.run();
+        Addons.get().removed(name);
         reply(context, name + " удалён из друзей", ChatFormatting.GREEN);
         return 1;
     }

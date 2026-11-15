@@ -31,7 +31,11 @@ public class FriendContextMenu extends WidgetBase {
     private final int panelX;
 
     public record Item(Icon icon, java.util.function.Function<Friend, String> label, Consumer<Friend> action,
-                       Predicate<Friend> danger) {
+                       Predicate<Friend> danger, Predicate<Friend> visible) {
+        public Item(Icon icon, java.util.function.Function<Friend, String> label, Consumer<Friend> action,
+                    Predicate<Friend> danger) {
+            this(icon, label, action, danger, friend -> true);
+        }
     }
 
     public FriendContextMenu(int panelX, FriendsState state, List<Item> items) {
@@ -48,6 +52,8 @@ public class FriendContextMenu extends WidgetBase {
         if (friend == null || state.progress() < 0.99f) {
             return;
         }
+        List<Item> shownItems = shown(friend);
+        setHeight(HEADER_HEIGHT + shownItems.size() * ITEM_HEIGHT + PADDING * 2);
         Draw.setPixelScale(Minecraft.getInstance().getWindow().getGuiScale());
         int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
         setY(Math.max(4, Math.min(state.menuAnchorY(), screenHeight - getHeight() - 22)));
@@ -61,11 +67,16 @@ public class FriendContextMenu extends WidgetBase {
         Draw.text(g, Draw.trim(friend.name(), WIDTH - PADDING * 4), getX() + PADDING * 2, getY() + PADDING + 4,
                 Theme.TEXT_DIM, TextStyle.SMALL);
 
-        for (int i = 0; i < items.size(); i++) {
-            drawItem(g, items.get(i), friend, itemY(i), mouseX, mouseY);
+        for (int i = 0; i < shownItems.size(); i++) {
+            drawItem(g, shownItems.get(i), friend, itemY(i), mouseX, mouseY);
         }
         Draw.popOffset(g);
         Draw.popAlpha();
+    }
+
+    // пункты, которые этому другу показываем
+    private List<Item> shown(Friend friend) {
+        return items.stream().filter(item -> item.visible().test(friend)).toList();
     }
 
     private void drawItem(Gfx g, Item item, Friend friend, int itemY, int mouseX, int mouseY) {
@@ -95,12 +106,13 @@ public class FriendContextMenu extends WidgetBase {
         if (friend == null) {
             return;
         }
-        for (int i = 0; i < items.size(); i++) {
+        List<Item> shownItems = shown(friend);
+        for (int i = 0; i < shownItems.size(); i++) {
             int itemY = itemY(i);
             if (event.y() >= itemY && event.y() < itemY + ITEM_HEIGHT) {
                 UiSounds.play(UiSound.CLICK);
                 state.closeMenu();
-                items.get(i).action().accept(friend);
+                shownItems.get(i).action().accept(friend);
                 return;
             }
         }

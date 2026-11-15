@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner;
 
+import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.ChatFilter;
 import dev.no.name.blooddesigner.core.ConfigStore;
@@ -39,6 +40,8 @@ public class BloodDesignerClient implements ClientModInitializer {
 
         PartyService party = new PartyService();
         party.register();
+        // дополнения других модов встраиваются до того, как появятся окна
+        Addons.load(socialData, party, configStore::save);
         new FriendCommands(socialData, configStore::save).register();
         new ChatFilter(socialData, party).register();
 
