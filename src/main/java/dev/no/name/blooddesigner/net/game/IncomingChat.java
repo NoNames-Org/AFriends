@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.game;
 
 import dev.no.name.blooddesigner.compat.Compat;
+import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.ServerScope;
@@ -29,6 +30,21 @@ final class IncomingChat implements InboxListener {
     @Override
     public void text(LinkFriend from, String text, long time) {
         Minecraft.getInstance().execute(() -> deliver(from.name(), new PrivateMessage(false, text, time)));
+    }
+
+    @Override
+    public void message(LinkFriend from, String text, String id, MessageImage image, long time) {
+        Minecraft.getInstance().execute(() -> deliver(from.name(), new PrivateMessage(false, text, time, id, image)));
+    }
+
+    // реакция друга: сообщение ищется по id во всех серверах — она могла прийти и в главном меню
+    @Override
+    public void reaction(LinkFriend from, String target, String reaction, long time) {
+        Minecraft.getInstance().execute(() -> {
+            if (!social.ignored().isIgnored(from.name())) {
+                social.react(from.name(), target, false, reaction);
+            }
+        });
     }
 
     @Override

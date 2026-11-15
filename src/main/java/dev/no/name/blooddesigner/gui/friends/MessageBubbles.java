@@ -2,6 +2,7 @@ package dev.no.name.blooddesigner.gui.friends;
 
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.MessageCard;
+import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.gui.render.Colors;
 import dev.no.name.blooddesigner.gui.render.Draw;
@@ -32,13 +33,43 @@ final class MessageBubbles {
     private static final int CARD_ICON = 12;
     private static final int CARD_BUTTON = 14;
     private static final float CARD_MIN_WIDTH = 110;
+    private static final float IMAGE_PADDING = 2;
 
     enum Stamp { TIME, PENDING, FAILED }
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
-    // card — карточка дополнения вместо текста
+    // card — карточка дополнения вместо текста; imageWidth > 0 — картинка вместо текста; chips — реакции под ним
     record Bubble(PrivateMessage message, List<String> lines, float width, float height, boolean timeInline,
-                  MessageCard.Card card) {
+                  MessageCard.Card card, float imageWidth, float imageHeight, List<ReactionChips.Chip> chips) {
+        Bubble(PrivateMessage message, List<String> lines, float width, float height, boolean timeInline, MessageCard.Card card) {
+            this(message, lines, width, height, timeInline, card, 0, 0, List.of());
+        }
+
+        boolean hasImage() {
+            return imageWidth > 0;
+        }
+
+        // реакции дописываются строкой снизу: пузырь растёт и при надобности шире
+        Bubble withChips(List<ReactionChips.Chip> chips) {
+            if (chips.isEmpty()) {
+                return this;
+            }
+            float chipsWidth = ReactionChips.width(chips) + PADDING_X * 2;
+            return new Bubble(message, lines, Math.max(width, chipsWidth), height + ReactionChips.ROW, timeInline, card,
+                    imageWidth, imageHeight, chips);
+        }
+    }
+
+    // где на холсте нарисован пузырь: для клика по картинке, реакциям и правого клика по сообщению
+    record Drawn(PrivateMessage message, float x, float y, float width, float height, CardButton card,
+                 float imageX, float imageY, float imageWidth, float imageHeight, List<ReactionChips.Hit> chips) {
+        boolean contains(double mouseX, double mouseY) {
+            return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+        }
+
+        boolean onImage(double mouseX, double mouseY) {
+            return imageWidth > 0 && mouseX >= imageX && mouseX < imageX + imageWidth && mouseY >= imageY && mouseY < imageY + imageHeight;
+        }
     }
 
     // где на холсте кнопка карточки
@@ -61,9 +92,16 @@ final class MessageBubbles {
         for (int index = 0; index < messages.size(); index++) {
             PrivateMessage message = messages.get(index);
             float stampWidth = index >= firstPending ? pendingWidth : Draw.width(time(message), TextStyle.SMALL);
+            List<ReactionChips.Chip> chips = ReactionChips.of(message);
+            if (!hidden && message.image() != null) {
+                float[] size = ImageBubble.size(message.image(), maxText);
+                bubbles.add(new Bubble(message, List.of(), size[0] + IMAGE_PADDING * 2, size[1] + IMAGE_PADDING * 2, false, null,
+                        size[0], size[1], List.of()).withChips(chips));
+                continue;
+            }
             MessageCard.Card card = hidden ? null : Addons.get().card(partner, message.text(), message.fromMe());
             if (card != null) {
-                bubbles.add(cardBubble(message, card, maxText));
+                bubbles.add(cardBubble(message, card, maxText).withChips(chips));
                 continue;
             }
             List<String> lines = wrap(hidden ? HIDDEN : message.text(), maxText);
@@ -76,7 +114,7 @@ final class MessageBubbles {
             boolean inline = lastLine + TIME_GAP + stampWidth <= maxText;
             float contentWidth = inline ? Math.max(widest, lastLine + TIME_GAP + stampWidth) : Math.max(widest, stampWidth);
             float height = PADDING_Y * 2 + lines.size() * LINE_HEIGHT + (inline ? 0 : TIME_HEIGHT);
-            bubbles.add(new Bubble(message, lines, contentWidth + PADDING_X * 2, height, inline, null));
+            bubbles.add(new Bubble(message, lines, contentWidth + PADDING_X * 2, height, inline, null).withChips(chips));
         }
         return bubbles;
     }
@@ -100,14 +138,17 @@ final class MessageBubbles {
         return new Bubble(message, List.of(), width, height, false, card);
     }
 
-    // рисует пузырь; для карточки с кнопкой возвращает, где кнопка
-    static CardButton draw(Gfx g, Bubble bubble, float left, float right, float top, Stamp stamp) {
+    // рисует пузырь и возвращает, где что нарисовано: кнопка карточки, картинка, плашки реакций
+    static Drawn draw(Gfx g, Bubble bubble, float left, float right, float top, Stamp stamp, MessageRoute route) {
         boolean mine = bubble.message().fromMe();
         boolean failed = stamp == Stamp.FAILED;
         float x = mine ? right - bubble.width() : left;
         int fill = failed ? Theme.CARD_PRESSED : mine ? Theme.ACCENT : Theme.CARD_SELECTED;
         int textColor = failed ? Theme.TEXT_SOFT : mine ? Theme.ACCENT_TEXT : Theme.TEXT;
         Draw.roundedRect(g, x, top, bubble.width(), bubble.height(), RADIUS, fill);
+        if (bubble.hasImage()) {
+            return drawImage(g, bubble, x, top, stamp, route, textColor);
+        }
         CardButton button = bubble.card() == null ? null : drawCard(g, bubble, x, top, textColor);
         float lineY = top + PADDING_Y + (bubble.card() == null ? 0 : LINE_HEIGHT * 2
                 + (bubble.card().button() != null ? CARD_BUTTON + 3 : 0));
@@ -125,7 +166,26 @@ final class MessageBubbles {
 
         float timeY = bubble.timeInline() ? lineY - LINE_HEIGHT + 1 : lineY;
         Draw.text(g, time, timeX, timeY, timeColor, TextStyle.SMALL);
-        return button;
+        List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
+                top + bubble.height() - ReactionChips.ROW + 1, textColor);
+        return new Drawn(bubble.message(), x, top, bubble.width(), bubble.height(), button, 0, 0, 0, 0, chips);
+    }
+
+    private static Drawn drawImage(Gfx g, Bubble bubble, float x, float top, Stamp stamp, MessageRoute route, int textColor) {
+        float imageX = x + IMAGE_PADDING;
+        float imageY = top + IMAGE_PADDING;
+        ImageBubble.draw(g, bubble.message().image(), route, imageX, imageY, bubble.imageWidth(), bubble.imageHeight(),
+                System.currentTimeMillis());
+        String time = switch (stamp) {
+            case PENDING -> PENDING;
+            case FAILED -> FAILED;
+            case TIME -> time(bubble.message());
+        };
+        ImageBubble.drawTime(g, time, imageX + bubble.imageWidth(), imageY + bubble.imageHeight());
+        List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
+                top + bubble.height() - ReactionChips.ROW + 1, textColor);
+        return new Drawn(bubble.message(), x, top, bubble.width(), bubble.height(), null,
+                imageX, imageY, bubble.imageWidth(), bubble.imageHeight(), chips);
     }
 
     private static CardButton drawCard(Gfx g, Bubble bubble, float x, float top, int textColor) {

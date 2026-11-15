@@ -39,6 +39,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.joml.Matrix3x2fStack;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -124,6 +125,11 @@ public class MessengerScreen extends ScreenBase {
     private final ChatMenu menu = new ChatMenu();
     // кнопки карточек дополнений, нарисованные в этом кадре
     private final List<MessageBubbles.CardButton> cardButtons = new ArrayList<>();
+    // где нарисованы пузыри на этом кадре: клик по картинке, реакциям, правый клик по сообщению
+    private final List<MessageBubbles.Drawn> drawn = new ArrayList<>();
+    private final ReactionBar reactionBar = new ReactionBar();
+    private final ImageViewer viewer = new ImageViewer();
+    private final MediaActions media;
     // почему сообщение не ушло: подпись над полем ввода
     private String warning = "";
     private long warningAt;
@@ -145,15 +151,20 @@ public class MessengerScreen extends ScreenBase {
         super(Component.literal("Сообщения"));
         this.context = context;
         this.messages = context.messages();
+        this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
         AnnouncementFeed.get().refresh();
         input = new TextFieldWidget(Icon.MESSAGE, "Напишите сообщение…").withMaxLength(MAX_TEXT);
         // кнопки дополнений встают между полем и «отправить»
         List<ComposeAction> actions = Addons.get().composeActions();
-        int actionsWidth = actions.size() * (INPUT_HEIGHT + 4);
+        // «скрепка» для картинок — тоже кнопка у поля, левее кнопок дополнений
+        int actionsWidth = (actions.size() + 1) * (INPUT_HEIGHT + 4);
         input.setBounds(CHAT_X + PAD, HEIGHT - PAD - INPUT_HEIGHT, CHAT_WIDTH - PAD * 2 - SEND_WIDTH - 4 - actionsWidth, INPUT_HEIGHT);
+        ButtonWidget attach = new ButtonWidget(Icon.IMAGE, () -> media.attach(partner));
+        attach.setBounds(WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
+        composer.addChild(attach);
         for (int i = 0; i < actions.size(); i++) {
             ComposeAction action = actions.get(i);
-            int buttonX = WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth + i * (INPUT_HEIGHT + 4);
+            int buttonX = WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth + (i + 1) * (INPUT_HEIGHT + 4);
             ButtonWidget button = new ButtonWidget(action.icon(), () -> openCompose(action, buttonX));
             button.setBounds(buttonX, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
             composer.addChild(button);
@@ -191,6 +202,8 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void select(String chat) {
+        reactionBar.close();
+        viewer.close();
         messages.close();
         partner = chat;
         pending.clear();
@@ -297,6 +310,11 @@ public class MessengerScreen extends ScreenBase {
         g.nextStratum();
         drawRailTooltip(g, hoverX, canvasY);
         menu.draw(g, canvasX, canvasY);
+        reactionBar.draw(g, canvasX, canvasY);
+        if (viewer.isOpen()) {
+            g.nextStratum();
+            viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
+        }
         Draw.popOffset(g);
         Draw.popAlpha();
         pose.popMatrix();
@@ -437,6 +455,9 @@ public class MessengerScreen extends ScreenBase {
         if (addons.hideMessages()) {
             return "Скрыто";
         }
+        if (last.image() != null) {
+            return last.image().animated() ? "GIF" : "Картинка";
+        }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
         return card == null ? last.text() : card.title();
     }
@@ -571,6 +592,7 @@ public class MessengerScreen extends ScreenBase {
         float right = WIDTH - PAD;
         List<Row> rows = buildRows(shown, right - left, chat.size(), partner);
         cardButtons.clear();
+        drawn.clear();
         float content = 0;
         for (Row row : rows) {
             content += row.height();
@@ -593,9 +615,12 @@ public class MessengerScreen extends ScreenBase {
                     long start = isPending ? item.sentAt() : appearAt.getOrDefault(row.index(), 0L);
                     MessageBubbles.Stamp stamp = !isPending ? MessageBubbles.Stamp.TIME
                             : isFailed(item) ? MessageBubbles.Stamp.FAILED : MessageBubbles.Stamp.PENDING;
-                    MessageBubbles.CardButton button = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now);
-                    if (button != null && y >= top && y + row.height() <= bottom) {
-                        cardButtons.add(button);
+                    MessageBubbles.Drawn bubble = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now, context.route());
+                    if (bubble.card() != null && y >= top && y + row.height() <= bottom) {
+                        cardButtons.add(bubble.card());
+                    }
+                    if (!isPending) {
+                        drawn.add(bubble);
                     }
                 }
             }
@@ -668,8 +693,9 @@ public class MessengerScreen extends ScreenBase {
         shownCount = chat.size();
     }
 
-    private static MessageBubbles.CardButton drawAnimated(Gfx g, MessageBubbles.Bubble bubble, float left, float right,
-                                                          float y, long start, MessageBubbles.Stamp stamp, long now) {
+    private static MessageBubbles.Drawn drawAnimated(Gfx g, MessageBubbles.Bubble bubble, float left, float right,
+                                                     float y, long start, MessageBubbles.Stamp stamp, long now,
+                                                     MessageRoute route) {
         float progress = start == 0 ? 1 : Math.min(1, (now - start) / (float) APPEAR_MS);
         float eased = Easing.outCubic(progress);
         float alpha = eased * (stamp == MessageBubbles.Stamp.TIME ? 1 : PENDING_ALPHA);
@@ -680,10 +706,10 @@ public class MessengerScreen extends ScreenBase {
         float slideX = bubble.message().fromMe() ? (1 - eased) * SLIDE_X : 0;
         Draw.pushAlpha(alpha);
         Draw.pushOffset(g, slideX, (1 - eased) * SLIDE_Y);
-        MessageBubbles.CardButton button = MessageBubbles.draw(g, bubble, left, right, y, stamp);
+        MessageBubbles.Drawn drawnBubble = MessageBubbles.draw(g, bubble, left, right, y, stamp, route);
         Draw.popOffset(g);
         Draw.popAlpha();
-        return button;
+        return drawnBubble;
     }
 
     private void send() {
@@ -806,8 +832,24 @@ public class MessengerScreen extends ScreenBase {
         double x = toCanvasX(event.x());
         double y = toCanvasY(event.y());
         boolean right = event.button() == InputConstants.MOUSE_BUTTON_RIGHT;
+        if (viewer.isOpen()) {
+            clickViewer(viewer.click(x, y));
+            return true;
+        }
+        if (reactionBar.isOpen()) {
+            PrivateMessage target = reactionBar.message();
+            ReactionBar.Choice choice = reactionBar.click(x, y);
+            reactionBar.close();
+            if (choice != null) {
+                applyChoice(target, choice);
+                return true;
+            }
+        }
         if (menu.click(x, y)) {
             UiSounds.play(UiSound.CLICK);
+            return true;
+        }
+        if (clickBubble(x, y, right)) {
             return true;
         }
         if (!right && clickCard(x, y)) {
@@ -837,6 +879,79 @@ public class MessengerScreen extends ScreenBase {
         }
         boolean composing = partner != null && !isAnnouncements() && composer.mouseClicked(x, y, Widget.LEFT_BUTTON);
         return root.mouseClicked(x, y, Widget.LEFT_BUTTON) || composing;
+    }
+
+    // картинка — открыть крупно; плашка реакции — поставить или снять свою; правый клик — всплывашка реакций
+    private boolean clickBubble(double x, double y, boolean right) {
+        int top = HEADER_HEIGHT + 4;
+        int bottom = HEIGHT - PAD - INPUT_HEIGHT - 6;
+        if (y < top || y > bottom) {
+            return false;
+        }
+        for (MessageBubbles.Drawn bubble : drawn) {
+            if (!bubble.contains(x, y)) {
+                continue;
+            }
+            PrivateMessage message = bubble.message();
+            boolean canReact = canReact(message);
+            if (right) {
+                if (!canReact && message.image() == null) {
+                    return false;
+                }
+                reactionBar.open(message, canReact, (float) x, (float) y, WIDTH, HEIGHT);
+                UiSounds.play(UiSound.DROPDOWN_OPEN);
+                return true;
+            }
+            for (ReactionChips.Hit chip : bubble.chips()) {
+                if (chip.contains(x, y) && canReact) {
+                    media.react(partner, message, chip.reaction().equals(message.reaction()) ? null : chip.reaction());
+                    UiSounds.play(UiSound.CLICK);
+                    return true;
+                }
+            }
+            if (bubble.onImage(x, y)) {
+                viewer.open(message.image());
+                UiSounds.play(UiSound.CLICK);
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    // реакции — только на сообщения с id и только с другом по сети
+    private boolean canReact(PrivateMessage message) {
+        return message.id() != null && partner != null && !isReadOnly() && !isNotes() && !isOfficial() && media.available(partner);
+    }
+
+    private void applyChoice(PrivateMessage message, ReactionBar.Choice choice) {
+        if (choice.kind() == null) {
+            return;
+        }
+        switch (choice.kind()) {
+            case REACT -> media.react(partner, message, choice.reaction());
+            case SAVE -> media.save(message.image());
+            case OPEN -> media.open(message.image());
+        }
+        UiSounds.play(UiSound.CLICK);
+    }
+
+    private void clickViewer(ImageViewer.Action action) {
+        switch (action) {
+            case SAVE -> media.save(viewer.image());
+            case OPEN -> media.open(viewer.image());
+            case CLOSE -> viewer.close();
+            case NONE -> { }
+        }
+        UiSounds.play(UiSound.CLICK);
+    }
+
+    // файлы, перетащенные в окно игры, пока открыта переписка, — отправить картинками
+    @Override
+    public void onFilesDrop(List<Path> files) {
+        if (partner != null && !isReadOnly() && !isNotes() && !isOfficial()) {
+            media.drop(partner, files);
+        }
     }
 
     private boolean clickCard(double x, double y) {
@@ -913,6 +1028,11 @@ public class MessengerScreen extends ScreenBase {
         int key = event.key();
         if (key == InputConstants.KEY_ESCAPE && menu.isOpen()) {
             menu.close();
+            return true;
+        }
+        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen())) {
+            viewer.close();
+            reactionBar.close();
             return true;
         }
         if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) && input.isFocused()) {

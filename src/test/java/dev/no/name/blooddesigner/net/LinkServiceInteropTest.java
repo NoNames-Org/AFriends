@@ -1,6 +1,8 @@
 package dev.no.name.blooddesigner.net;
 
+import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.net.chat.InboxListener;
+import dev.no.name.blooddesigner.net.media.PreparedImage;
 import dev.no.name.blooddesigner.net.model.ClientKind;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
@@ -12,12 +14,17 @@ import dev.no.name.blooddesigner.net.service.PlayerAccount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -31,6 +38,8 @@ class LinkServiceInteropTest {
         final String name;
         final LinkService service;
         final BlockingQueue<String> texts = new LinkedBlockingQueue<>();
+        final BlockingQueue<MessageImage> images = new LinkedBlockingQueue<>();
+        final BlockingQueue<String> reactions = new LinkedBlockingQueue<>();
 
         Player(String name, Path folder, ClientKind client) {
             this.name = name;
@@ -42,6 +51,20 @@ class LinkServiceInteropTest {
         @Override
         public void text(LinkFriend from, String text, long time) {
             texts.add(from.name() + ": " + text);
+        }
+
+        @Override
+        public void message(LinkFriend from, String text, String id, MessageImage image, long time) {
+            if (image != null) {
+                images.add(image);
+            } else {
+                text(from, text, time);
+            }
+        }
+
+        @Override
+        public void reaction(LinkFriend from, String target, String reaction, long time) {
+            reactions.add(from.name() + " " + target + " " + reaction);
         }
 
         @Override
@@ -112,6 +135,24 @@ class LinkServiceInteropTest {
             assertEquals(alice.name + ": привет", bob.texts.poll(10, TimeUnit.SECONDS));
             assertEquals("ok", bob.service.sendText(aliceId, "и тебе").get(10, TimeUnit.SECONDS));
             assertEquals(bob.name + ": и тебе", alice.texts.poll(10, TimeUnit.SECONDS));
+
+            // картинка: Алиса шифрует и заливает, Боб получает описание, скачивает и расшифровывает тот же файл
+            BufferedImage picture = new BufferedImage(64, 48, BufferedImage.TYPE_INT_ARGB);
+            picture.setRGB(10, 10, 0xFFFF0000);
+            ByteArrayOutputStream png = new ByteArrayOutputStream();
+            ImageIO.write(picture, "png", png);
+            PreparedImage prepared = PreparedImage.of(png.toByteArray());
+            MessageImage sent = alice.service.sendImage(bobId, prepared, "aaaabbbbccccdddd").get(30, TimeUnit.SECONDS);
+            MessageImage received = bob.images.poll(10, TimeUnit.SECONDS);
+            assertEquals(sent, received);
+            Path file = bob.service.media().file(received).get(30, TimeUnit.SECONDS);
+            assertArrayEquals(png.toByteArray(), Files.readAllBytes(file));
+
+            // реакция на картинку и её снятие
+            assertEquals("ok", bob.service.sendReaction(aliceId, "aaaabbbbccccdddd", "fire").get(10, TimeUnit.SECONDS));
+            assertEquals(bob.name + " aaaabbbbccccdddd fire", alice.reactions.poll(10, TimeUnit.SECONDS));
+            assertEquals("ok", bob.service.sendReaction(aliceId, "aaaabbbbccccdddd", null).get(10, TimeUnit.SECONDS));
+            assertEquals(bob.name + " aaaabbbbccccdddd null", alice.reactions.poll(10, TimeUnit.SECONDS));
 
             String safetyA = alice.service.safetyNumber(bobId).get(5, TimeUnit.SECONDS);
             String safetyB = bob.service.safetyNumber(aliceId).get(5, TimeUnit.SECONDS);

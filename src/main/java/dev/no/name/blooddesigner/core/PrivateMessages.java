@@ -77,6 +77,22 @@ public final class PrivateMessages {
         onChange.run();
     }
 
+    // реакция на сообщение по его id; false — такого сообщения здесь нет
+    public boolean react(String partner, String messageId, boolean mine, String reaction) {
+        List<PrivateMessage> chat = chats.get(key(partner));
+        if (chat == null || messageId == null) {
+            return false;
+        }
+        for (int i = chat.size() - 1; i >= 0; i--) {
+            if (messageId.equals(chat.get(i).id())) {
+                chat.set(i, chat.get(i).withReaction(mine, reaction));
+                onChange.run();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void markOffline(String partner, long now) {
         offlineAt.put(key(partner), now);
     }
@@ -205,11 +221,7 @@ public final class PrivateMessages {
             JsonArray array = new JsonArray();
             int from = Math.max(0, messages.size() - MessageHistory.limit());
             for (PrivateMessage message : messages.subList(from, messages.size())) {
-                JsonObject item = new JsonObject();
-                item.addProperty("me", message.fromMe());
-                item.addProperty("text", message.text());
-                item.addProperty("time", message.time());
-                array.add(item);
+                array.add(MessageJson.write(message));
             }
             json.add(partner, array);
         });
@@ -233,9 +245,7 @@ public final class PrivateMessages {
             try {
                 List<PrivateMessage> messages = new ArrayList<>();
                 for (JsonElement element : entry.getValue().getAsJsonArray()) {
-                    JsonObject item = element.getAsJsonObject();
-                    messages.add(new PrivateMessage(item.get("me").getAsBoolean(), item.get("text").getAsString(),
-                            item.get("time").getAsLong()));
+                    messages.add(MessageJson.read(element.getAsJsonObject()));
                 }
                 trim(messages);
                 String partner = entry.getKey();

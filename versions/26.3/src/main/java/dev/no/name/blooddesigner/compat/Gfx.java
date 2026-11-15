@@ -82,6 +82,12 @@ public final class Gfx {
                 textureSize, textureSize, textureSize, textureSize);
     }
 
+    // вся текстура textureWidth×textureHeight, растянутая в прямоугольник width×height (картинки в чате)
+    public void image(Identifier texture, int x, int y, int width, int height, int textureWidth, int textureHeight) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0, 0, width, height,
+                textureWidth, textureHeight, textureWidth, textureHeight);
+    }
+
     /** Предмет 16×16 со счётчиком и полоской прочности, как в инвентаре. */
     public void item(Font font, net.minecraft.world.item.ItemStack stack, int x, int y) {
         graphics.item(stack, x, y);

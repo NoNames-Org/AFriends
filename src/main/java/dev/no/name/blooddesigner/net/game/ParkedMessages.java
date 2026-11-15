@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.core.MessageJson;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.net.identity.SecretFiles;
 import org.slf4j.Logger;
@@ -55,8 +56,7 @@ final class ParkedMessages {
         try {
             for (JsonElement element : JsonParser.parseString(Files.readString(file)).getAsJsonArray()) {
                 JsonObject item = element.getAsJsonObject();
-                parked.add(new Parked(item.get("partner").getAsString(), new PrivateMessage(false,
-                        item.get("text").getAsString(), item.get("time").getAsLong())));
+                parked.add(new Parked(item.get("partner").getAsString(), MessageJson.read(item)));
             }
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("{}: отложенные сообщения не прочитались", BloodDesigner.NAME, e);
@@ -66,10 +66,8 @@ final class ParkedMessages {
     private void save() {
         JsonArray array = new JsonArray();
         for (Parked item : parked) {
-            JsonObject json = new JsonObject();
+            JsonObject json = MessageJson.write(item.message());
             json.addProperty("partner", item.partner());
-            json.addProperty("text", item.message().text());
-            json.addProperty("time", item.message().time());
             array.add(json);
         }
         try {

@@ -7,6 +7,12 @@ import dev.no.name.blooddesigner.net.badges.BadgeDirectory;
 import dev.no.name.blooddesigner.net.chat.ChatPayload;
 import dev.no.name.blooddesigner.net.chat.InboxListener;
 import dev.no.name.blooddesigner.net.chat.OfficialInbox;
+import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.net.crypto.Bytes;
+import dev.no.name.blooddesigner.net.media.BlobClient;
+import dev.no.name.blooddesigner.net.media.MediaCache;
+import dev.no.name.blooddesigner.net.media.MediaCrypto;
+import dev.no.name.blooddesigner.net.media.PreparedImage;
 import dev.no.name.blooddesigner.net.e2e.SafetyNumber;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
@@ -40,6 +46,8 @@ public final class LinkService {
     private PlayerAccount player;
     private final InboxListener listener;
     private final OfficialInbox official;
+    private final BlobClient blobs = new BlobClient();
+    private final MediaCache media;
     private final BadgeDirectory badges = new BadgeDirectory();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, " link"));
     private final ExecutorService io = Executors.newCachedThreadPool(runnable -> daemon(runnable, " link io"));
@@ -53,6 +61,8 @@ public final class LinkService {
         this.playerSource = player;
         this.listener = listener;
         this.official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
+        // картинки переписки лежат рядом с папкой сети: config/blooddesigner/media
+        this.media = new MediaCache(folder.resolveSibling("media"), blobs);
     }
 
     public LinkSnapshot snapshot() {
@@ -163,15 +173,69 @@ public final class LinkService {
         return action("friends.remove", data);
     }
 
-    // сообщение другу по сети; "ok" или код причины
+    // сообщение без номера: на него не поставить реакцию (для проверок сети)
     public CompletableFuture<String> sendText(String friendId, String text) {
+        return sendText(friendId, text, null);
+    }
+
+    // сообщение другу по сети; id — для реакций; "ok" или код причины
+    public CompletableFuture<String> sendText(String friendId, String text, String id) {
+        return sendPayload(friendId, new ChatPayload.Text(text, id, null));
+    }
+
+    // реакция на сообщение с этим id; reaction == null — снять свою
+    public CompletableFuture<String> sendReaction(String friendId, String target, String reaction) {
+        return sendPayload(friendId, new ChatPayload.Reaction(target, reaction));
+    }
+
+    private CompletableFuture<String> sendPayload(String friendId, ChatPayload payload) {
         return call(runtime -> {
             LinkFriend friend = snapshot.friend(friendId);
             if (friend == null) {
                 return CompletableFuture.failedFuture(new TunnelError("not_friends"));
             }
-            return runtime.outbox.send(friend, new ChatPayload.Text(text));
+            return runtime.outbox.send(friend, payload);
         });
+    }
+
+    // Картинка другу: шифруем своим ключом, заливаем на сервер, ключ и ссылку — сквозным сообщением.
+    // Готово — придёт описание картинки (для своей переписки); отказ — исключение с кодом
+    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id) {
+        CompletableFuture<MessageImage> result = new CompletableFuture<>();
+        worker.execute(() -> {
+            LinkFriend friend = snapshot.friend(friendId);
+            if (runtime == null || snapshot.connection() != Connection.ONLINE || friend == null) {
+                result.completeExceptionally(new TunnelError(friend == null ? "not_friends" : "offline"));
+                return;
+            }
+            byte[] key = MediaCrypto.newKey();
+            byte[] sealed;
+            try {
+                sealed = MediaCrypto.seal(key, prepared.bytes());
+            } catch (java.security.GeneralSecurityException e) {
+                result.completeExceptionally(new TunnelError("image_crypto"));
+                return;
+            }
+            LinkRuntime current = runtime;
+            blobs.upload(current.connection, sealed).thenComposeAsync(blob -> {
+                MessageImage image = new MessageImage(blob, Bytes.base64(key), prepared.mime(), prepared.width(),
+                        prepared.height(), prepared.bytes().length, prepared.sha256());
+                media.store(image, prepared.bytes());
+                return current.outbox.send(friend, new ChatPayload.Text("", id, image)).thenApply(done -> image);
+            }, worker).whenComplete((image, error) -> {
+                if (error != null) {
+                    result.completeExceptionally(error);
+                } else {
+                    result.complete(image);
+                }
+            });
+        });
+        return result;
+    }
+
+    // файлы картинок переписки: кеш на диске, при надобности скачивает и расшифровывает
+    public MediaCache media() {
+        return media;
     }
 
     // ответ в чат «BloodDesigner»: уходит админам на портал; "ok" или код причины

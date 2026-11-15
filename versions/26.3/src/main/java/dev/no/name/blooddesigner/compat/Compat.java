@@ -72,4 +72,56 @@ public final class Compat {
     public static void localMessage(net.minecraft.network.chat.Component message) {
         Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(message);
     }
+
+    // Окна системы для файлов через SDL3 (в 26.3 игра на SDL, TinyFileDialogs нет). SDL зовёт ответ сам, когда игрок
+    // выбрал файл; фильтры и обработчик должны жить до этого момента — держим их и освобождаем в ответе
+    public static void chooseFile(String title, String[] patterns, String description, java.util.function.Consumer<java.nio.file.Path> chosen) {
+        showDialog(false, patterns, description, null, chosen);
+    }
+
+    public static void saveFile(String title, String suggested, String[] patterns, String description, java.util.function.Consumer<java.nio.file.Path> chosen) {
+        showDialog(true, patterns, description, suggested, chosen);
+    }
+
+    private static void showDialog(boolean save, String[] patterns, String description, String location,
+                                   java.util.function.Consumer<java.nio.file.Path> chosen) {
+        // SDL ждёт шаблоны без «*.» и через «;»: png;jpg;gif
+        StringBuilder joined = new StringBuilder();
+        for (String pattern : patterns) {
+            if (!joined.isEmpty()) {
+                joined.append(';');
+            }
+            joined.append(pattern.startsWith("*.") ? pattern.substring(2) : pattern);
+        }
+        java.nio.ByteBuffer name = org.lwjgl.system.MemoryUtil.memUTF8(description);
+        java.nio.ByteBuffer pattern = org.lwjgl.system.MemoryUtil.memUTF8(joined.toString());
+        org.lwjgl.sdl.SDL_DialogFileFilter.Buffer filters = org.lwjgl.sdl.SDL_DialogFileFilter.calloc(1);
+        filters.get(0).name(name).pattern(pattern);
+        org.lwjgl.sdl.SDL_DialogFileCallback[] holder = new org.lwjgl.sdl.SDL_DialogFileCallback[1];
+        holder[0] = org.lwjgl.sdl.SDL_DialogFileCallback.create((userdata, files, filter) -> {
+            String result = null;
+            if (files != 0) {
+                long first = org.lwjgl.system.MemoryUtil.memGetAddress(files);
+                if (first != 0) {
+                    result = org.lwjgl.system.MemoryUtil.memUTF8(first);
+                }
+            }
+            String path = result;
+            Minecraft.getInstance().execute(() -> {
+                chosen.accept(path == null ? null : java.nio.file.Path.of(path));
+                filters.free();
+                org.lwjgl.system.MemoryUtil.memFree(name);
+                org.lwjgl.system.MemoryUtil.memFree(pattern);
+                holder[0].free();
+            });
+        });
+        long window = Minecraft.getInstance().getWindow().handle();
+        Minecraft.getInstance().execute(() -> {
+            if (save) {
+                org.lwjgl.sdl.SDLDialog.SDL_ShowSaveFileDialog(holder[0], 0L, window, filters, location);
+            } else {
+                org.lwjgl.sdl.SDLDialog.SDL_ShowOpenFileDialog(holder[0], 0L, window, filters, (CharSequence) null, false);
+            }
+        });
+    }
 }

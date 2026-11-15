@@ -53,6 +53,16 @@ public final class SocialData {
         return current().messages();
     }
 
+    // реакция по сети: сообщение с этим id ищем во всех серверах — реакция может прийти и из главного меню
+    public boolean react(String partner, String messageId, boolean mine, String reaction) {
+        for (Scope scope : scopes.values()) {
+            if (scope.messages().react(partner, messageId, mine, reaction)) {
+                return true;
+            }
+        }
+        return legacy != null && legacy.messages().react(partner, messageId, mine, reaction);
+    }
+
     // друг удалил нас в сети: на каждом сервере он больше не друг. true — где-то был
     public boolean removeFriendEverywhere(String name) {
         boolean removed = false;

@@ -106,7 +106,8 @@ public final class Inbox {
 
     private void dispatch(LinkFriend from, ChatPayload payload, long time) {
         switch (payload) {
-            case ChatPayload.Text text -> listener.text(from, text.text(), time);
+            case ChatPayload.Text text -> listener.message(from, text.text(), text.id(), text.image(), time);
+            case ChatPayload.Reaction reaction -> listener.reaction(from, reaction.target(), reaction.reaction(), time);
             case ChatPayload.PresenceKey key -> {
                 // новый ключ: статус, который уже лежит на сервере, теперь читается
                 if (presenceKeys.remember(from.id(), key.epoch(), key.key())) {
