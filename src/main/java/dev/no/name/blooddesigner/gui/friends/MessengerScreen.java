@@ -3,6 +3,7 @@ package dev.no.name.blooddesigner.gui.friends;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
+import dev.no.name.blooddesigner.net.announcements.AnnouncementFeed;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.ComposeAction;
 import dev.no.name.blooddesigner.api.MessageCard;
@@ -74,12 +75,13 @@ public class MessengerScreen extends ScreenBase {
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
     private static final int ANNOUNCEMENTS_COLOR = 0xFFE0313F;
-    /** Чат «Объявления»: всегда первый, только для чтения, не очищается и не удаляется. Пока заглушка. */
+    /** Чат «Объявления»: всегда первый, только для чтения, не очищается и не удаляется. Пишут с portal.no-names.com. */
     private static final String ANNOUNCEMENTS = "$announcements";
     private static final String ANNOUNCEMENTS_TITLE = "Объявления";
     private static final long ANNOUNCEMENTS_SINCE = java.time.LocalDate.of(2026, 11, 16)
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-    private static final List<PrivateMessage> ANNOUNCEMENT_LIST = List.of(new PrivateMessage(false,
+    /** Пока с сервера ничего не пришло. */
+    private static final List<PrivateMessage> ANNOUNCEMENTS_EMPTY = List.of(new PrivateMessage(false,
             "Здесь будут объявления BloodDesigner: новости мода и важные изменения. Писать сюда нельзя.",
             ANNOUNCEMENTS_SINCE));
     private static final long WARNING_MS = 4000;
@@ -141,6 +143,7 @@ public class MessengerScreen extends ScreenBase {
         super(Component.literal("Сообщения"));
         this.context = context;
         this.messages = context.messages();
+        AnnouncementFeed.get().refresh();
         input = new TextFieldWidget(Icon.MESSAGE, "Напишите сообщение…").withMaxLength(MAX_TEXT);
         // кнопки дополнений встают между полем и «отправить»
         List<ComposeAction> actions = Addons.get().composeActions();
@@ -205,11 +208,16 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private List<PrivateMessage> chatMessages(String chat) {
-        return ANNOUNCEMENTS.equals(chat) ? ANNOUNCEMENT_LIST : messages.chat(chat);
+        return ANNOUNCEMENTS.equals(chat) ? announcementList() : messages.chat(chat);
     }
 
     private PrivateMessage lastMessage(String entry) {
-        return ANNOUNCEMENTS.equals(entry) ? ANNOUNCEMENT_LIST.get(ANNOUNCEMENT_LIST.size() - 1) : messages.last(entry);
+        return ANNOUNCEMENTS.equals(entry) ? announcementList().getLast() : messages.last(entry);
+    }
+
+    private static List<PrivateMessage> announcementList() {
+        List<PrivateMessage> loaded = AnnouncementFeed.get().messages();
+        return loaded.isEmpty() ? ANNOUNCEMENTS_EMPTY : loaded;
     }
 
     private boolean isNotes() {

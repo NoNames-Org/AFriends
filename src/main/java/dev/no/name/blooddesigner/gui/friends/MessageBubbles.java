@@ -150,7 +150,16 @@ final class MessageBubbles {
         return card.done() ? null : new CardButton(buttonX, buttonY, buttonWidth, CARD_BUTTON, card);
     }
 
+    // перевод строки начинает новую строку: он бывает в объявлениях с портала
     static List<String> wrap(String text, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        for (String paragraph : text.split("\n", -1)) {
+            lines.addAll(wrapParagraph(paragraph, maxWidth));
+        }
+        return lines;
+    }
+
+    private static List<String> wrapParagraph(String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
         StringBuilder line = new StringBuilder();
         for (String word : text.split(" ")) {
