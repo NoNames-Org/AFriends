@@ -2,6 +2,7 @@ package dev.no.name.blooddesigner.gui.friends;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
+import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.ComposeAction;
 import dev.no.name.blooddesigner.api.MessageCard;
@@ -680,8 +681,8 @@ public class MessengerScreen extends ScreenBase {
             ignored.toggle(name);
             context.save().run();
         }));
-        // в пати зовём только того, кто на этом же сервере
-        if (Addons.get().reachable(name)) {
+        // в пати зовём только того, кто на этом же сервере, и только на bloodstone, где есть /party
+        if (BloodstoneServer.isConnected() && Addons.get().reachable(name)) {
             items.add(new ChatMenu.Item(Icon.FLAG, "Пригласить в пати", false, () -> context.party().invite(name)));
         }
         boolean pinned = messages.isPinned(name);

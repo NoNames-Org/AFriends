@@ -16,7 +16,7 @@ public final class PartyService {
 
     private static final long AUTO_REFRESH_MS = 20_000;
     private static final long MIN_REFRESH_GAP_MS = 3000;
-    private static final String NO_PLAYER = "No player was found";
+    private static final java.util.Set<String> NO_PLAYER = java.util.Set.of("no player was found", "игрок не обнаружен");
 
     private static final List<String> KICK_VERBS = List.of("kick", "remove");
 
@@ -94,16 +94,21 @@ public final class PartyService {
 
     public void accept() {
         String command = state.inviteCommand();
+        String from = state.incomingInvite(now());
         state.clearInvite();
-        action(command != null ? command : "party accept");
+        if (command == null) {
+            command = from != null ? "party accept " + from : "party accept";
+        }
+        action(command);
     }
 
     public boolean consume(String plain, List<String> clickCommands) {
         long now = now();
         PartyEvent event = PartyMessages.parse(plain);
         if (event == null) {
-            if (now < actionUntil && plain.strip().equalsIgnoreCase(NO_PLAYER)) {
+            if (now < actionUntil && NO_PLAYER.contains(plain.strip().toLowerCase(java.util.Locale.ROOT))) {
                 state.setStatus("Игрок не найден");
+                return true;
             }
             return false;
         }
@@ -119,7 +124,12 @@ public final class PartyService {
         if (!answer) {
             refreshAt = now + REFRESH_AFTER_ACTION_MS;
         }
-        return false;
+        // Ответ на кнопку из панели уже виден статусом в панели, дублировать его в чат незачем.
+        boolean fromPanel = now < actionUntil && !(event instanceof PartyEvent.IncomingInvite);
+        if (fromPanel) {
+            actionUntil = 0;
+        }
+        return fromPanel;
     }
 
     private void action(String command) {

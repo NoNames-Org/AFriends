@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.addon;
 
+import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.api.BloodDesignerAddon;
 import dev.no.name.blooddesigner.api.BloodDesignerApi;
@@ -155,7 +156,7 @@ public final class Addons implements BloodDesignerApi {
 
     @Override
     public void inviteToParty(String name) {
-        if (party != null) {
+        if (party != null && BloodstoneServer.isConnected()) {
             party.invite(name);
         }
     }

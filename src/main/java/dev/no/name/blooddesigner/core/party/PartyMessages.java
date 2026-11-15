@@ -10,11 +10,24 @@ import java.util.regex.Pattern;
 
 public final class PartyMessages {
     private static final String NAME = "([A-Za-z0-9_]{3,16})";
-    private static final Pattern LEADER = Pattern.compile("^Leader: " + NAME + "$");
-    private static final Pattern MEMBERS = Pattern.compile("^Members: \\[(.*)]$");
-    private static final Pattern INVITED = Pattern.compile("^" + NAME + " has been invited to the party!?$");
-    private static final Pattern INCOMING = Pattern.compile("^" + NAME + " invited you to their party!?$");
-    private static final Pattern PARTY_WORD = Pattern.compile("\\bpart(y|ies)\\b", Pattern.CASE_INSENSITIVE);
+    // Сервер шлёт тексты на языке клиента, поэтому каждый шаблон знает английский и русский вариант.
+    private static final int FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    private static final Pattern LEADER = Pattern.compile("^(?:Leader|Лидер): " + NAME + "$", FLAGS);
+    private static final Pattern MEMBERS = Pattern.compile("^(?:Members|Участники): \\[(.*)]$", FLAGS);
+    private static final Pattern INVITED = Pattern.compile(
+            "^" + NAME + " (?:has been invited to the party|был[аи]? приглаш[её]н[аы]? в тусовку)[!.]?$", FLAGS);
+    private static final Pattern INCOMING = Pattern.compile(
+            "^" + NAME + " (?:invited you to their party|пригласил[аи]? (?:вас|тебя) в (?:сво[юё] )?тусовку)[!.]?$", FLAGS);
+    private static final Pattern LEFT = Pattern.compile("^(?:you left from the party|вы покинули тусовку)", FLAGS);
+    private static final Pattern DISBANDED = Pattern.compile(
+            "^(?:the party was disbanded|тусовка (?:была )?распущена|вы распустили тусовку)", FLAGS);
+    private static final Pattern INVITE_SELF = Pattern.compile(
+            "^(?:you can't invite yourself|вы не можете пригласить себя)", FLAGS);
+    private static final Pattern NOT_IN_PARTY = Pattern.compile(
+            "you are not (at|in) a party|вы не (состоите )?в (тусовке|пати|группе)",
+            FLAGS);
+    private static final Pattern PARTY_WORD = Pattern.compile("\\bpart(y|ies)\\b|тусовк", FLAGS);
+
 
     private static final String ACCEPT_PREFIX = "party accept";
 
@@ -35,6 +48,9 @@ public final class PartyMessages {
     }
 
     public static PartyEvent parse(String plain) {
+        if (isNotInParty(plain)) {
+            return new PartyEvent.NotInParty();
+        }
         if (!ServerMessages.isBlock(plain)) {
             return null;
         }
@@ -55,21 +71,22 @@ public final class PartyMessages {
         if (matcher.matches()) {
             return new PartyEvent.IncomingInvite(matcher.group(1));
         }
-        String lower = first.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("you left from the party")) {
+        if (LEFT.matcher(first).find()) {
             return new PartyEvent.Left();
         }
-        if (lower.startsWith("the party was disbanded")) {
+        if (DISBANDED.matcher(first).find()) {
             return new PartyEvent.Disbanded();
         }
-        if (lower.startsWith("you are not at a party") || lower.startsWith("you are not in a party")) {
-            return new PartyEvent.NotInParty();
-        }
-        if (lower.startsWith("you can't invite yourself")) {
+        if (INVITE_SELF.matcher(first).find()) {
             return new PartyEvent.InviteSelf();
         }
         String text = String.join(" ", lines);
         return PARTY_WORD.matcher(text).find() ? new PartyEvent.Other(text) : null;
+    }
+
+    static boolean isNotInParty(String plain) {
+        List<String> lines = ServerMessages.lines(plain);
+        return lines.size() == 1 && NOT_IN_PARTY.matcher(lines.get(0)).find();
     }
 
     private static PartyEvent parseInfo(List<String> lines) {

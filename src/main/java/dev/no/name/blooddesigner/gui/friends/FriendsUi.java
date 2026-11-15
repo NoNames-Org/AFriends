@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.FriendAction;
 import dev.no.name.blooddesigner.compat.Compat;
@@ -9,9 +10,9 @@ import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.SocialData;
 import dev.no.name.blooddesigner.core.party.PartyService;
 import dev.no.name.blooddesigner.core.party.PartyState;
+import dev.no.name.blooddesigner.gui.settings.SettingsScreen;
 import dev.no.name.blooddesigner.gui.hub.HubRail;
 import dev.no.name.blooddesigner.gui.hub.PanelState;
-import dev.no.name.blooddesigner.gui.hub.SettingsPanel;
 import dev.no.name.blooddesigner.gui.party.PartyPanel;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.theme.ThemeSettings;
@@ -37,7 +38,6 @@ public final class FriendsUi {
     private final Runnable onHistoryChange;
     private final FriendsState friendsState = new FriendsState();
     private final PanelState partyState = new PanelState();
-    private final PanelState settingsState = new PanelState();
 
     public FriendsUi(SocialData social, PartyService party, ThemeSettings theme, Runnable save, Runnable onHistoryChange) {
         this.social = social;
@@ -65,24 +65,23 @@ public final class FriendsUi {
             FriendsPanel friendsPanel = new FriendsPanel(panelX, top, PANEL_WIDTH, panelHeight, scope.friends(),
                     scope.messages(), scope.ignored(), friendsState, save);
             PartyPanel partyPanel = new PartyPanel(panelX, top, PANEL_WIDTH, panelHeight, party, scope.friends(), partyState);
-            SettingsPanel settingsPanel = new SettingsPanel(panelX, top, PANEL_WIDTH, panelHeight, theme, settingsState,
-                    onHistoryChange);
             FriendContextMenu menu = new FriendContextMenu(panelX, friendsState, menuItems(context));
             HubRail rail = new HubRail(railX, top, panelHeight, railButtons(context), List.of(
-                    new HubRail.Button(Icon.SETTINGS, "Настройки", settingsState::isOpen, () -> null,
-                            () -> toggle(Tab.SETTINGS))));
+                    new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
+                            () -> Compat.setScreen(new SettingsScreen(screen, theme, onHistoryChange)))));
             friendsState.closeMenu();
+            if (!BloodstoneServer.isConnected()) {
+                partyState.close();
+            }
             party.setPanelOpen(partyState.isOpen());
 
             Compat.addWidget(screen, friendsPanel);
             Compat.addWidget(screen, partyPanel);
-            Compat.addWidget(screen, settingsPanel);
             Compat.addWidget(screen, menu);
             Compat.addWidget(screen, rail);
 
             ScreenMouseEvents.allowMouseScroll(screen).register((current, mouseX, mouseY, horizontal, vertical) ->
-                    !friendsPanel.scroll(mouseX, mouseY, vertical) && !partyPanel.isMouseOver(mouseX, mouseY)
-                            && !settingsPanel.isMouseOver(mouseX, mouseY));
+                    !friendsPanel.scroll(mouseX, mouseY, vertical) && !partyPanel.isMouseOver(mouseX, mouseY));
 
             ScreenKeyboardEvents.allowKeyPress(screen).register((current, event) ->
                     !(partyPanel.handleKey(event) || friendsPanel.handleKey(event)));
@@ -102,31 +101,34 @@ public final class FriendsUi {
         });
     }
 
-    private enum Tab { FRIENDS, PARTY, SETTINGS }
+    private enum Tab { FRIENDS, PARTY }
 
     private List<HubRail.Button> railButtons(MessengerScreen.Context context) {
         PrivateMessages messages = context.messages();
         PartyState partyInfo = party.state();
-        return List.of(
-                new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
-                        () -> Addons.get().requests().isEmpty() ? null : "!", () -> toggle(Tab.FRIENDS)),
-                new HubRail.Button(Icon.FLAG, "Пати", partyState::isOpen, () -> {
-                    if (partyInfo.incomingInvite(System.currentTimeMillis()) != null) {
-                        return "!";
-                    }
-                    int members = partyInfo.members().size();
-                    return members > 1 ? String.valueOf(members) : null;
-                }, () -> toggle(Tab.PARTY)),
-                new HubRail.Button(Icon.MESSAGE, "Сообщения", () -> false, () -> {
-                    int unread = messages.totalUnread();
-                    return unread > 0 ? String.valueOf(unread) : null;
-                }, () -> Compat.setScreen(new MessengerScreen(null, context))));
+        List<HubRail.Button> buttons = new ArrayList<>();
+        buttons.add(new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
+                () -> Addons.get().requests().isEmpty() ? null : "!", () -> toggle(Tab.FRIENDS)));
+        // Команды /party есть только на bloodstone, на других серверах кнопка бесполезна.
+        if (BloodstoneServer.isConnected()) {
+            buttons.add(new HubRail.Button(Icon.FLAG, "Пати", partyState::isOpen, () -> {
+                if (partyInfo.incomingInvite(System.currentTimeMillis()) != null) {
+                    return "!";
+                }
+                int members = partyInfo.members().size();
+                return members > 1 ? String.valueOf(members) : null;
+            }, () -> toggle(Tab.PARTY)));
+        }
+        buttons.add(new HubRail.Button(Icon.MESSAGE, "Сообщения", () -> false, () -> {
+            int unread = messages.totalUnread();
+            return unread > 0 ? String.valueOf(unread) : null;
+        }, () -> Compat.setScreen(new MessengerScreen(null, context))));
+        return List.copyOf(buttons);
     }
 
     private void toggle(Tab tab) {
         boolean friendsOpen = tab == Tab.FRIENDS && !friendsState.isOpen();
         boolean partyOpen = tab == Tab.PARTY && !partyState.isOpen();
-        boolean settingsOpen = tab == Tab.SETTINGS && !settingsState.isOpen();
         if (friendsOpen) {
             friendsState.open();
         } else {
@@ -136,11 +138,6 @@ public final class FriendsUi {
             partyState.open();
         } else {
             partyState.close();
-        }
-        if (settingsOpen) {
-            settingsState.open();
-        } else {
-            settingsState.close();
         }
         party.setPanelOpen(partyOpen);
     }

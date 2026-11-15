@@ -66,6 +66,37 @@ class ServerMessagesTest {
     }
 
     @Test
+    @DisplayName("«Вы не в тусовке» распознаётся и без рамки, и с префиксом")
+    void russianNotInParty() {
+        assertInstanceOf(PartyEvent.NotInParty.class, PartyMessages.parse("Вы не в тусовке"));
+        assertInstanceOf(PartyEvent.NotInParty.class, PartyMessages.parse("[Тусовка] Вы не в тусовке!"));
+        assertInstanceOf(PartyEvent.NotInParty.class, PartyMessages.parse(block("Вы не в тусовке.")));
+        assertInstanceOf(PartyEvent.NotInParty.class, PartyMessages.parse("You are not in a party!"));
+        assertNull(PartyMessages.parse("Player123: вы не в тусовке? го ко мне\nещё строка"));
+    }
+
+    @Test
+    @DisplayName("русские ответы сервера: состав, приглашение, выход, «нельзя себя»")
+    void russianPartyMessages() {
+        PartyEvent.Info info = assertInstanceOf(PartyEvent.Info.class,
+                PartyMessages.parse(block("Лидер: Lead_Player", "Участники: [Lead_Player, Sam_Lexi]")));
+        assertEquals("Lead_Player", info.leader());
+        assertEquals(List.of("Lead_Player", "Sam_Lexi"), info.members());
+
+        PartyEvent.Invited invited = assertInstanceOf(PartyEvent.Invited.class,
+                PartyMessages.parse(block("Guest_42 был приглашён в тусовку!")));
+        assertEquals("Guest_42", invited.name());
+
+        assertInstanceOf(PartyEvent.Left.class, PartyMessages.parse(block("Вы покинули тусовку")));
+        assertInstanceOf(PartyEvent.InviteSelf.class, PartyMessages.parse(block("Вы не можете пригласить себя же")));
+        assertInstanceOf(PartyEvent.Disbanded.class, PartyMessages.parse(block("Тусовка была распущена")));
+
+        PartyEvent.IncomingInvite incoming = assertInstanceOf(PartyEvent.IncomingInvite.class,
+                PartyMessages.parse(block("Sam_Lexi пригласил вас в тусовку!")));
+        assertEquals("Sam_Lexi", incoming.from());
+    }
+
+    @Test
     @DisplayName("незнакомое сообщение про пати — Other, обычный чат — null")
     void otherAndUnrelated() {
         PartyEvent.Other other = assertInstanceOf(PartyEvent.Other.class,
