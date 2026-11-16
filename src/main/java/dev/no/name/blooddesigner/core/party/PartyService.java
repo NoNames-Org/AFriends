@@ -102,6 +102,12 @@ public final class PartyService {
         action(command);
     }
 
+    // вступить по приглашению из ЛС: зовущий известен по сообщению
+    public void acceptFrom(String leader) {
+        state.clearInvite();
+        action("party accept " + leader);
+    }
+
     public boolean consume(String plain, List<String> clickCommands) {
         long now = now();
         PartyEvent event = PartyMessages.parse(plain);

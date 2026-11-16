@@ -56,7 +56,6 @@ public class ModeSelectScreen extends ScreenBase {
     private static final float CARD_LIFT = 2;
     private static final int BADGE_COLOR = 0xFFD8314A;
     private static final int FAVORITE_COLOR = 0xFFFFD15C;
-    private static final int DANGER = 0xFFFF6B6B;
     private static final long DOTS_PERIOD = 900;
 
     private final Screen parent;
@@ -311,7 +310,7 @@ public class ModeSelectScreen extends ScreenBase {
             case ERROR -> {
                 title = "Не вышло";
                 hint = launcher.error();
-                color = DANGER;
+                color = Theme.DANGER;
             }
             default -> {
                 return false;

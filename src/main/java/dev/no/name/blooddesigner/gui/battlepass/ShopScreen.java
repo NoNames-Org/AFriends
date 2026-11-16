@@ -5,7 +5,7 @@ import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassNavigator;
 import dev.no.name.blooddesigner.core.battlepass.BloodBalance;
 import dev.no.name.blooddesigner.core.battlepass.ShopMenu;
-import dev.no.name.blooddesigner.core.battlepass.ShopMenu.Product;
+import dev.no.name.blooddesigner.core.battlepass.StoreItem;
 import dev.no.name.blooddesigner.core.battlepass.ShopMenu.View;
 import dev.no.name.blooddesigner.gui.Theme;
 import dev.no.name.blooddesigner.gui.battlepass.MenuUi.ButtonStyle;
@@ -83,7 +83,7 @@ public class ShopScreen extends MenuScreenBase {
             return;
         }
         drawBanner(g, mouseX, mouseY);
-        List<Product> products = view.products();
+        List<StoreItem> products = view.products();
         if (products.isEmpty()) {
             Draw.textCentered(g, "Загружаю товары…", left + WIDTH / 2f, cardY() + 40, Theme.TEXT_DIM);
         }
@@ -103,7 +103,7 @@ public class ShopScreen extends MenuScreenBase {
         MenuUi.button(g, closeX(), buttonY(), MenuUi.BUTTON_HEIGHT, Icon.CLOSE, null, ButtonStyle.OUTLINE, true, closeHovered);
     }
 
-    private void drawProduct(Gfx g, Product product, boolean best, int x, int mouseX, int mouseY) {
+    private void drawProduct(Gfx g, StoreItem product, boolean best, int x, int mouseX, int mouseY) {
         int y = cardY();
         MenuUi.panel(g, x, y, CARD_WIDTH, CARD_HEIGHT);
         if (best) {
@@ -132,7 +132,7 @@ public class ShopScreen extends MenuScreenBase {
         drawPrice(g, product, best, x, mouseX, mouseY);
     }
 
-    private void drawPrice(Gfx g, Product product, boolean best, int x, int mouseX, int mouseY) {
+    private void drawPrice(Gfx g, StoreItem product, boolean best, int x, int mouseX, int mouseY) {
         int priceY = buyY() - 30;
         Draw.rect(g, x + PAD, priceY - 6, CARD_WIDTH - PAD * 2, 1, Theme.BORDER_HOVER);
         String price = String.valueOf(product.price());
@@ -178,7 +178,7 @@ public class ShopScreen extends MenuScreenBase {
             BattlePassNavigator.openBattlePass();
             return true;
         }
-        List<Product> products = view.products();
+        List<StoreItem> products = view.products();
         for (int i = 0; i < products.size() && i < 2; i++) {
             if (inside(x, y, cardX(i) + PAD, buyY(), CARD_WIDTH - PAD * 2, MenuUi.BUTTON_HEIGHT)) {
                 clickSlot(products.get(i).slot(), false);

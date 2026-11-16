@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.core.NotifySettings;
 import dev.no.name.blooddesigner.core.FeatureToggles;
 import dev.no.name.blooddesigner.core.FeatureToggles.Feature;
 import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
@@ -39,18 +40,21 @@ public final class FriendsUi {
     private final PartyService party;
     private final ThemeSettings theme;
     private final LinkSettings linkSettings;
+    private final NotifySettings notify;
     private final NetworkGame network;
     private final Runnable save;
     private final Runnable onHistoryChange;
     private final FriendsState friendsState = new FriendsState();
     private final PanelState partyState = new PanelState();
 
-    public FriendsUi(SocialData social, PartyService party, ThemeSettings theme, LinkSettings linkSettings, NetworkGame network,
+    public FriendsUi(SocialData social, PartyService party, ThemeSettings theme, LinkSettings linkSettings, NotifySettings notify,
+                     NetworkGame network,
                      Runnable save, Runnable onHistoryChange) {
         this.social = social;
         this.party = party;
         this.theme = theme;
         this.linkSettings = linkSettings;
+        this.notify = notify;
         this.network = network;
         this.save = save;
         this.onHistoryChange = onHistoryChange;
@@ -64,7 +68,7 @@ public final class FriendsUi {
 
             SocialData.Scope scope = social.current();
             MessengerScreen.Context context = new MessengerScreen.Context(scope.friends(), scope.messages(),
-                    scope.ignored(), party, network.direct(), save);
+                    scope.ignored(), party, network.direct(), save, notify);
 
             int railX = width - MARGIN - HubRail.WIDTH;
             int top = MARGIN;
@@ -77,7 +81,7 @@ public final class FriendsUi {
             FriendContextMenu menu = new FriendContextMenu(panelX, friendsState, menuItems(context));
             HubRail rail = new HubRail(railX, top, panelHeight, railButtons(context), List.of(
                     new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
-                            () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, network.link(), onHistoryChange)))));
+                            () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, notify, network.link(), onHistoryChange)))));
             friendsState.closeMenu();
             if (!BloodstoneServer.isConnected() || !FeatureToggles.enabled(Feature.PARTY)) {
                 partyState.close();

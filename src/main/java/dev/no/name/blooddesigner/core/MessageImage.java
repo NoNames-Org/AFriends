@@ -19,12 +19,22 @@ public record MessageImage(String blob, String key, String mime, int width, int 
         return key.isEmpty();
     }
 
+    // голосовое сообщение (core.voice.VoiceClip): width — длительность в сотых секунды
+    public boolean voice() {
+        return dev.no.name.blooddesigner.core.voice.VoiceClip.MIME.equals(mime);
+    }
+
+    public int voiceCentiseconds() {
+        return voice() ? width : 0;
+    }
+
     public boolean animated() {
         return "image/gif".equals(mime);
     }
 
     public String extension() {
         return switch (mime) {
+            case dev.no.name.blooddesigner.core.voice.VoiceClip.MIME -> "bdv";
             case "image/png" -> "png";
             case "image/gif" -> "gif";
             default -> "jpg";
@@ -82,7 +92,7 @@ public record MessageImage(String blob, String key, String mime, int width, int 
 
     private boolean valid() {
         return BLOB.matcher(blob).matches() && SHA.matcher(sha256).matches() && key.length() <= 64
-                && (mime.equals("image/png") || mime.equals("image/jpeg") || mime.equals("image/gif"))
+                && (mime.equals("image/png") || mime.equals("image/jpeg") || mime.equals("image/gif") || voice())
                 && width > 0 && height > 0 && width <= 16384 && height <= 16384 && size > 0 && size <= MAX_SIZE;
     }
 }

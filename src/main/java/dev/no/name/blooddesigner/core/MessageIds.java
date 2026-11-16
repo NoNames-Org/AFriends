@@ -1,9 +1,9 @@
-package dev.no.name.blooddesigner.net.chat;
+package dev.no.name.blooddesigner.core;
 
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
-// номер сообщения для реакций: 8 случайных байт, его придумывает отправитель
+// номер сообщения: 8 случайных байт. Для сети его придумывает отправитель, заметкам — сам мод (по нему их узнают у себя)
 public final class MessageIds {
     private static final SecureRandom RANDOM = new SecureRandom();
 

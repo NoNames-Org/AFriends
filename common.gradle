@@ -57,6 +57,40 @@ if (devUsername) {
 	}
 }
 
+// Проверка сети вдвоём на одной машине:
+//   ./gradlew :26.3:runClient2 — второй клиент в run2/ со своим ником (dev_username2, по умолчанию LinkTester)
+//   -Plink_url=ws://127.0.0.1:18788/v1/tunnel -Plink_key=<ключ> — оба клиента на локальный сервер сети
+//   -Pdev_home=<папка> / -Pdev_home2=<папка> — своя «домашняя» папка: ключи сети у каждого клиента свои,
+//   а не общие на компьютер (см. SharedLinkFolder)
+loom {
+	runs {
+		client2 {
+			client()
+			configName = "Minecraft Client 2"
+			runDir "run2"
+			programArgs '--username', providers.gradleProperty('dev_username2').getOrElse('LinkTester')
+		}
+	}
+}
+def linkUrl = providers.gradleProperty('link_url').orNull
+def linkKey = providers.gradleProperty('link_key').orNull
+loom.runs.configureEach {
+	if (linkUrl) {
+		vmArg "-Dblooddesigner.link.url=${linkUrl}"
+	}
+	if (linkKey) {
+		vmArg "-Dblooddesigner.link.key=${linkKey}"
+	}
+}
+def devHome = providers.gradleProperty('dev_home').orNull
+def devHome2 = providers.gradleProperty('dev_home2').orNull
+if (devHome) {
+	loom.runs.named('client') { vmArg "-Duser.home=${devHome}" }
+}
+if (devHome2) {
+	loom.runs.named('client2') { vmArg "-Duser.home=${devHome2}" }
+}
+
 tasks.register('dist', Copy) {
 	from remapJarOrJar()
 	into rootProject.file('dist')

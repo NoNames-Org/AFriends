@@ -63,6 +63,25 @@ public final class SocialData {
         return legacy != null && legacy.messages().react(partner, messageId, mine, reaction);
     }
 
+    // собеседник удалил сообщения у обоих: ищем во всех серверах, как реакцию
+    public void removeEverywhere(String partner, java.util.Collection<String> messageIds) {
+        allMessages().forEach(messages -> messages.remove(partner, messageIds));
+    }
+
+    // собеседник закрепил или открепил сообщение у обоих
+    public void pinEverywhere(String partner, String messageId, boolean pinned) {
+        allMessages().forEach(messages -> messages.pin(partner, messageId, pinned));
+    }
+
+    private java.util.List<PrivateMessages> allMessages() {
+        java.util.List<PrivateMessages> all = new java.util.ArrayList<>();
+        scopes.values().forEach(scope -> all.add(scope.messages()));
+        if (legacy != null) {
+            all.add(legacy.messages());
+        }
+        return all;
+    }
+
     // друг удалил нас в сети: на каждом сервере он больше не друг. true — где-то был
     public boolean removeFriendEverywhere(String name) {
         boolean removed = false;

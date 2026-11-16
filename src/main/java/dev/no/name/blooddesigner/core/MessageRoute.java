@@ -15,8 +15,18 @@ public interface MessageRoute {
         return send(partner, forwardedFrom == null ? text : forwardedPrefix(forwardedFrom) + text, failed);
     }
 
+    // ответ на сообщение reply; где ответ не передать (/msg сервера, BloodDesigner), уходит просто текст
+    default Optional<String> send(String partner, String text, String forwardedFrom, MessageReply reply, Consumer<String> failed) {
+        return send(partner, text, forwardedFrom, failed);
+    }
+
     static String forwardedPrefix(String forwardedFrom) {
         return "Переслано от " + forwardedFrom + ":\n";
+    }
+
+    // групповые чаты; null — сети нет вовсе
+    default GroupChats groups() {
+        return null;
     }
 
     // друг по сети: писать можно, даже если он на другом сервере
@@ -37,6 +47,29 @@ public interface MessageRoute {
 
     default Optional<String> sendImage(String partner, Path file, String caption, String forwardedFrom, Consumer<String> failed) {
         return sendImage(partner, file, caption, failed);
+    }
+
+    default Optional<String> sendImage(String partner, Path file, String caption, String forwardedFrom, MessageReply reply,
+                                       Consumer<String> failed) {
+        return sendImage(partner, file, caption, forwardedFrom, failed);
+    }
+
+    // голосовое другу по сети: data — файл VoiceClip. Пусто — ушло в обработку, иначе причина
+    default Optional<String> sendVoice(String partner, byte[] data, int centiseconds, MessageReply reply, Consumer<String> failed) {
+        return Optional.of("Голосовые можно отправлять только друзьям по сети");
+    }
+
+    // удалить сообщения у себя, а forBoth — ещё и у собеседника (только друг по сети и сообщения с id)
+    default void delete(String partner, java.util.List<PrivateMessage> messages, boolean forBoth, Consumer<String> failed) {
+    }
+
+    // закрепить или открепить сообщение у себя, а forBoth — ещё и у собеседника
+    default void pin(String partner, PrivateMessage message, boolean pinned, boolean forBoth, Consumer<String> failed) {
+    }
+
+    // можно ли удалить или закрепить у обоих: друг по сети и у всех сообщений есть id
+    default boolean canSync(String partner, java.util.List<PrivateMessage> messages) {
+        return false;
     }
 
     // пересланные картинки в «Избранное»: они уже в кеше, заново не грузятся

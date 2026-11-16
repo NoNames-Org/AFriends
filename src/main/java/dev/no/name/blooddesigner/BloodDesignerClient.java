@@ -1,5 +1,9 @@
 package dev.no.name.blooddesigner;
 
+import dev.no.name.blooddesigner.core.party.PartyInviteCard;
+import dev.no.name.blooddesigner.core.IncomingAlerts;
+import dev.no.name.blooddesigner.core.NotifySettings;
+import dev.no.name.blooddesigner.gui.sound.MessageNotifier;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassNavigator;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.compat.Compat;
@@ -29,7 +33,8 @@ public class BloodDesignerClient implements ClientModInitializer {
     private final ModeFavorites modeFavorites = new ModeFavorites();
     private final ThemeSettings theme = new ThemeSettings();
     private final LinkSettings linkSettings = new LinkSettings();
-    private final ConfigStore configStore = new ConfigStore(socialData, modeFavorites, theme, linkSettings);
+    private final NotifySettings notifySettings = new NotifySettings();
+    private final ConfigStore configStore = new ConfigStore(socialData, modeFavorites, theme, linkSettings, notifySettings);
 
     private static final long THEME_SAVE_DELAY_MS = 600;
     private long themeChangedAt;
@@ -43,6 +48,9 @@ public class BloodDesignerClient implements ClientModInitializer {
         configStore.load();
         modeFavorites.setOnChange(configStore::save);
         linkSettings.setOnChange(configStore::save);
+        notifySettings.setOnChange(configStore::save);
+        MessageNotifier notifier = new MessageNotifier(notifySettings);
+        IncomingAlerts.setListener(notifier::incoming);
         // сеть друзей и ЛС: свой сервер, сквозное шифрование
         NetworkGame network = new NetworkGame(socialData, linkSettings, configStore::save);
         theme.setOnChange(() -> themeChangedAt = System.currentTimeMillis());
@@ -51,10 +59,11 @@ public class BloodDesignerClient implements ClientModInitializer {
         party.register();
         // дополнения других модов встраиваются до того, как появятся окна
         Addons.load(socialData, party, configStore::save, network.direct(), List.of(network.addon()));
+        Addons.get().addMessageCard(new PartyInviteCard(party));
         new FriendCommands(socialData, configStore::save).register();
         new ChatFilter(socialData, party).register();
 
-        new FriendsUi(socialData, party, theme, linkSettings, network, configStore::save, () -> {
+        new FriendsUi(socialData, party, theme, linkSettings, notifySettings, network, configStore::save, () -> {
             socialData.trimMessages();
             themeChangedAt = System.currentTimeMillis();
         }).register();

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,7 +24,16 @@ public final class PrivateMessages {
     /** Личные сообщения от BloodDesigner с портала. «$» не бывает в нике, поэтому игрок с ником BloodDesigner сюда не попадёт. */
     public static final String OFFICIAL = "$blooddesigner";
     public static final String OFFICIAL_NAME = "BloodDesigner";
+    // групповой чат: «$g:» + id группы с сервера сети
+    public static final String GROUP_PREFIX = "$g:";
+    // названия групп: {ключ чата: название}. Сервер их не знает, хранятся только здесь
+    private static final String TITLES_KEY = "$titles";
     private static final String PINNED_KEY = "$pinned";
+    // закреплённые сообщения: {чат: [ключи]}. Старые версии этот ключ пропустят как битую переписку
+    private static final String PINS_KEY = "$pins";
+    // недописанные сообщения: {чат: текст}. Остаются после закрытия окна и игры, как черновики в Telegram
+    private static final String DRAFTS_KEY = "$drafts";
+    public static final int MAX_DRAFT = 1000;
     private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
 
     private static final Pattern PM = Pattern.compile(
@@ -36,7 +46,10 @@ public final class PrivateMessages {
 
     private final Map<String, String> names = new HashMap<>();
     private final Set<String> pinned = new HashSet<>();
+    private final Map<String, List<String>> pins = new HashMap<>();
     private final Map<String, Integer> unread = new HashMap<>();
+    private final Map<String, String> drafts = new HashMap<>();
+    private final Map<String, String> titles = new HashMap<>();
 
     private final Map<String, Long> offlineAt = new HashMap<>();
 
@@ -73,6 +86,7 @@ public final class PrivateMessages {
         trim(chat);
         if (!message.fromMe() && !key(partner).equals(openChat)) {
             unread.merge(key(partner), 1, Integer::sum);
+            IncomingAlerts.fire(partner);
         }
         onChange.run();
     }
@@ -91,6 +105,64 @@ public final class PrivateMessages {
             }
         }
         return false;
+    }
+
+    // сообщение по ключу (см. PrivateMessage.key); null — его здесь уже нет
+    public PrivateMessage find(String partner, String messageKey) {
+        List<PrivateMessage> chat = chats.get(key(partner));
+        if (chat == null || messageKey == null) {
+            return null;
+        }
+        for (int i = chat.size() - 1; i >= 0; i--) {
+            if (messageKey.equals(chat.get(i).key())) {
+                return chat.get(i);
+            }
+        }
+        return null;
+    }
+
+    // удалить сообщения по ключам (у себя или по просьбе собеседника); false — ни одного не нашлось
+    public boolean remove(String partner, Collection<String> messageKeys) {
+        List<PrivateMessage> chat = chats.get(key(partner));
+        if (chat == null || messageKeys.isEmpty()) {
+            return false;
+        }
+        boolean removed = chat.removeIf(message -> messageKeys.contains(message.key()));
+        List<String> chatPins = pins.get(key(partner));
+        if (chatPins != null) {
+            chatPins.removeAll(messageKeys);
+        }
+        if (removed) {
+            onChange.run();
+        }
+        return removed;
+    }
+
+    // закрепить или открепить сообщение; false — его здесь нет (при откреплении — всегда true)
+    public boolean pin(String partner, String messageKey, boolean pinnedNow) {
+        List<String> chatPins = pins.computeIfAbsent(key(partner), name -> new ArrayList<>());
+        chatPins.remove(messageKey);
+        if (pinnedNow) {
+            if (find(partner, messageKey) == null) {
+                return false;
+            }
+            chatPins.add(messageKey);
+        }
+        onChange.run();
+        return true;
+    }
+
+    public boolean isMessagePinned(String partner, String messageKey) {
+        return pins.getOrDefault(key(partner), List.of()).contains(messageKey);
+    }
+
+    // закреплённые сообщения чата по порядку переписки; удалённые и обрезанные историей пропускаются
+    public List<PrivateMessage> pinnedMessages(String partner) {
+        List<String> chatPins = pins.getOrDefault(key(partner), List.of());
+        if (chatPins.isEmpty()) {
+            return List.of();
+        }
+        return chats.getOrDefault(key(partner), List.of()).stream().filter(message -> chatPins.contains(message.key())).toList();
     }
 
     public void markOffline(String partner, long now) {
@@ -112,7 +184,7 @@ public final class PrivateMessages {
     // заметка с картинками или пересланная (картинки лежат только в кеше у себя)
     public void addNote(PrivateMessage note) {
         List<PrivateMessage> notes = chats.computeIfAbsent(NOTES, name -> new ArrayList<>());
-        notes.add(note);
+        notes.add(note.id() == null ? note.withId(MessageIds.next()) : note);
         trim(notes);
         onChange.run();
     }
@@ -126,6 +198,36 @@ public final class PrivateMessages {
         return keys.stream().map(key -> isReserved(key) ? key : displayName(key)).toList();
     }
 
+    public static String groupKey(String groupId) {
+        return GROUP_PREFIX + groupId;
+    }
+
+    public static boolean isGroup(String chat) {
+        return chat != null && chat.startsWith(GROUP_PREFIX);
+    }
+
+    // id группы из ключа чата или null
+    public static String groupId(String chat) {
+        return isGroup(chat) ? chat.substring(GROUP_PREFIX.length()) : null;
+    }
+
+    public void setTitle(String chat, String title) {
+        titles.put(chat, title);
+        onChange.run();
+    }
+
+    // есть ли такой чат у себя (может быть пустым — только что созданная группа)
+    public boolean hasChat(String chat) {
+        return chats.containsKey(key(chat));
+    }
+
+    // пустой чат в списке: новая группа появляется сразу, ещё без сообщений
+    public void ensureChat(String chat) {
+        if (chats.putIfAbsent(key(chat), new ArrayList<>()) == null) {
+            onChange.run();
+        }
+    }
+
     public static boolean isOfficial(String partner) {
         return OFFICIAL.equals(partner);
     }
@@ -133,6 +235,9 @@ public final class PrivateMessages {
     public String displayName(String partner) {
         if (isOfficial(partner)) {
             return OFFICIAL_NAME;
+        }
+        if (isGroup(partner)) {
+            return titles.getOrDefault(partner, "Группа");
         }
         return names.getOrDefault(key(partner), partner);
     }
@@ -164,6 +269,7 @@ public final class PrivateMessages {
 
     public void clear(String partner) {
         chats.put(key(partner), new ArrayList<>());
+        pins.remove(key(partner));
         unread.remove(key(partner));
         onChange.run();
     }
@@ -172,6 +278,7 @@ public final class PrivateMessages {
         chats.remove(key(partner));
         unread.remove(key(partner));
         pinned.remove(key(partner));
+        pins.remove(key(partner));
         onChange.run();
     }
 
@@ -216,11 +323,42 @@ public final class PrivateMessages {
         openChat = null;
     }
 
+    public String draft(String partner) {
+        return partner == null ? "" : drafts.getOrDefault(key(partner), "");
+    }
+
+    // пустой текст убирает черновик
+    public void setDraft(String partner, String text) {
+        if (partner == null) {
+            return;
+        }
+        String clean = text == null ? "" : text.length() > MAX_DRAFT ? text.substring(0, MAX_DRAFT) : text;
+        String previous = clean.isBlank() ? drafts.remove(key(partner)) : drafts.put(key(partner), clean);
+        if (!clean.isBlank() || previous != null) {
+            onChange.run();
+        }
+    }
+
     public JsonElement toJson() {
         JsonObject json = new JsonObject();
+        JsonObject titlesJson = new JsonObject();
+        titles.forEach(titlesJson::addProperty);
+        json.add(TITLES_KEY, titlesJson);
+        JsonObject draftsJson = new JsonObject();
+        drafts.forEach((key, text) -> draftsJson.addProperty(isReserved(key) ? key : displayName(key), text));
+        json.add(DRAFTS_KEY, draftsJson);
         JsonArray pinnedArray = new JsonArray();
         pinned.forEach(name -> pinnedArray.add(displayName(name)));
         json.add(PINNED_KEY, pinnedArray);
+        JsonObject pinsJson = new JsonObject();
+        pins.forEach((key, keys) -> {
+            if (!keys.isEmpty()) {
+                JsonArray array = new JsonArray();
+                keys.forEach(array::add);
+                pinsJson.add(isReserved(key) ? key : displayName(key), array);
+            }
+        });
+        json.add(PINS_KEY, pinsJson);
         chats.forEach((key, messages) -> {
             String partner = isReserved(key) ? key : displayName(key);
             JsonArray array = new JsonArray();
@@ -237,6 +375,9 @@ public final class PrivateMessages {
         chats.clear();
         names.clear();
         pinned.clear();
+        pins.clear();
+        drafts.clear();
+        titles.clear();
         if (!json.isJsonObject()) {
             return;
         }
@@ -247,6 +388,30 @@ public final class PrivateMessages {
                 }
                 return;
             }
+            if (PINS_KEY.equals(entry.getKey())) {
+                readPins(entry.getValue());
+                return;
+            }
+            if (TITLES_KEY.equals(entry.getKey())) {
+                if (entry.getValue().isJsonObject()) {
+                    entry.getValue().getAsJsonObject().entrySet().forEach(title -> {
+                        if (isGroup(title.getKey()) && title.getValue().isJsonPrimitive()) {
+                            titles.put(title.getKey(), title.getValue().getAsString());
+                        }
+                    });
+                }
+                return;
+            }
+            if (DRAFTS_KEY.equals(entry.getKey())) {
+                if (entry.getValue().isJsonObject()) {
+                    entry.getValue().getAsJsonObject().entrySet().forEach(draft -> {
+                        if (draft.getValue().isJsonPrimitive()) {
+                            setDraft(draft.getKey(), draft.getValue().getAsString());
+                        }
+                    });
+                }
+                return;
+            }
             try {
                 List<PrivateMessage> messages = new ArrayList<>();
                 for (JsonElement element : entry.getValue().getAsJsonArray()) {
@@ -254,6 +419,10 @@ public final class PrivateMessages {
                 }
                 trim(messages);
                 String partner = entry.getKey();
+                if (NOTES.equals(partner)) {
+                    // заметки старых версий без id: выдаём, чтобы закреп, ответ и удаление их различали
+                    messages.replaceAll(note -> note.id() == null ? note.withId(MessageIds.next()) : note);
+                }
                 if (isReserved(partner)) {
                     chats.put(partner, messages);
                 } else {
@@ -266,12 +435,25 @@ public final class PrivateMessages {
         });
     }
 
+    private void readPins(JsonElement json) {
+        if (!json.isJsonObject()) {
+            return;
+        }
+        json.getAsJsonObject().entrySet().forEach(entry -> {
+            if (entry.getValue().isJsonArray()) {
+                List<String> keys = new ArrayList<>();
+                entry.getValue().getAsJsonArray().forEach(item -> keys.add(item.getAsString()));
+                pins.put(key(entry.getKey()), keys);
+            }
+        });
+    }
+
     private static String key(String name) {
         return isReserved(name) ? name : name.toLowerCase(Locale.ROOT);
     }
 
     // служебные чаты: их ключ не ник и хранится как есть
     private static boolean isReserved(String name) {
-        return NOTES.equals(name) || OFFICIAL.equals(name);
+        return NOTES.equals(name) || OFFICIAL.equals(name) || isGroup(name);
     }
 }

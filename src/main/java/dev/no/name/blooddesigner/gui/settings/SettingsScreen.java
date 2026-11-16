@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.settings;
 
+import dev.no.name.blooddesigner.core.NotifySettings;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.blooddesigner.compat.Compat;
@@ -105,13 +106,13 @@ public class SettingsScreen extends ScreenBase {
     private int left;
     private int top;
 
-    public SettingsScreen(Screen parent, ThemeSettings theme, LinkSettings linkSettings, LinkService link,
+    public SettingsScreen(Screen parent, ThemeSettings theme, LinkSettings linkSettings, NotifySettings notify, LinkService link,
                           Runnable onHistoryChange) {
         super(Component.literal("Настройки"));
         this.parent = parent;
         this.theme = theme;
         this.network = new NetworkSection(linkSettings, link);
-        this.menus = new MenusSection(onHistoryChange);
+        this.menus = new MenusSection(onHistoryChange, notify);
         this.onHistoryChange = onHistoryChange;
         float[] bg = Colors.toHsv(0xFF000000 | theme.customBackground());
         bgHue = bg[0];

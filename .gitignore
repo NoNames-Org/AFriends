@@ -3,6 +3,7 @@ build/
 **/build/
 run/
 **/run/
+**/run2/
 dist/
 .idea/
 *.iml

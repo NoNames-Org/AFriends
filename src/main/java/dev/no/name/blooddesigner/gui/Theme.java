@@ -39,6 +39,9 @@ public final class Theme {
 
     public static int ACCENT_TEXT = 0xFF0E0F12;
 
+    // опасные действия и черновики: одинаковый красный во всех окнах
+    public static final int DANGER = 0xFFFF6B6B;
+
     public static final int ICON_SMALL = 8;
     public static final int ICON = 10;
 

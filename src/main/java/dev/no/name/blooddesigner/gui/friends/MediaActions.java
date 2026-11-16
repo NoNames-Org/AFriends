@@ -4,6 +4,7 @@ import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.gui.media.GifFavorites;
+import dev.no.name.blooddesigner.gui.media.ImageClipboard;
 import dev.no.name.blooddesigner.gui.media.MediaFiles;
 import net.minecraft.client.Minecraft;
 
@@ -59,7 +60,12 @@ final class MediaActions {
 
     // картинка с подписью; false — сразу не ушла (причина уже в warn)
     boolean send(String partner, Path file, String caption) {
-        return route.sendImage(partner, file, caption, warn).map(problem -> {
+        return send(partner, file, caption, null);
+    }
+
+    // то же, ответом на сообщение reply
+    boolean send(String partner, Path file, String caption, dev.no.name.blooddesigner.core.MessageReply reply) {
+        return route.sendImage(partner, file, caption, null, reply, warn).map(problem -> {
             warn.accept(problem);
             return false;
         }).orElseGet(() -> {
@@ -78,6 +84,13 @@ final class MediaActions {
 
     void open(MessageImage image) {
         withFile(image, MediaFiles::open);
+    }
+
+    // в буфер обмена системы: картинкой, гифка — файлом
+    void copy(MessageImage image) {
+        withFile(image, file -> ImageClipboard.copy(file, image.mime(),
+                ok -> info.accept(ok ? (image.animated() ? "Гифка скопирована файлом" : "Картинка скопирована")
+                        : "Не получилось скопировать")));
     }
 
     // гифка из переписки — в избранное или обратно

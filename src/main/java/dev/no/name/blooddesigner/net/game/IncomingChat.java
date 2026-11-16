@@ -3,6 +3,7 @@ package dev.no.name.blooddesigner.net.game;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.core.MessageContent;
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.ServerScope;
@@ -35,10 +36,26 @@ final class IncomingChat implements InboxListener {
     }
 
     @Override
-    public void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom, long time) {
+    public void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom,
+                        MessageReply reply, long time) {
         List<MessageImage> images = image == null ? List.of() : List.of(image);
         Minecraft.getInstance().execute(() -> deliver(from.name(),
-                new PrivateMessage(false, text, time, id, images, null, null, forwardedFrom)));
+                new PrivateMessage(false, text, time, id, images, null, null, forwardedFrom, reply)));
+    }
+
+    // друг удалил у обоих: ищем во всех серверах, как реакцию. Игнор не мешает — это его же переписка с нами
+    @Override
+    public void deleted(LinkFriend from, List<String> targets, long time) {
+        Minecraft.getInstance().execute(() -> social.removeEverywhere(from.name(), targets));
+    }
+
+    @Override
+    public void pinned(LinkFriend from, String target, boolean pinned, long time) {
+        Minecraft.getInstance().execute(() -> {
+            if (!social.ignored().isIgnored(from.name())) {
+                social.pinEverywhere(from.name(), target, pinned);
+            }
+        });
     }
 
     // реакция друга: сообщение ищется по id во всех серверах — она могла прийти и в главном меню
@@ -48,6 +65,27 @@ final class IncomingChat implements InboxListener {
             if (!social.ignored().isIgnored(from.name())) {
                 social.react(from.name(), target, false, reaction);
             }
+        });
+    }
+
+    // групповой чат: автор подписан над сообщением; игнор работает и здесь
+    @Override
+    public void groupMessage(String group, LinkFriend from, String text, String id, MessageImage image, MessageReply reply, long time) {
+        List<MessageImage> images = image == null ? List.of() : List.of(image);
+        Minecraft.getInstance().execute(() -> {
+            if (!social.ignored().isIgnored(from.name())) {
+                deliver(PrivateMessages.groupKey(group),
+                        new PrivateMessage(false, text, time, id, images, null, null, null, reply, from.name()));
+            }
+        });
+    }
+
+    @Override
+    public void groupNamed(String group, LinkFriend from, String name, long time) {
+        Minecraft.getInstance().execute(() -> {
+            String chat = PrivateMessages.groupKey(group);
+            social.messages().setTitle(chat, name);
+            social.messages().ensureChat(chat);
         });
     }
 
@@ -91,7 +129,8 @@ final class IncomingChat implements InboxListener {
         if (message.images().isEmpty()) {
             return plain;
         }
-        String mark = message.images().size() == 1 ? (message.image().animated() ? "[Гифка]" : "[Изображение]")
+        String mark = message.images().size() == 1
+                ? (message.image().voice() ? "[Голосовое]" : message.image().animated() ? "[Гифка]" : "[Изображение]")
                 : "[Изображения: " + message.images().size() + "]";
         return plain.isEmpty() ? mark : plain + " " + mark;
     }

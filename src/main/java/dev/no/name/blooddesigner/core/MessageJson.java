@@ -34,6 +34,12 @@ public final class MessageJson {
         if (message.forwardedFrom() != null) {
             item.addProperty("fwd", message.forwardedFrom());
         }
+        if (message.reply() != null) {
+            item.add("re", message.reply().toJson());
+        }
+        if (message.author() != null) {
+            item.addProperty("by", message.author());
+        }
         return item;
     }
 
@@ -59,6 +65,8 @@ public final class MessageJson {
         // в старых отложенных поля «me» нет: там всегда входящие
         return new PrivateMessage(item.has("me") && item.get("me").getAsBoolean(), item.get("text").getAsString(),
                 item.get("time").getAsLong(), id, images, Reactions.valid(mine) ? mine : null, Reactions.valid(theirs) ? theirs : null,
-                item.has("fwd") ? item.get("fwd").getAsString() : null);
+                item.has("fwd") ? item.get("fwd").getAsString() : null,
+                item.has("re") && item.get("re").isJsonObject() ? MessageReply.fromJson(item.getAsJsonObject("re")) : null,
+                item.has("by") ? item.get("by").getAsString() : null);
     }
 }

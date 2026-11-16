@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.gui.render.TextWrap;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.MessageContent;
 import dev.no.name.blooddesigner.core.MessageImage;
@@ -52,7 +53,7 @@ final class RichBubble {
                 parts.add(new Part(block, List.of(), size[0], size[1]));
                 width = Math.max(width, size[0] + IMAGE_PADDING * 2);
             } else if (block instanceof MessageContent.Text text) {
-                List<String> lines = MessageBubbles.wrap(text.text(), maxText);
+                List<String> lines = TextWrap.lines(text.text(), maxText);
                 float widest = 0;
                 for (String line : lines) {
                     widest = Math.max(widest, Draw.width(line));

@@ -8,6 +8,7 @@ import dev.no.name.blooddesigner.net.e2e.E2eException;
 import dev.no.name.blooddesigner.net.e2e.E2eSessions;
 import dev.no.name.blooddesigner.net.e2e.PinnedKeys;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
+import dev.no.name.blooddesigner.net.model.LinkGroup;
 import dev.no.name.blooddesigner.net.model.LinkSnapshot;
 import dev.no.name.blooddesigner.net.presence.PresenceKeys;
 import dev.no.name.blooddesigner.net.rpc.LinkCalls;
@@ -57,9 +58,9 @@ public final class Inbox {
     // событие msg {id, from, body, ts}
     public void received(JsonObject event) {
         LinkSnapshot state = snapshot.get();
-        LinkFriend from = state.friend(event.get("from").getAsString());
+        LinkFriend from = state.peer(event.get("from").getAsString());
         if (from == null) {
-            // друг, о котором мы ещё не знаем: только что принял заявку и сразу написал
+            // друг (или участник группы), о котором мы ещё не знаем: только что принял заявку и сразу написал
             waiting.add(new Waiting(event));
             if (state.synced()) {
                 resync.run();
@@ -75,7 +76,7 @@ public final class Inbox {
         Iterator<Waiting> iterator = waiting.iterator();
         while (iterator.hasNext()) {
             Waiting item = iterator.next();
-            LinkFriend from = state.friend(item.event.get("from").getAsString());
+            LinkFriend from = state.peer(item.event.get("from").getAsString());
             if (from != null) {
                 iterator.remove();
                 open(from, item.event);
@@ -113,7 +114,21 @@ public final class Inbox {
 
     private void dispatch(LinkFriend from, ChatPayload payload, long time) {
         switch (payload) {
-            case ChatPayload.Text text -> listener.message(from, text.text(), text.id(), text.image(), text.forwardedFrom(), time);
+            case ChatPayload.Text text when text.group() != null -> {
+                // в группу пишет только её участник: чужой id группы в конверте не пройдёт
+                if (isMember(text.group(), from)) {
+                    listener.groupMessage(text.group(), from, text.text(), text.id(), text.image(), text.reply(), time);
+                }
+            }
+            case ChatPayload.Text text -> listener.message(from, text.text(), text.id(), text.image(), text.forwardedFrom(),
+                    text.reply(), time);
+            case ChatPayload.GroupName group -> {
+                if (isMember(group.group(), from)) {
+                    listener.groupNamed(group.group(), from, group.name(), time);
+                }
+            }
+            case ChatPayload.Delete delete -> listener.deleted(from, delete.targets(), time);
+            case ChatPayload.Pin pin -> listener.pinned(from, pin.target(), pin.pinned(), time);
             case ChatPayload.Reaction reaction -> listener.reaction(from, reaction.target(), reaction.reaction(), time);
             case ChatPayload.PresenceKey key -> {
                 // новый ключ: статус, который уже лежит на сервере, теперь читается
@@ -124,6 +139,11 @@ public final class Inbox {
             case ChatPayload.Unknown unknown -> { }
             case null -> listener.unreadable(from, time);
         }
+    }
+
+    private boolean isMember(String group, LinkFriend from) {
+        LinkGroup known = snapshot.get().group(group);
+        return known != null && known.member(from.id()) != null;
     }
 
     private void acknowledge(JsonObject event) {

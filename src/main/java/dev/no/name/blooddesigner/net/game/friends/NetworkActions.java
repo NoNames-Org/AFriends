@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.net.game.friends;
 
+import dev.no.name.blooddesigner.gui.friends.SafetyScreen;
 import dev.no.name.blooddesigner.api.FriendAction;
 import dev.no.name.blooddesigner.compat.Compat;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
@@ -42,8 +43,7 @@ final class NetworkActions {
                         if (number == null) {
                             return;
                         }
-                        Compat.localMessage(Component.literal("Отпечаток с " + friend.name() + ": " + number
-                                    + ". Сверьте цифры с другом голосом: совпали — переписку не читает никто, даже сервер."));
+                        Compat.setScreen(new SafetyScreen(Compat.currentScreen(), friend.name(), number));
                     }));
                 },
                 name -> friends.friend(name) != null,

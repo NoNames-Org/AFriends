@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.settings;
 
+import dev.no.name.blooddesigner.core.NotifySettings;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.FeatureToggles;
 import dev.no.name.blooddesigner.core.FeatureToggles.Feature;
@@ -15,10 +16,15 @@ final class MenusSection {
     private static final int SWITCH_HEIGHT = 11;
     private static final String NOTE = "Выключенное меню пропадает сразу, кнопки в чате — при следующем открытии чата.";
 
-    private final Runnable onChange;
+    private static final String SOUND_TITLE = "Звук сообщений";
+    private static final String SOUND_TEXT = "Звук нового сообщения; у отдельного чата — в его меню";
 
-    MenusSection(Runnable onChange) {
+    private final Runnable onChange;
+    private final NotifySettings notify;
+
+    MenusSection(Runnable onChange, NotifySettings notify) {
         this.onChange = onChange;
+        this.notify = notify;
     }
 
     void draw(Gfx g, int x, int top, int width) {
@@ -30,7 +36,11 @@ final class MenusSection {
             Draw.text(g, Draw.trim(feature.description(), width - SWITCH_WIDTH - 8), x, y + 11, Theme.TEXT_DIM);
             drawSwitch(g, x + width - SWITCH_WIDTH, y + 4, FeatureToggles.enabled(feature));
         }
-        Draw.text(g, Draw.trim(NOTE, width), x, rowY(top, features.length) + 2, Theme.TEXT_DIM);
+        int soundY = rowY(top, features.length);
+        Draw.text(g, Draw.trim(SOUND_TITLE, width - SWITCH_WIDTH - 8), x, soundY, Theme.TEXT);
+        Draw.text(g, Draw.trim(SOUND_TEXT, width - SWITCH_WIDTH - 8), x, soundY + 11, Theme.TEXT_DIM);
+        drawSwitch(g, x + width - SWITCH_WIDTH, soundY + 4, notify.soundEnabled());
+        Draw.text(g, Draw.trim(NOTE, width), x, rowY(top, features.length + 1) + 2, Theme.TEXT_DIM);
     }
 
     boolean click(double mouseX, double mouseY, int x, int top, int width) {
@@ -43,6 +53,12 @@ final class MenusSection {
                 onChange.run();
                 return true;
             }
+        }
+        int soundY = rowY(top, features.length);
+        if (mouseX >= x && mouseX < x + width && mouseY >= soundY - 2 && mouseY < soundY + ROW_HEIGHT - 4) {
+            notify.toggleSound();
+            UiSounds.play(notify.soundEnabled() ? UiSound.MESSAGE : UiSound.CLICK);
+            return true;
         }
         return false;
     }

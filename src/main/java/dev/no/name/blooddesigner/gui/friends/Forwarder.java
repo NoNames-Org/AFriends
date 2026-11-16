@@ -43,6 +43,10 @@ final class Forwarder {
             route.send(target, message.text(), origin, warn).ifPresentOrElse(warn, () -> info.accept("Переслано в «" + targetName + "»"));
             return;
         }
+        if (images.size() == 1 && images.get(0).voice()) {
+            forwardVoice(images.get(0), target, targetName);
+            return;
+        }
         if (!route.supportsMedia(target)) {
             warn.accept("Картинки можно пересылать только друзьям по сети, в BloodDesigner и в «Избранное»");
             return;
@@ -60,6 +64,23 @@ final class Forwarder {
             }));
         }
         info.accept("Пересылаю в «" + targetName + "»…");
+    }
+
+    // голосовое пересылается файлом записи: тот же путь, что и своё новое голосовое
+    private void forwardVoice(MessageImage voice, String target, String targetName) {
+        route.imageFile(voice).whenComplete((file, error) -> Minecraft.getInstance().execute(() -> {
+            if (error != null) {
+                warn.accept("Голосовое ещё не загрузилось — включи его и перешли снова");
+                return;
+            }
+            try {
+                byte[] data = java.nio.file.Files.readAllBytes(file);
+                route.sendVoice(target, data, voice.voiceCentiseconds(), null, warn)
+                        .ifPresentOrElse(warn, () -> info.accept("Пересылаю в «" + targetName + "»…"));
+            } catch (java.io.IOException e) {
+                warn.accept("Голосовое не прочиталось с диска");
+            }
+        }));
     }
 
     private static String origin(PrivateMessage message, String sourceName) {

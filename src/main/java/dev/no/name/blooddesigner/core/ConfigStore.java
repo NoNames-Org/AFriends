@@ -29,14 +29,18 @@ public final class ConfigStore {
     private static final String MESSAGE_LIMIT = "messageLimit";
     private static final String NETWORK = "network";
     private static final String FEATURES = "features";
+    private static final String NOTIFY = "notify";
 
     private final SocialData social;
     private final ModeFavorites favorites;
     private final ThemeSettings theme;
     private final LinkSettings network;
+    private final NotifySettings notify;
     private final Path file;
 
-    public ConfigStore(SocialData social, ModeFavorites favorites, ThemeSettings theme, LinkSettings network) {
+    public ConfigStore(SocialData social, ModeFavorites favorites, ThemeSettings theme, LinkSettings network,
+                       NotifySettings notify) {
+        this.notify = notify;
         this.social = social;
         this.network = network;
         this.favorites = favorites;
@@ -70,6 +74,9 @@ public final class ConfigStore {
             if (json.has(FEATURES)) {
                 FeatureToggles.fromJson(json.get(FEATURES));
             }
+            if (json.has(NOTIFY)) {
+                notify.fromJson(json.get(NOTIFY));
+            }
             if (json.has(NETWORK)) {
                 network.fromJson(json.get(NETWORK));
             }
@@ -90,6 +97,7 @@ public final class ConfigStore {
         json.addProperty(MESSAGE_LIMIT, MessageHistory.limit());
         json.add(NETWORK, network.toJson());
         json.add(FEATURES, FeatureToggles.toJson());
+        json.add(NOTIFY, notify.toJson());
         try {
             Files.createDirectories(file.getParent());
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");

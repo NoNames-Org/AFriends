@@ -20,8 +20,31 @@ public interface InboxListener {
         message(from, text, id, image, time);
     }
 
+    // то же, но ответ на сообщение reply
+    default void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom,
+                         dev.no.name.blooddesigner.core.MessageReply reply, long time) {
+        message(from, text, id, image, forwardedFrom, time);
+    }
+
+    // друг удалил у обоих сообщения с этими id
+    default void deleted(LinkFriend from, java.util.List<String> targets, long time) {
+    }
+
+    // друг закрепил (pinned) или открепил у обоих сообщение с этим id
+    default void pinned(LinkFriend from, String target, boolean pinned, long time) {
+    }
+
     // друг поставил (reaction != null) или снял реакцию на сообщение с этим id
     default void reaction(LinkFriend from, String target, String reaction, long time) {
+    }
+
+    // сообщение в групповом чате group от участника from
+    default void groupMessage(String group, LinkFriend from, String text, String id, dev.no.name.blooddesigner.core.MessageImage image,
+                              dev.no.name.blooddesigner.core.MessageReply reply, long time) {
+    }
+
+    // участник from назвал или переименовал группу
+    default void groupNamed(String group, LinkFriend from, String name, long time) {
     }
 
     // личное сообщение от BloodDesigner с портала (не от друга, без шифрования); по умолчанию никуда не идёт

@@ -11,7 +11,9 @@ public enum UiSound {
     SELECT("select", 0.45f),
     TYPE("type", 0.3f),
     DELETE("delete", 0.3f),
-    MENU_OPEN("menu_open", 0.45f);
+    MENU_OPEN("menu_open", 0.45f),
+    // входящее сообщение (sounds/notify/message.ogg, свой синтез)
+    MESSAGE("message", 0.7f);
 
     private final SoundEvent event;
     private final float volume;

@@ -1,5 +1,11 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.gui.media.VoiceClips;
+import dev.no.name.blooddesigner.core.GroupChats;
+import dev.no.name.blooddesigner.net.announcements.AnnouncementPoll;
+import dev.no.name.blooddesigner.core.party.PartyInviteCard;
+import dev.no.name.blooddesigner.core.NotifySettings;
+import dev.no.name.blooddesigner.gui.widget.ConfirmBox;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
@@ -13,6 +19,8 @@ import dev.no.name.blooddesigner.compat.ScreenBase;
 import dev.no.name.blooddesigner.core.Friend;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.core.IgnoreList;
+import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
@@ -93,6 +101,8 @@ public class MessengerScreen extends ScreenBase {
             "Здесь будут объявления BloodDesigner: новости мода и важные изменения. Писать сюда нельзя.",
             ANNOUNCEMENTS_SINCE));
     private static final long WARNING_MS = 4000;
+    // подсветка сообщения, к которому перешли по ответу или закрепу
+    private static final long HIGHLIGHT_MS = 1400;
 
     private static final long APPEAR_MS = 260;
     private static final long PENDING_TIMEOUT_MS = 6000;
@@ -107,16 +117,17 @@ public class MessengerScreen extends ScreenBase {
     };
 
     public record Context(FriendManager friends, PrivateMessages messages, IgnoreList ignored, PartyService party,
-                          MessageRoute route, Runnable save) {
+                          MessageRoute route, Runnable save, NotifySettings alerts) {
     }
 
-    private record Pending(String partner, String text, long sentAt) {
+    private record Pending(String partner, String text, long sentAt, MessageReply reply) {
     }
 
     private record Row(String day, MessageBubbles.Bubble bubble, int index, float height) {
     }
 
-    private enum RailAction { READ_ALL, ALL_CHATS, NOTES }
+    private enum RailAction { READ_ALL, ALL_CHATS, NOTES, NEW_GROUP }
+    private static final int GROUP_COLOR = 0xFF3B6FD8;
 
     private final Context context;
     private final PrivateMessages messages;
@@ -128,11 +139,25 @@ public class MessengerScreen extends ScreenBase {
     private final TextFieldWidget search = new TextFieldWidget(Icon.SEARCH, "Поиск").withMaxLength(16);
     private final TextFieldWidget input;
     private final ChatMenu menu = new ChatMenu();
+    private final GroupEditor groupEditor = new GroupEditor(new GroupHost());
+    private final VoiceStrip voiceStrip = new VoiceStrip(this::sendVoice, this::warn);
     // кнопки карточек дополнений, нарисованные в этом кадре
     private final List<MessageBubbles.CardButton> cardButtons = new ArrayList<>();
     // где нарисованы пузыри на этом кадре: клик по картинке, реакциям, правый клик по сообщению
     private final List<MessageBubbles.Drawn> drawn = new ArrayList<>();
-    private final ReactionBar reactionBar = new ReactionBar();
+    private final MessageMenu messageMenu = new MessageMenu();
+    private final MessageActions actions;
+    private final ConfirmBox confirmBox = new ConfirmBox();
+    private final ReplyStrip replyStrip = new ReplyStrip();
+    private final PinnedBar pinnedBar = new PinnedBar();
+    private final Selection selection = new Selection();
+    // к какому сообщению прокрутить на следующем кадре и какое подсвечено
+    private String jumpKey;
+    // курсор на холсте в этом кадре: полосам, которые рисуются глубоко внутри
+    private int lastMouseX;
+    private int lastMouseY;
+    private String highlightKey;
+    private long highlightAt;
     private final ImageViewer viewer = new ImageViewer();
     private final MediaActions media;
     private final AttachmentStrip attachment = new AttachmentStrip();
@@ -162,6 +187,7 @@ public class MessengerScreen extends ScreenBase {
         this.messages = context.messages();
         this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
         this.forwarder = new Forwarder(context.route(), this::warn, this::warnInfo);
+        this.actions = new MessageActions(context.route(), messages, media, this::warn, this::warnInfo, new ActionsHost());
         AnnouncementFeed.get().refresh();
         input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame();
         int barY = HEIGHT - PAD - INPUT_HEIGHT;
@@ -174,7 +200,7 @@ public class MessengerScreen extends ScreenBase {
         composer.addChild(attach);
         // справа внутри полосы: кнопки дополнений и избранные гифки
         List<ComposeAction> actions = Addons.get().composeActions();
-        int icons = actions.size() + 1;
+        int icons = actions.size() + 2;
         int iconsX = BAR_X + BAR_WIDTH - 2 - icons * BAR_ICON;
         for (int i = 0; i < actions.size(); i++) {
             ComposeAction action = actions.get(i);
@@ -186,6 +212,10 @@ public class MessengerScreen extends ScreenBase {
         IconButtonWidget gifs = new IconButtonWidget(Icon.STAR, this::toggleGifs);
         gifs.setBounds(iconsX + actions.size() * BAR_ICON, barY, BAR_ICON, INPUT_HEIGHT);
         composer.addChild(gifs);
+        // микрофон: голосовое другу по сети
+        IconButtonWidget mic = new IconButtonWidget(Icon.MIC, this::toggleVoice);
+        mic.setBounds(iconsX + (actions.size() + 1) * BAR_ICON, barY, BAR_ICON, INPUT_HEIGHT);
+        composer.addChild(mic);
         input.setBounds(BAR_X + 2 + BAR_ICON + 2, barY, iconsX - (BAR_X + 2 + BAR_ICON + 2) - 2, INPUT_HEIGHT);
         search.setBounds(LIST_X + PAD, PAD, LIST_WIDTH - PAD * 2, FIELD_HEIGHT);
         ButtonWidget send = new ButtonWidget(Icon.SEND, this::send);
@@ -220,13 +250,23 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void select(String chat) {
-        reactionBar.close();
+        messageMenu.close();
+        confirmBox.close();
+        replyStrip.clear();
+        selection.clear();
+        pinnedBar.reset();
+        jumpKey = null;
+        highlightKey = null;
         forwardPicker.close();
         viewer.close();
         gifPicker.close();
         attachment.clear();
         messages.close();
+        voiceStrip.cancel();
+        // черновик уходящего чата сохраняется, у нового — подставляется
+        messages.setDraft(partner, input.getText());
         partner = chat;
+        input.setText(messages.draft(chat));
         pending.clear();
         appearAt.clear();
         chatScroll = 0;
@@ -305,7 +345,9 @@ public class MessengerScreen extends ScreenBase {
         Draw.setPixelScale(pixelScale);
         int canvasX = (int) toCanvasX(mouseX);
         int canvasY = (int) toCanvasY(mouseY);
-        int hoverX = menu.isOpen() ? -1000 : canvasX;
+        lastMouseX = canvasX;
+        lastMouseY = canvasY;
+        int hoverX = menu.isOpen() || messageMenu.isOpen() || confirmBox.isOpen() ? -1000 : canvasX;
 
         float shown = windowOpen.get();
         Draw.pushAlpha(shown);
@@ -328,16 +370,23 @@ public class MessengerScreen extends ScreenBase {
         } else if (partner != null) {
             drawBar(g, hoverX, canvasY);
             composer.render(g, hoverX, canvasY);
+            voiceStrip.tick();
+            voiceStrip.draw(g, BAR_X, HEIGHT - PAD - INPUT_HEIGHT, BAR_WIDTH, INPUT_HEIGHT);
         }
         g.nextStratum();
         drawRailTooltip(g, hoverX, canvasY);
         menu.draw(g, canvasX, canvasY);
-        reactionBar.draw(g, canvasX, canvasY);
+        messageMenu.draw(g, canvasX, canvasY);
         gifPicker.draw(g, canvasX, canvasY);
         forwardPicker.draw(g, canvasX, canvasY, this::chatName, this::drawEntryTile);
+        groupEditor.draw(g, canvasX, canvasY);
         if (viewer.isOpen()) {
             g.nextStratum();
             viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
+        }
+        if (confirmBox.isOpen()) {
+            g.nextStratum();
+            confirmBox.draw(g, WIDTH, HEIGHT, canvasX, canvasY);
         }
         Draw.popOffset(g);
         Draw.popAlpha();
@@ -371,6 +420,7 @@ public class MessengerScreen extends ScreenBase {
             case READ_ALL -> Icon.CHECK_SQUARE;
             case ALL_CHATS -> Icon.MESSAGE;
             case NOTES -> Icon.HEART;
+            case NEW_GROUP -> Icon.USERS;
         };
     }
 
@@ -379,6 +429,7 @@ public class MessengerScreen extends ScreenBase {
             case READ_ALL -> "Прочитать всё";
             case ALL_CHATS -> "Все чаты";
             case NOTES -> "Избранное";
+            case NEW_GROUP -> "Новая группа";
         };
     }
 
@@ -443,21 +494,35 @@ public class MessengerScreen extends ScreenBase {
         String date = last == null ? "" : formatDate(last.time());
         float dateWidth = Draw.width(date, TextStyle.SMALL);
         boolean pinned = !notes && messages.isPinned(entry);
-        float pinSpace = pinned ? Theme.ICON_SMALL + 3 : 0;
+        boolean muted = !notes && context.alerts().isMuted(entry);
+        float pinSpace = (pinned ? Theme.ICON_SMALL + 3 : 0) + (muted ? Theme.ICON_SMALL + 3 : 0);
         int nameWidth = (int) (x + width - 6 - textX - dateWidth - pinSpace - 4);
         String title = announcements ? ANNOUNCEMENTS_TITLE : notes ? "Избранное" : messages.displayName(entry);
         Draw.text(g, Draw.trim(title, nameWidth), textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
         Draw.text(g, date, x + width - 6 - dateWidth, rowY + 7, Theme.TEXT_DIM, TextStyle.SMALL);
+        float markX = x + width - 6 - dateWidth - pinSpace;
+        if (muted) {
+            Draw.icon(g, Icon.BELL_OFF, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.TEXT_DIM);
+            markX += Theme.ICON_SMALL + 3;
+        }
         if (pinned) {
-            Draw.icon(g, Icon.PIN, x + width - 6 - dateWidth - pinSpace, rowY + 6, Theme.ICON_SMALL - 1, Theme.TEXT_DIM);
+            Draw.icon(g, Icon.PIN, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.TEXT_DIM);
         }
 
         int unread = notes ? 0 : messages.unread(entry);
         float badgeWidth = unread > 0 ? Draw.width(String.valueOf(unread), TextStyle.SMALL) + 8 : 0;
+        String draft = selected || announcements ? "" : messages.draft(entry).replaceAll("\\s+", " ").strip();
         String preview = last == null ? (notes ? "Твой личный чат для заметок" : "Пусто")
                 : (last.fromMe() && !notes ? "Ты: " : "") + previewText(entry, last);
         int previewWidth = (int) (x + width - 6 - textX - badgeWidth - (badgeWidth > 0 ? 4 : 0));
-        Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+        if (!draft.isEmpty()) {
+            String label = "Черновик: ";
+            float labelWidth = Draw.width(label, TextStyle.SMALL);
+            Draw.text(g, label, textX, rowY + 17, Theme.DANGER, TextStyle.SMALL);
+            Draw.text(g, Draw.trim(draft, (int) (previewWidth - labelWidth)), textX + labelWidth, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+        } else {
+            Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+        }
         if (unread > 0) {
             float badgeX = x + width - 6 - badgeWidth;
             Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.ACCENT);
@@ -475,7 +540,8 @@ public class MessengerScreen extends ScreenBase {
             return dev.no.name.blooddesigner.core.MessageContent.preview(last);
         }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
-        return card == null ? last.text() : card.title();
+        String text = card == null ? last.text() : card.title();
+        return last.author() != null && !last.fromMe() ? last.author() + ": " + text : text;
     }
 
     private static void drawAnnouncementsTile(Gfx g, float x, float y, int size) {
@@ -492,12 +558,20 @@ public class MessengerScreen extends ScreenBase {
             drawOfficialTile(g, x, y, size);
         } else if (PrivateMessages.NOTES.equals(entry)) {
             drawNotesTile(g, x, y, size);
+        } else if (PrivateMessages.isGroup(entry)) {
+            drawGroupTile(g, x, y, size);
         } else {
             drawFace(g, context.friends().skinOf(entry), (int) x, (int) y, size);
             if (OnlineDot.isOnline(entry)) {
                 OnlineDot.draw(g, x, y, size);
             }
         }
+    }
+
+    private static void drawGroupTile(Gfx g, float x, float y, int size) {
+        Draw.roundedRect(g, x, y, size, size, size / 2f, GROUP_COLOR);
+        float icon = size * 0.55f;
+        Draw.icon(g, Icon.USERS, x + (size - icon) / 2, y + (size - icon) / 2, icon, 0xFFFFFFFF);
     }
 
     private static void drawOfficialTile(Gfx g, float x, float y, int size) {
@@ -548,13 +622,33 @@ public class MessengerScreen extends ScreenBase {
             return;
         }
         drawHeader(g);
+        drawPinnedBar(g);
         drawMessages(g);
         drawWarning(g);
     }
 
+    private List<PrivateMessage> pinnedMessages() {
+        return partner == null || isAnnouncements() ? List.of() : messages.pinnedMessages(partner);
+    }
+
+    // верх ленты сообщений: под шапкой, а если есть закреп — под его плашкой
+    private int messagesTop() {
+        return HEADER_HEIGHT + 4 + (pinnedMessages().isEmpty() ? 0 : PinnedBar.HEIGHT);
+    }
+
+    // рисуется и при пустом списке: так плашка забывает открепленное и не ловит по нему клики
+    private void drawPinnedBar(Gfx g) {
+        int hover = messageMenu.isOpen() || menu.isOpen() || confirmBox.isOpen() ? -1000 : lastMouseX;
+        pinnedBar.draw(g, pinnedMessages(), CHAT_X + 1, HEADER_HEIGHT + 1, CHAT_WIDTH - 2, hover, lastMouseY);
+    }
+
     // верх области ввода: если картинка прикреплена, её превью стоит над полосой
     private int composerTop() {
-        return HEIGHT - PAD - INPUT_HEIGHT - (attachment.isStaged() && !isReadOnly() ? AttachmentStrip.HEIGHT + 4 : 0);
+        if (isReadOnly()) {
+            return HEIGHT - PAD - INPUT_HEIGHT;
+        }
+        return HEIGHT - PAD - INPUT_HEIGHT - (attachment.isStaged() ? AttachmentStrip.HEIGHT + 4 : 0)
+                - (replyStrip.isActive() ? ReplyStrip.HEIGHT + 4 : 0);
     }
 
     // общая рамка полосы ввода: внутри неё скрепка, поле и значки
@@ -562,7 +656,38 @@ public class MessengerScreen extends ScreenBase {
         int barY = HEIGHT - PAD - INPUT_HEIGHT;
         int border = input.isFocused() ? Theme.BORDER_SELECTED : Theme.BORDER;
         Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, border);
-        attachment.draw(g, BAR_X, barY - AttachmentStrip.HEIGHT - 4, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
+        // над полосой: сначала ответ, над ним прикреплённая картинка
+        int replyY = barY - ReplyStrip.HEIGHT - 4;
+        replyStrip.draw(g, BAR_X, replyY, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
+        int attachY = (replyStrip.isActive() ? replyY : barY) - AttachmentStrip.HEIGHT - 4;
+        attachment.draw(g, BAR_X, attachY, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
+    }
+
+    // голосовые — только другу по сети: им нужно сквозное шифрование вложений
+    private boolean canSendVoice() {
+        return partner != null && !isReadOnly() && !isNotes() && !isOfficial() && !PrivateMessages.isGroup(partner)
+                && context.route().supportsMedia(partner);
+    }
+
+    private void toggleVoice() {
+        if (!voiceStrip.isRecording() && !canSendVoice()) {
+            warn("Голосовые можно отправлять только другу по сети");
+            return;
+        }
+        voiceStrip.toggle();
+        UiSounds.play(UiSound.CLICK);
+    }
+
+    private void sendVoice(dev.no.name.blooddesigner.core.voice.VoiceClip clip) {
+        if (!canSendVoice()) {
+            return;
+        }
+        String target = partner;
+        context.route().sendVoice(target, clip.encode(), clip.centiseconds(), replyStrip.reply(), this::warn).ifPresentOrElse(this::warn,
+                () -> {
+                    replyStrip.clear();
+                    warnInfo("Голосовое отправляется…");
+                });
     }
 
     private void toggleGifs() {
@@ -591,6 +716,11 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void drawHeader(Gfx g) {
+        if (selection.isActive()) {
+            selection.drawBar(g, CHAT_X + PAD + 2, 0, CHAT_WIDTH - PAD * 2 - 22, HEADER_HEIGHT, lastMouseX, lastMouseY);
+            Draw.rect(g, CHAT_X + 1, HEADER_HEIGHT, CHAT_WIDTH - 2, 1, Theme.BORDER);
+            return;
+        }
         int faceX = CHAT_X + PAD + 2;
         int faceY = (HEADER_HEIGHT - HEADER_FACE) / 2;
         String title;
@@ -608,6 +738,11 @@ public class MessengerScreen extends ScreenBase {
             drawNotesTile(g, faceX, faceY, HEADER_FACE);
             title = "Избранное";
             status = "Твой личный чат для заметок";
+        } else if (PrivateMessages.isGroup(partner)) {
+            drawGroupTile(g, faceX, faceY, HEADER_FACE);
+            title = messages.displayName(partner);
+            String network = context.route().headerLine(partner);
+            status = network != null ? network : "Групповой чат";
         } else {
             drawFace(g, context.friends().skinOf(partner), faceX, faceY, HEADER_FACE);
             if (OnlineDot.isOnline(partner)) {
@@ -628,7 +763,7 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void drawMessages(Gfx g) {
-        int top = HEADER_HEIGHT + 4;
+        int top = messagesTop();
         int bottom = composerTop() - 6;
         List<PrivateMessage> chat = chatMessages(partner);
         trackNewMessages(chat);
@@ -637,14 +772,16 @@ public class MessengerScreen extends ScreenBase {
         List<Pending> mine = pending.stream().filter(item -> item.partner().equalsIgnoreCase(partner)).toList();
 
         List<PrivateMessage> shown = new ArrayList<>(chat);
-        mine.forEach(item -> shown.add(new PrivateMessage(true, item.text(), item.sentAt())));
+        mine.forEach(item -> shown.add(new PrivateMessage(true, item.text(), item.sentAt(), null, List.of(), null, null, null,
+                item.reply())));
         if (shown.isEmpty()) {
             float centerX = CHAT_X + CHAT_WIDTH / 2f;
             String text = isNotes() ? "Пиши сюда заметки — их видишь только ты" : "Сообщений пока нет — напиши первым";
             Draw.textCentered(g, text, centerX, (top + bottom) / 2f, Theme.TEXT_SOFT);
             return;
         }
-        float left = CHAT_X + PAD;
+        // при выделении слева кружки: входящие сдвигаются вправо
+        float left = CHAT_X + PAD + (selection.isActive() ? Selection.GUTTER : 0);
         float right = WIDTH - PAD;
         List<Row> rows = buildRows(shown, right - left, chat.size(), partner);
         cardButtons.clear();
@@ -657,6 +794,9 @@ public class MessengerScreen extends ScreenBase {
         if (chatScroll > maxScroll) {
             chatScroll = maxScroll;
             chatScrollView.setTarget(chatScroll);
+        }
+        if (jumpKey != null) {
+            jump(rows, content, top, bottom, maxScroll);
         }
 
         g.enableScissor(CHAT_X + 1, top, WIDTH - 1, bottom);
@@ -677,12 +817,48 @@ public class MessengerScreen extends ScreenBase {
                     }
                     if (!isPending) {
                         drawn.add(bubble);
+                        drawMarks(g, bubble, now);
                     }
                 }
             }
             y += row.height();
         }
         g.disableScissor();
+    }
+
+    // подсветка после перехода и кружок выделения слева
+    private void drawMarks(Gfx g, MessageBubbles.Drawn bubble, long now) {
+        String key = bubble.message().key();
+        if (key.equals(highlightKey) && now - highlightAt < HIGHLIGHT_MS) {
+            float fade = 1 - (now - highlightAt) / (float) HIGHLIGHT_MS;
+            Draw.roundedRect(g, CHAT_X + 1, bubble.y() - 1, CHAT_WIDTH - 2, bubble.height() + 2, 0,
+                    Colors.fade(Theme.ACCENT, 0.18f * fade));
+        }
+        if (selection.isActive()) {
+            if (selection.contains(bubble.message())) {
+                Draw.rect(g, CHAT_X + 1, bubble.y() - 1, CHAT_WIDTH - 2, bubble.height() + 2, Colors.fade(Theme.ACCENT, 0.1f));
+            }
+            selection.drawMark(g, bubble.message(), CHAT_X + PAD, bubble.y() + bubble.height() / 2f);
+        }
+    }
+
+    // прокрутить так, чтобы сообщение jumpKey оказалось посередине, и подсветить его
+    private void jump(List<Row> rows, float content, int top, int bottom, int maxScroll) {
+        String key = jumpKey;
+        jumpKey = null;
+        float offset = 0;
+        for (Row row : rows) {
+            if (row.bubble() != null && key.equals(row.bubble().message().key())) {
+                float rowCenter = offset + row.height() / 2f;
+                chatScroll = Math.round(Math.max(0, Math.min(maxScroll, content - rowCenter - (bottom - top) / 2f)));
+                chatScrollView.setTarget(chatScroll);
+                highlightKey = key;
+                highlightAt = System.currentTimeMillis();
+                return;
+            }
+            offset += row.height();
+        }
+        warnInfo("Сообщения уже нет: удалено или старше истории");
     }
 
     private static List<Row> buildRows(List<PrivateMessage> shown, float areaWidth, int firstPending, String partner) {
@@ -769,11 +945,16 @@ public class MessengerScreen extends ScreenBase {
     }
 
     private void send() {
+        if (voiceStrip.isRecording()) {
+            voiceStrip.finish();
+            return;
+        }
         String text = input.getText().strip();
         // прикреплённая картинка уходит вместе с текстом: картинка сверху, текст подписью
         if (attachment.isStaged()) {
-            if (partner != null && !isReadOnly() && media.send(partner, attachment.file(), text)) {
+            if (partner != null && !isReadOnly() && media.send(partner, attachment.file(), text, replyStrip.reply())) {
                 attachment.clear();
+                replyStrip.clear();
                 input.setText("");
             }
             return;
@@ -788,18 +969,20 @@ public class MessengerScreen extends ScreenBase {
         if (partner == null || isReadOnly()) {
             return false;
         }
+        MessageReply reply = replyStrip.reply();
         if (isNotes()) {
-            messages.addNote(text, System.currentTimeMillis());
+            messages.addNote(new PrivateMessage(true, text, System.currentTimeMillis(), null, List.of(), null, null, null, reply));
         } else {
             // другу по сети — сквозным шифрованием через сервер сети, остальным — /msg
-            Optional<String> problem = context.route().send(partner, text, this::warn);
+            Optional<String> problem = context.route().send(partner, text, null, reply, this::warn);
             if (problem.isPresent()) {
                 warn(problem.get());
                 return false;
             }
 
-            pending.add(new Pending(partner, text, System.currentTimeMillis()));
+            pending.add(new Pending(partner, text, System.currentTimeMillis(), reply));
         }
+        replyStrip.clear();
         warning = "";
         chatScroll = 0;
         chatScrollView.setTarget(0);
@@ -838,6 +1021,7 @@ public class MessengerScreen extends ScreenBase {
                     select(entry);
                 }
             }));
+            items.add(muteItem(entry));
             menu.open(PrivateMessages.OFFICIAL_NAME, items, (float) mouseX, (float) mouseY, WIDTH, HEIGHT);
             return;
         }
@@ -849,6 +1033,10 @@ public class MessengerScreen extends ScreenBase {
                 }
             }));
             menu.open("Избранное", items, (float) mouseX, (float) mouseY, WIDTH, HEIGHT);
+            return;
+        }
+        if (PrivateMessages.isGroup(entry)) {
+            openGroupMenu(entry, items, mouseX, mouseY);
             return;
         }
         String name = messages.displayName(entry);
@@ -870,10 +1058,12 @@ public class MessengerScreen extends ScreenBase {
             ignored.toggle(name);
             context.save().run();
         }));
-        // в пати зовём только того, кто на этом же сервере, и только на bloodstone, где есть /party
-        if (BloodstoneServer.isConnected() && Addons.get().reachable(name)) {
-            items.add(new ChatMenu.Item(Icon.FLAG, "Пригласить в пати", false, () -> context.party().invite(name)));
+        // зовём только с bloodstone, где есть /party: тому, кто рядом, — командой, другу по сети — ещё и карточкой в ЛС
+        boolean nearby = Addons.get().reachable(name);
+        if (BloodstoneServer.isConnected() && (nearby || context.route().viaNetwork(name))) {
+            items.add(new ChatMenu.Item(Icon.FLAG, "Пригласить в пати", false, () -> invite(name, nearby)));
         }
+        items.add(muteItem(name));
         boolean pinned = messages.isPinned(name);
         items.add(new ChatMenu.Item(Icon.PIN, pinned ? "Открепить чат" : "Закрепить чат", false, () -> messages.togglePin(name)));
         items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", false, () -> {
@@ -891,23 +1081,131 @@ public class MessengerScreen extends ScreenBase {
         menu.open(name, items, (float) mouseX, (float) mouseY, WIDTH, HEIGHT);
     }
 
+    private void invite(String name, boolean nearby) {
+        if (nearby) {
+            context.party().invite(name);
+        }
+        if (context.route().viaNetwork(name)) {
+            String text = PartyInviteCard.text(minecraft.getUser().getName());
+            context.route().send(name, text, this::warn).ifPresent(this::warn);
+        }
+    }
+
+    private GroupChats groups() {
+        return context.route().groups();
+    }
+
+    // окна группы — только при живой сети: без неё состав не поменять
+    private void openGroupEditor(Runnable open) {
+        GroupChats groups = groups();
+        if (groups == null || !groups.available()) {
+            warn("Группы работают через сеть друзей BloodDesigner — она сейчас не подключена");
+            return;
+        }
+        menu.close();
+        open.run();
+        UiSounds.play(UiSound.DROPDOWN_OPEN);
+    }
+
+    private void openGroupMenu(String chat, List<ChatMenu.Item> items, double mouseX, double mouseY) {
+        GroupChats groups = groups();
+        items.add(new ChatMenu.Item(Icon.USERS, "Участники", false, () -> openGroupEditor(() ->
+                groupEditor.openMembers(chat, groups.members(chat), groups.owned(chat), WIDTH, HEIGHT))));
+        items.add(new ChatMenu.Item(Icon.PLUS, "Позвать друга", false, () -> openGroupEditor(() -> {
+            List<String> inGroup = groups.members(chat);
+            List<String> candidates = groups.friends().stream()
+                    .filter(friend -> inGroup.stream().noneMatch(friend::equalsIgnoreCase)).toList();
+            groupEditor.openAdd(chat, candidates, WIDTH, HEIGHT);
+        })));
+        items.add(new ChatMenu.Item(Icon.EDIT, "Переименовать", false, () -> openGroupEditor(() ->
+                groupEditor.openRename(chat, messages.displayName(chat), WIDTH, HEIGHT))));
+        items.add(muteItem(chat));
+        boolean pinned = messages.isPinned(chat);
+        items.add(new ChatMenu.Item(Icon.PIN, pinned ? "Открепить чат" : "Закрепить чат", false, () -> messages.togglePin(chat)));
+        items.add(new ChatMenu.Item(Icon.BRUSH, "Очистить чат", false, () -> {
+            messages.clear(chat);
+            if (chat.equals(partner)) {
+                select(chat);
+            }
+        }));
+        items.add(new ChatMenu.Item(Icon.LOG_OUT, "Выйти из группы", true, () -> new GroupHost().leave(chat)));
+        menu.open(messages.displayName(chat), items, (float) mouseX, (float) mouseY, WIDTH, HEIGHT);
+    }
+
+    // что просит окно группы: всё уходит в сеть, ответ — на потоке игры
+    private final class GroupHost implements GroupEditor.Host {
+        @Override
+        public void create(List<String> friends, String title) {
+            groups().create(friends, title, chat -> {
+                select(chat);
+                input.focus();
+                warnInfo("Группа «" + title + "» создана");
+            }, MessengerScreen.this::warn);
+        }
+
+        @Override
+        public void add(String chat, String friend) {
+            groups().add(chat, friend, MessengerScreen.this::warn);
+            warnInfo(friend + " добавлен в группу");
+        }
+
+        @Override
+        public void kick(String chat, String member) {
+            confirmBox.open(new ConfirmBox.Request("Исключить " + member + " из группы?", null, false, "Исключить", true,
+                    checked -> groups().kick(chat, member, MessengerScreen.this::warn)), WIDTH, HEIGHT);
+        }
+
+        @Override
+        public void leave(String chat) {
+            confirmBox.open(new ConfirmBox.Request("Выйти из группы «" + messages.displayName(chat)
+                    + "»? Переписка у тебя удалится, вернуть может только участник.", null, false, "Выйти", true,
+                    checked -> {
+                        groups().leave(chat, MessengerScreen.this::warn);
+                        if (chat.equals(partner)) {
+                            select(null);
+                        }
+                    }), WIDTH, HEIGHT);
+        }
+
+        @Override
+        public void rename(String chat, String title) {
+            groups().rename(chat, title, MessengerScreen.this::warn);
+        }
+    }
+
+    // «Выключить звук» у чата, как в Telegram: сообщения приходят, но без звука
+    private ChatMenu.Item muteItem(String chat) {
+        boolean muted = context.alerts().isMuted(chat);
+        return new ChatMenu.Item(muted ? Icon.BELL : Icon.BELL_OFF, muted ? "Включить звук" : "Выключить звук", false,
+                () -> context.alerts().toggleMuted(chat));
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         double x = toCanvasX(event.x());
         double y = toCanvasY(event.y());
         boolean right = event.button() == InputConstants.MOUSE_BUTTON_RIGHT;
+        if (confirmBox.isOpen()) {
+            confirmBox.click(x, y);
+            UiSounds.play(UiSound.CLICK);
+            return true;
+        }
         if (viewer.isOpen()) {
             clickViewer(viewer.click(x, y));
             return true;
         }
+        if (groupEditor.isOpen()) {
+            return groupEditor.click(x, y);
+        }
         if (forwardPicker.isOpen()) {
             String target = forwardPicker.click(x, y);
-            PrivateMessage forwarded = forwardPicker.message();
+            List<PrivateMessage> forwarded = forwardPicker.messages();
             if (target == null || !target.isEmpty()) {
                 forwardPicker.close();
             }
             if (target != null && !target.isEmpty()) {
-                forwarder.forward(forwarded, chatName(partner), target, chatName(target));
+                forwarded.forEach(message -> forwarder.forward(message, chatName(partner), target, chatName(target)));
+                selection.clear();
                 UiSounds.play(UiSound.SELECT);
             }
             return true;
@@ -926,17 +1224,15 @@ public class MessengerScreen extends ScreenBase {
             UiSounds.play(UiSound.CLICK);
             return true;
         }
-        if (reactionBar.isOpen()) {
-            PrivateMessage target = reactionBar.message();
-            dev.no.name.blooddesigner.core.MessageImage targetImage = reactionBar.target();
-            ReactionBar.Choice choice = reactionBar.click(x, y);
-            reactionBar.close();
-            if (choice != null) {
-                applyChoice(target, targetImage, choice);
-                return true;
-            }
+        if (messageMenu.isOpen() && messageMenu.click(x, y)) {
+            UiSounds.play(UiSound.CLICK);
+            return true;
         }
         if (menu.click(x, y)) {
+            UiSounds.play(UiSound.CLICK);
+            return true;
+        }
+        if (!right && clickChatBars(x, y)) {
             UiSounds.play(UiSound.CLICK);
             return true;
         }
@@ -974,22 +1270,45 @@ public class MessengerScreen extends ScreenBase {
 
     // картинка — открыть крупно; плашка реакции — поставить или снять свою; правый клик — всплывашка реакций
     private boolean clickBubble(double x, double y, boolean right) {
-        int top = HEADER_HEIGHT + 4;
+        int top = messagesTop();
         int bottom = composerTop() - 6;
         if (y < top || y > bottom) {
             return false;
         }
         for (MessageBubbles.Drawn bubble : drawn) {
-            if (!bubble.contains(x, y)) {
+            // при выделении кликабельна вся строка, а не только пузырь
+            boolean onRow = selection.isActive() && y >= bubble.y() && y < bubble.y() + bubble.height() && x >= CHAT_X;
+            if (!bubble.contains(x, y) && !onRow) {
                 continue;
             }
             PrivateMessage message = bubble.message();
             boolean canReact = canReact(message);
-            dev.no.name.blooddesigner.core.MessageImage image = bubble.imageAt(x, y);
+            MessageImage image = bubble.imageAt(x, y);
             if (right) {
                 // правый клик по любому сообщению: хотя бы «Переслать» есть всегда
-                reactionBar.open(message, image, canReact, (float) x, (float) y, WIDTH, HEIGHT);
+                messageMenu.open(message, actions.items(message, image),
+                        canReact ? reaction -> media.react(partner, message, reaction) : null, (float) x, (float) y, WIDTH, HEIGHT);
                 UiSounds.play(UiSound.DROPDOWN_OPEN);
+                return true;
+            }
+            if (selection.isActive()) {
+                selection.toggle(message);
+                UiSounds.play(UiSound.CLICK);
+                return true;
+            }
+            if (bubble.voice() != null && bubble.voice().contains(x, y)) {
+                VoiceClips.toggle(bubble.voice().voice(), context.route());
+                UiSounds.play(UiSound.CLICK);
+                return true;
+            }
+            PollBlock.Hit option = bubble.pollAt(x, y);
+            if (option != null) {
+                vote(option);
+                return true;
+            }
+            if (bubble.quoteAt(x, y)) {
+                jumpKey = message.reply().id();
+                UiSounds.play(UiSound.CLICK);
                 return true;
             }
             for (ReactionChips.Hit chip : bubble.chips()) {
@@ -1007,6 +1326,20 @@ public class MessengerScreen extends ScreenBase {
             return false;
         }
         return false;
+    }
+
+    // клик по варианту: другой — голос за него, свой — отозвать. Без сети голосовать нельзя
+    private void vote(PollBlock.Hit option) {
+        AnnouncementPoll poll = option.poll();
+        int choice = poll.mine() == option.option() ? -1 : option.option();
+        UiSounds.play(UiSound.CLICK);
+        AnnouncementFeed.get().votes().vote(poll, choice, fresh -> minecraft.execute(() -> {
+            if (fresh == null) {
+                warn("Голос не ушёл: нужна сеть друзей BloodDesigner");
+                return;
+            }
+            AnnouncementFeed.get().replacePoll(fresh);
+        }));
     }
 
     // куда можно переслать: Избранное, BloodDesigner и переписки, кроме текущей
@@ -1042,18 +1375,88 @@ public class MessengerScreen extends ScreenBase {
         return message.id() != null && partner != null && !isReadOnly() && !isNotes() && !isOfficial() && media.available(partner);
     }
 
-    private void applyChoice(PrivateMessage message, dev.no.name.blooddesigner.core.MessageImage image, ReactionBar.Choice choice) {
-        if (choice.kind() == null) {
-            return;
+    // полосы вокруг ленты: выделение в шапке, плашка закрепа, ответ над полем ввода. true — клик по одной из них
+    private boolean clickChatBars(double x, double y) {
+        if (partner == null) {
+            return false;
         }
-        switch (choice.kind()) {
-            case REACT -> media.react(partner, message, choice.reaction());
-            case SAVE -> media.save(image);
-            case OPEN -> media.open(image);
-            case FAVORITE -> media.toggleFavorite(image);
-            case FORWARD -> forwardPicker.open(message, forwardTargets(), WIDTH, HEIGHT);
+        if (selection.isActive() && y < HEADER_HEIGHT && x >= CHAT_X) {
+            switch (selection.click(x, y)) {
+                case FORWARD -> forwardPicker.open(selection.messages(chatMessages(partner)), forwardTargets(), WIDTH, HEIGHT);
+                case DELETE -> actions.delete(selection.messages(chatMessages(partner)));
+                case CANCEL -> selection.clear();
+                case NONE -> {
+                    return false;
+                }
+            }
+            return true;
         }
-        UiSounds.play(UiSound.CLICK);
+        switch (pinnedBar.click(x, y)) {
+            case PinnedBar.Jump jump -> {
+                jumpKey = jump.message().key();
+                return true;
+            }
+            case PinnedBar.Unpin unpin -> {
+                context.route().pin(partner, unpin.message(), false, context.route().canSync(partner, List.of(unpin.message())), this::warn);
+                return true;
+            }
+            case PinnedBar.None none -> { }
+        }
+        return switch (replyStrip.click(x, y)) {
+            case JUMP -> {
+                jumpKey = replyStrip.reply().id();
+                yield true;
+            }
+            case CANCEL -> true;
+            case NONE -> false;
+        };
+    }
+
+    // что окну переписки дают действия с сообщением
+    private final class ActionsHost implements MessageActions.Host {
+        @Override
+        public String partner() {
+            return partner;
+        }
+
+        @Override
+        public String partnerName() {
+            if (isNotes()) {
+                return minecraft.getUser().getName();
+            }
+            return isOfficial() ? PrivateMessages.OFFICIAL_NAME : messages.displayName(partner);
+        }
+
+        @Override
+        public boolean editable() {
+            return partner != null && !isReadOnly();
+        }
+
+        @Override
+        public void reply(MessageReply reply) {
+            replyStrip.start(reply);
+            input.focus();
+        }
+
+        @Override
+        public void forward(List<PrivateMessage> forwarded) {
+            forwardPicker.open(forwarded, forwardTargets(), WIDTH, HEIGHT);
+        }
+
+        @Override
+        public void select(PrivateMessage message) {
+            selection.start(message);
+        }
+
+        @Override
+        public void confirm(ConfirmBox.Request request) {
+            confirmBox.open(request, WIDTH, HEIGHT);
+        }
+
+        @Override
+        public void deleted() {
+            selection.clear();
+        }
     }
 
     private void clickGif(GifPicker.Click click) {
@@ -1135,6 +1538,7 @@ public class MessengerScreen extends ScreenBase {
                     input.focus();
                     UiSounds.play(UiSound.CLICK);
                 }
+                case NEW_GROUP -> openGroupEditor(() -> groupEditor.openCreate(groups().friends(), WIDTH, HEIGHT));
             }
             return true;
         }
@@ -1153,7 +1557,8 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = toCanvasX(mouseX);
-        if (gifPicker.scroll(x, toCanvasY(mouseY), scrollY) || forwardPicker.scroll(x, toCanvasY(mouseY), scrollY)) {
+        if (gifPicker.scroll(x, toCanvasY(mouseY), scrollY) || forwardPicker.scroll(x, toCanvasY(mouseY), scrollY)
+                || groupEditor.scroll(x, toCanvasY(mouseY), scrollY)) {
             return true;
         }
         int step = (int) Math.round(scrollY * SCROLL_STEP);
@@ -1170,18 +1575,47 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public boolean keyPressed(KeyEvent event) {
         int key = event.key();
-        if (key == InputConstants.KEY_ESCAPE && menu.isOpen()) {
-            menu.close();
+        boolean enter = key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER;
+        if (confirmBox.isOpen()) {
+            if (enter) {
+                confirmBox.confirm();
+            } else if (key == InputConstants.KEY_ESCAPE) {
+                confirmBox.close();
+            }
             return true;
         }
-        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen() || gifPicker.isOpen() || forwardPicker.isOpen())) {
+        if (groupEditor.isOpen()) {
+            return groupEditor.keyPressed(key);
+        }
+        if (voiceStrip.isRecording()) {
+            if (key == InputConstants.KEY_ESCAPE) {
+                voiceStrip.cancel();
+            } else if (enter) {
+                voiceStrip.finish();
+            }
+            return true;
+        }
+        if (key == InputConstants.KEY_ESCAPE && (menu.isOpen() || messageMenu.isOpen())) {
+            menu.close();
+            messageMenu.close();
+            return true;
+        }
+        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || gifPicker.isOpen() || forwardPicker.isOpen())) {
             viewer.close();
-            reactionBar.close();
             gifPicker.close();
             forwardPicker.close();
             return true;
         }
-        if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) && input.isFocused()) {
+        // Esc снимает выделение, потом отменяет ответ, и только потом закрывает окно
+        if (key == InputConstants.KEY_ESCAPE && selection.isActive()) {
+            selection.clear();
+            return true;
+        }
+        if (key == InputConstants.KEY_ESCAPE && replyStrip.isActive()) {
+            replyStrip.clear();
+            return true;
+        }
+        if (enter && input.isFocused()) {
             send();
             return true;
         }
@@ -1193,7 +1627,16 @@ public class MessengerScreen extends ScreenBase {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (confirmBox.isOpen()) {
+            return true;
+        }
         String text = event.codepointAsString();
+        if (groupEditor.isOpen()) {
+            return groupEditor.charTyped(text);
+        }
+        if (voiceStrip.isRecording()) {
+            return true;
+        }
         boolean typed = root.charTyped(text) || !isAnnouncements() && composer.charTyped(text);
         if (typed && search.isFocused()) {
             listScroll = 0;
@@ -1204,6 +1647,9 @@ public class MessengerScreen extends ScreenBase {
 
     @Override
     public void removed() {
+        voiceStrip.cancel();
+        dev.no.name.blooddesigner.gui.media.VoicePlayer.get().stop();
+        messages.setDraft(partner, input.getText());
         messages.close();
         MenuBlur.cancel();
         Compat.stopTextInput();

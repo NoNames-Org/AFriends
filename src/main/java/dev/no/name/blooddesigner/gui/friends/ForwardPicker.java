@@ -26,7 +26,7 @@ final class ForwardPicker {
         void paint(Gfx g, String entry, float x, float y, int size);
     }
 
-    private PrivateMessage message;
+    private List<PrivateMessage> forwarded = List.of();
     private List<String> entries = List.of();
     private int scroll;
     private float x;
@@ -34,15 +34,16 @@ final class ForwardPicker {
     private float height;
 
     boolean isOpen() {
-        return message != null;
+        return !forwarded.isEmpty();
     }
 
-    PrivateMessage message() {
-        return message;
+    // что пересылаем: одно сообщение из меню или выделенные
+    List<PrivateMessage> messages() {
+        return forwarded;
     }
 
-    void open(PrivateMessage message, List<String> entries, int areaWidth, int areaHeight) {
-        this.message = message;
+    void open(List<PrivateMessage> messages, List<String> entries, int areaWidth, int areaHeight) {
+        this.forwarded = List.copyOf(messages);
         this.entries = List.copyOf(entries);
         this.scroll = 0;
         height = PAD * 2 + TITLE + Math.min(VISIBLE, Math.max(1, entries.size())) * ROW;
@@ -51,16 +52,17 @@ final class ForwardPicker {
     }
 
     void close() {
-        message = null;
+        forwarded = List.of();
     }
 
     void draw(Gfx g, int mouseX, int mouseY, Function<String, String> names, TilePainter tiles) {
-        if (message == null) {
+        if (forwarded.isEmpty()) {
             return;
         }
         Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
         Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
-        Draw.text(g, "Переслать в…", x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        String title = forwarded.size() == 1 ? "Переслать в…" : "Переслать " + forwarded.size() + " в…";
+        Draw.text(g, title, x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
         if (entries.isEmpty()) {
             Draw.textCentered(g, "Некуда пересылать", x + WIDTH / 2f, y + PAD + TITLE + 6, Theme.TEXT_DIM);
             return;
@@ -78,7 +80,7 @@ final class ForwardPicker {
 
     // чат, в который пересылать; null — мимо окна (его закрывают) или в пустое место окна
     String click(double mouseX, double mouseY) {
-        if (message == null || mouseX < x || mouseX >= x + WIDTH || mouseY < y || mouseY >= y + height) {
+        if (forwarded.isEmpty() || mouseX < x || mouseX >= x + WIDTH || mouseY < y || mouseY >= y + height) {
             return null;
         }
         int index = scroll + (int) Math.floor((mouseY - y - PAD - TITLE) / ROW);
@@ -86,7 +88,7 @@ final class ForwardPicker {
     }
 
     boolean contains(double mouseX, double mouseY) {
-        return message != null && mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height;
+        return !forwarded.isEmpty() && mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height;
     }
 
     boolean scroll(double mouseX, double mouseY, double amount) {

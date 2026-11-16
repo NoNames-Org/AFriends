@@ -17,7 +17,9 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 // Объявления модов с портала portal.no-names.com. Это открытый список, поэтому он берётся обычным HTTPS-запросом,
@@ -30,11 +32,15 @@ public final class AnnouncementFeed {
     private static final long REFRESH_MS = 15_000;
     private static final Duration TIMEOUT = Duration.ofSeconds(8);
     private static final int MAX_TEXT = 600;
+    private static final String ID_PREFIX = "ann";
 
     private final AtomicBoolean loading = new AtomicBoolean();
     // событие пришло, пока шёл прошлый запрос: его ответ мог уже устареть, спросим ещё раз
     private final AtomicBoolean again = new AtomicBoolean();
     private volatile List<PrivateMessage> messages = List.of();
+    // опросы по id сообщения объявления («ann» + id на сервере)
+    private volatile Map<String, AnnouncementPoll> polls = Map.of();
+    private final PollVotes votes = new PollVotes();
     private volatile long fetchedAt;
     private HttpClient client;
 
@@ -48,6 +54,23 @@ public final class AnnouncementFeed {
     // старые сверху, как в любом чате; пусто, пока не загрузилось или объявлений нет
     public List<PrivateMessage> messages() {
         return messages;
+    }
+
+    public PollVotes votes() {
+        return votes;
+    }
+
+    // опрос этого объявления или null
+    public AnnouncementPoll poll(PrivateMessage message) {
+        String id = message.id();
+        return id == null || !id.startsWith(ID_PREFIX) ? null : polls.get(id);
+    }
+
+    // проголосовали — подставляем свежие числа, не дожидаясь следующей загрузки ленты
+    public void replacePoll(AnnouncementPoll poll) {
+        Map<String, AnnouncementPoll> next = new HashMap<>(polls);
+        next.put(ID_PREFIX + poll.announcement(), poll);
+        polls = Map.copyOf(next);
     }
 
     // зовётся каждый кадр экрана сообщений; сам решает, пора ли спрашивать сервер
@@ -77,7 +100,12 @@ public final class AnnouncementFeed {
         client().sendAsync(request, HttpResponse.BodyHandlers.ofString()).whenComplete((response, error) -> {
             try {
                 if (error == null && response.statusCode() == 200) {
-                    messages = parse(response.body());
+                    Parsed parsed = parse(response.body(), votes);
+                    messages = parsed.messages();
+                    polls = parsed.polls();
+                    // свой выбор помнит сервер: подтягиваем, чтобы отметить вариант и на другом компьютере
+                    votes.loadMine(parsed.polls().values().stream().map(AnnouncementPoll::announcement).toList(),
+                            () -> polls = withMine(polls));
                 } else {
                     LOGGER.debug("{}: объявления не загрузились ({})", BloodDesigner.NAME,
                             error != null ? error.getClass().getSimpleName() : response.statusCode());
@@ -114,11 +142,21 @@ public final class AnnouncementFeed {
         return URI.create(scheme + "://" + tunnel.getHost() + (port > 0 ? ":" + port : "") + "/v1/announcements");
     }
 
-    private static List<PrivateMessage> parse(String body) {
+    private record Parsed(List<PrivateMessage> messages, Map<String, AnnouncementPoll> polls) {
+    }
+
+    private Map<String, AnnouncementPoll> withMine(Map<String, AnnouncementPoll> current) {
+        Map<String, AnnouncementPoll> next = new HashMap<>();
+        current.forEach((id, poll) -> next.put(id, poll.withMine(votes.mine(poll.announcement()))));
+        return Map.copyOf(next);
+    }
+
+    private static Parsed parse(String body, PollVotes votes) {
         List<PrivateMessage> result = new ArrayList<>();
+        Map<String, AnnouncementPoll> polls = new HashMap<>();
         JsonElement root = JsonParser.parseString(body);
         if (!root.isJsonObject() || !root.getAsJsonObject().has("announcements")) {
-            return List.of();
+            return new Parsed(List.of(), Map.of());
         }
         for (JsonElement item : root.getAsJsonObject().getAsJsonArray("announcements")) {
             if (!item.isJsonObject()) {
@@ -131,12 +169,20 @@ public final class AnnouncementFeed {
             String text = json.get("text").getAsString().strip();
             // картинки портала; где они в тексте — метки [img]
             List<MessageImage> images = MessageImage.listFromPortal(json);
+            // id объявления нужен опросу: по нему голос уходит на сервер
+            long announcement = json.has("id") ? json.get("id").getAsLong() : 0;
+            String id = announcement > 0 ? ID_PREFIX + announcement : null;
+            AnnouncementPoll poll = announcement > 0
+                    ? AnnouncementPoll.parse(announcement, json.get("poll"), votes.mine(announcement)) : null;
+            if (poll != null) {
+                polls.put(id, poll);
+            }
             if (!text.isEmpty() || !images.isEmpty()) {
                 result.add(new PrivateMessage(false, text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) : text,
-                        json.get("created").getAsLong(), null, images, null, null));
+                        json.get("created").getAsLong(), id, images, null, null));
             }
         }
         result.sort(Comparator.comparingLong(PrivateMessage::time));
-        return List.copyOf(result);
+        return new Parsed(List.copyOf(result), Map.copyOf(polls));
     }
 }

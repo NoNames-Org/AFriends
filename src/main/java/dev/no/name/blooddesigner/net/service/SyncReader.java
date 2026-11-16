@@ -9,6 +9,7 @@ import dev.no.name.blooddesigner.net.e2e.FriendKeys;
 import dev.no.name.blooddesigner.net.model.ClientKind;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
+import dev.no.name.blooddesigner.net.model.LinkGroup;
 import dev.no.name.blooddesigner.net.model.LinkRequest;
 import dev.no.name.blooddesigner.net.model.LinkSnapshot;
 import dev.no.name.blooddesigner.net.model.Presence;
@@ -44,7 +45,8 @@ final class SyncReader {
         }
         friends.sort(ORDER);
         return new LinkSnapshot(Connection.ONLINE, string(me, "name"), me.get("verified").getAsBoolean(),
-                List.copyOf(friends), requests(json, "incoming"), requests(json, "outgoing"), now);
+                List.copyOf(friends), requests(json, "incoming"), requests(json, "outgoing"), now,
+                groups(json, string(me, "id"), friends));
     }
 
     private LinkFriend friend(JsonObject json, LinkSnapshot before) {
@@ -70,6 +72,52 @@ final class SyncReader {
         return new LinkFriend(id, name, json.get("verified").getAsBoolean(), json.get("accent").getAsInt(),
                 ClientKind.fromWire(string(json, "client")), json.get("online").getAsBoolean(),
                 json.get("lastSeen").getAsLong(), json.get("since").getAsLong(), keys, status);
+    }
+
+    // группы из sync; старый сервер поля не пришлёт. Участник-друг берётся из списка друзей (со статусом),
+    // остальные — по карточке ключей, которую мод проверяет так же, как у друзей
+    private static List<LinkGroup> groups(JsonObject json, String myId, List<LinkFriend> friends) {
+        if (!json.has("groups") || !json.get("groups").isJsonArray()) {
+            return List.of();
+        }
+        List<LinkGroup> groups = new ArrayList<>();
+        for (JsonElement element : json.getAsJsonArray("groups")) {
+            try {
+                JsonObject group = element.getAsJsonObject();
+                String owner = string(group, "owner");
+                List<LinkFriend> members = new ArrayList<>();
+                for (JsonElement item : group.getAsJsonArray("members")) {
+                    LinkFriend member = member(item.getAsJsonObject(), friends);
+                    if (member != null && !member.id().equals(myId)) {
+                        members.add(member);
+                    }
+                }
+                groups.add(new LinkGroup(string(group, "id"), owner, owner.equals(myId), members));
+            } catch (RuntimeException e) {
+                LOGGER.warn("{}: группа из sync не разобралась", BloodDesigner.NAME, e);
+            }
+        }
+        return List.copyOf(groups);
+    }
+
+    private static LinkFriend member(JsonObject json, List<LinkFriend> friends) {
+        String id = json.get("id").getAsString();
+        for (LinkFriend friend : friends) {
+            if (friend.id().equals(id)) {
+                return friend;
+            }
+        }
+        String name = string(json, "name");
+        if (name.isEmpty()) {
+            return null;
+        }
+        try {
+            FriendKeys keys = FriendKeys.verified(id, bytes(json, "signKey"), bytes(json, "boxKey"), bytes(json, "keySig"));
+            return new LinkFriend(id, name, json.get("verified").getAsBoolean(), 0, ClientKind.BLOODDESIGNER, false, 0, 0, keys, null);
+        } catch (E2eException | RuntimeException e) {
+            LOGGER.warn("{}: ключи участника группы {} не прошли проверку", BloodDesigner.NAME, name);
+            return null;
+        }
     }
 
     private Presence status(JsonObject json, String friendId) {

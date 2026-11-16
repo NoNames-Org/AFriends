@@ -43,6 +43,16 @@ class MessageContentTest {
     }
 
     @Test
+    @DisplayName("метка [img-id] ставит свою картинку, а не очередную; простые [img] берут оставшиеся")
+    void tokenWithId() {
+        assertEquals(List.of(new MessageContent.Image(B), new MessageContent.Text("между"), new MessageContent.Image(A)),
+                MessageContent.blocks("[img-bbbbbb]\nмежду\n[img]", List.of(A, B)));
+        assertEquals(List.of(new MessageContent.Image(A), new MessageContent.Text("текст")),
+                MessageContent.blocks("[IMG-CCCC]текст", List.of(A)));
+        assertEquals("a b", MessageContent.plain("a [img-aaaaaa] b"));
+    }
+
+    @Test
     @DisplayName("подпись в списке чатов: без меток, а без текста — «Изображение» или «Гифка»")
     void preview() {
         assertEquals("Гифка", MessageContent.preview(new PrivateMessage(false, "[img]", 1, null, List.of(B), null, null)));

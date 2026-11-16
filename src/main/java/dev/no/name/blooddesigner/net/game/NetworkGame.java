@@ -96,6 +96,7 @@ public final class NetworkGame {
             link.updateProfile(profile);
         }
         incoming.tick();
+        direct.tick();
         friends.tick();
         String scope = ServerScope.current();
         if (!ServerScope.NONE.equals(scope)) {

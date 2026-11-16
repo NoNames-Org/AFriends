@@ -67,6 +67,20 @@ public final class MenuText {
         return false;
     }
 
+    /** Первый ключ перевода в тексте; пусто, если текст набран без ключей. */
+    public static String key(Component text) {
+        if (text.getContents() instanceof TranslatableContents translatable) {
+            return translatable.getKey();
+        }
+        for (Component sibling : text.getSiblings()) {
+            String found = key(sibling);
+            if (!found.isEmpty()) {
+                return found;
+            }
+        }
+        return "";
+    }
+
     /** Первый аргумент ключа перевода, оканчивающегося на {@code suffix}, например цена в «...price». */
     public static String keyArgument(Component text, String suffix) {
         if (text.getContents() instanceof TranslatableContents translatable && translatable.getKey().endsWith(suffix)

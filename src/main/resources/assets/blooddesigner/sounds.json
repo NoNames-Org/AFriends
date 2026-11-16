@@ -33,5 +33,10 @@
     "sounds": [
       "blooddesigner:ui/select"
     ]
+  },
+  "ui.message": {
+    "sounds": [
+      "blooddesigner:notify/message"
+    ]
   }
 }

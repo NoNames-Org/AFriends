@@ -1,12 +1,14 @@
 package dev.no.name.blooddesigner.net.game;
 
+import dev.no.name.blooddesigner.core.GroupChats;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.SocialData;
-import dev.no.name.blooddesigner.net.chat.MessageIds;
+import dev.no.name.blooddesigner.core.MessageIds;
 import dev.no.name.blooddesigner.net.media.PreparedImage;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.rpc.Failures;
@@ -29,18 +31,29 @@ public final class DirectMessages implements MessageRoute {
     private final LinkService link;
     private final OfficialRoute official;
     private final NotesRoute notes;
+    private final GroupRoute groups;
 
     DirectMessages(SocialData social, LinkService link) {
         this.social = social;
         this.link = link;
         this.official = new OfficialRoute(social, link);
         this.notes = new NotesRoute(social, link.media());
+        this.groups = new GroupRoute(social, link);
+    }
+
+    @Override
+    public GroupChats groups() {
+        return groups;
+    }
+
+    void tick() {
+        groups.tick();
     }
 
     // друг по сети: пишется через сервер сети, и неважно, на каком сервере Minecraft он сейчас
     @Override
     public boolean viaNetwork(String partner) {
-        return partner != null && link.snapshot().friendNamed(partner) != null;
+        return partner != null && (PrivateMessages.isGroup(partner) || link.snapshot().friendNamed(partner) != null);
     }
 
     // Отправить. Пусто — ушло в обработку; иначе причина, почему не ушло сразу.
@@ -52,13 +65,22 @@ public final class DirectMessages implements MessageRoute {
 
     @Override
     public Optional<String> send(String partner, String text, String forwardedFrom, Consumer<String> failed) {
+        return send(partner, text, forwardedFrom, null, failed);
+    }
+
+    @Override
+    public Optional<String> send(String partner, String text, String forwardedFrom, MessageReply reply, Consumer<String> failed) {
         LinkSnapshot state = link.snapshot();
         if (PrivateMessages.NOTES.equals(partner)) {
-            return notes.send(text, forwardedFrom);
+            return notes.send(text, forwardedFrom, reply);
         }
         // BloodDesigner: админам мода через сервер сети, на портал
         if (PrivateMessages.isOfficial(partner)) {
             return official.send(text, forwardedFrom, failed);
+        }
+        if (PrivateMessages.isGroup(partner)) {
+            String shown = forwardedFrom == null ? text : MessageRoute.forwardedPrefix(forwardedFrom) + text;
+            return groups.send(partner, shown, reply, failed);
         }
         LinkFriend friend = state.friendNamed(partner);
         if (friend != null) {
@@ -66,10 +88,10 @@ public final class DirectMessages implements MessageRoute {
                 return Optional.of(LinkText.sendProblem("offline"));
             }
             String id = MessageIds.next();
-            link.sendText(friend.id(), text, id, forwardedFrom).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+            link.sendText(friend.id(), text, id, forwardedFrom, reply).thenAccept(code -> Minecraft.getInstance().execute(() -> {
                 long now = System.currentTimeMillis();
                 if ("ok".equals(code)) {
-                    social.messages().add(partner, new PrivateMessage(true, text, now, id, List.of(), null, null, forwardedFrom));
+                    social.messages().add(partner, new PrivateMessage(true, text, now, id, List.of(), null, null, forwardedFrom, reply));
                 } else {
                     social.messages().markOffline(partner, now);
                     failed.accept(LinkText.sendProblem(code));
@@ -111,8 +133,14 @@ public final class DirectMessages implements MessageRoute {
 
     @Override
     public Optional<String> sendImage(String partner, Path file, String caption, String forwardedFrom, Consumer<String> failed) {
+        return sendImage(partner, file, caption, forwardedFrom, null, failed);
+    }
+
+    @Override
+    public Optional<String> sendImage(String partner, Path file, String caption, String forwardedFrom, MessageReply reply,
+                                      Consumer<String> failed) {
         if (PrivateMessages.NOTES.equals(partner)) {
-            return notes.sendImage(file, caption, forwardedFrom, failed);
+            return notes.sendImage(file, caption, forwardedFrom, reply, failed);
         }
         if (PrivateMessages.isOfficial(partner)) {
             return official.sendImage(file, caption, forwardedFrom, failed);
@@ -127,11 +155,34 @@ public final class DirectMessages implements MessageRoute {
         }
         String id = MessageIds.next();
         CompletableFuture.supplyAsync(() -> PreparedImage.read(file))
-                .thenCompose(prepared -> link.sendImage(friend.id(), prepared, id, caption, forwardedFrom))
+                .thenCompose(prepared -> link.sendImage(friend.id(), prepared, id, caption, forwardedFrom, reply))
                 .whenComplete((image, error) -> Minecraft.getInstance().execute(() -> {
                     if (error == null) {
                         social.messages().add(partner, new PrivateMessage(true, caption, System.currentTimeMillis(), id,
-                                List.of(image), null, null, forwardedFrom));
+                                List.of(image), null, null, forwardedFrom, reply));
+                    } else {
+                        failed.accept(imageProblem(Failures.codeOf(error)));
+                    }
+                }));
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> sendVoice(String partner, byte[] data, int centiseconds, MessageReply reply, Consumer<String> failed) {
+        LinkSnapshot state = link.snapshot();
+        LinkFriend friend = state.friendNamed(partner);
+        if (friend == null) {
+            return Optional.of("Голосовые можно отправлять только друзьям по сети");
+        }
+        if (state.connection() != Connection.ONLINE) {
+            return Optional.of(LinkText.sendProblem("offline"));
+        }
+        String id = MessageIds.next();
+        link.sendImage(friend.id(), PreparedImage.voice(data, centiseconds), id, "", null, reply)
+                .whenComplete((voice, error) -> Minecraft.getInstance().execute(() -> {
+                    if (error == null) {
+                        social.messages().add(partner, new PrivateMessage(true, "", System.currentTimeMillis(), id,
+                                List.of(voice), null, null, null, reply));
                     } else {
                         failed.accept(imageProblem(Failures.codeOf(error)));
                     }
@@ -156,6 +207,44 @@ public final class DirectMessages implements MessageRoute {
         }));
     }
 
+    // у себя — сразу; у друга — конвертом. Конверт не ушёл — у себя всё равно удалено, говорим, что у собеседника осталось
+    @Override
+    public void delete(String partner, List<PrivateMessage> messages, boolean forBoth, Consumer<String> failed) {
+        List<String> keys = messages.stream().map(PrivateMessage::key).toList();
+        social.messages().remove(partner, keys);
+        LinkFriend friend = link.snapshot().friendNamed(partner);
+        if (!forBoth || friend == null || !canSync(partner, messages)) {
+            return;
+        }
+        link.sendDelete(friend.id(), keys).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+            if (!"ok".equals(code)) {
+                failed.accept("У собеседника не удалилось: " + LinkText.sendProblem(code));
+            }
+        }));
+    }
+
+    // свой закреп сразу; у друга не ушло — у себя оставляем, говорим
+    @Override
+    public void pin(String partner, PrivateMessage message, boolean pinned, boolean forBoth, Consumer<String> failed) {
+        social.messages().pin(partner, message.key(), pinned);
+        LinkFriend friend = link.snapshot().friendNamed(partner);
+        if (!forBoth || friend == null || message.id() == null) {
+            return;
+        }
+        link.sendPin(friend.id(), message.id(), pinned).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+            if (!"ok".equals(code)) {
+                failed.accept((pinned ? "У собеседника не закрепилось: " : "У собеседника не открепилось: ")
+                        + LinkText.sendProblem(code));
+            }
+        }));
+    }
+
+    @Override
+    public boolean canSync(String partner, List<PrivateMessage> messages) {
+        return !messages.isEmpty() && messages.size() <= dev.no.name.blooddesigner.net.chat.ChatPayload.MAX_DELETE
+                && link.snapshot().friendNamed(partner) != null && messages.stream().allMatch(message -> message.id() != null);
+    }
+
     @Override
     public CompletableFuture<Path> imageFile(MessageImage image) {
         return link.media().file(image);
@@ -176,6 +265,9 @@ public final class DirectMessages implements MessageRoute {
     // строка под ником в шапке переписки; null — не друг по сети, у BloodDesigner своя подпись
     @Override
     public String headerLine(String partner) {
+        if (PrivateMessages.isGroup(partner)) {
+            return groups.headerLine(partner);
+        }
         LinkFriend friend = link.snapshot().friendNamed(partner);
         if (friend == null) {
             return null;

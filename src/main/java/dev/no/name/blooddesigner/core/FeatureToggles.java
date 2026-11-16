@@ -13,6 +13,7 @@ public final class FeatureToggles {
         PARTY("party", "Пати", "Кнопка и панель пати в чате (bloodstone)"),
         MESSENGER("messenger", "Мессенджер", "Кнопка «Сообщения» и «Написать в ЛС»"),
         BATTLEPASS("battlepass", "Батл пасс", "Своё меню БП, заданий и покупки вместо серверного"),
+        STORE("store", "Магазин", "Своё меню магазина (/donate) с подтверждением покупки"),
         MODES("modes", "Выбрать режим", "Кнопка навигатора режимов в меню паузы");
 
         private final String id;

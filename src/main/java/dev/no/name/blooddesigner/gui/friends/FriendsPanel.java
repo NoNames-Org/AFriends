@@ -47,7 +47,6 @@ public class FriendsPanel extends WidgetBase {
     private static final int NAME_LENGTH = 16;
     private static final long NOTICE_MS = 3000;
     private static final int SUCCESS = OnlineDot.COLOR;
-    private static final int DANGER = 0xFFFF6B6B;
     private static final Pattern NAME_CHAR = Pattern.compile("[A-Za-z0-9_]");
     private static final int STATUS_LENGTH = 40;
     private static final int REQUEST_BUTTON = 14;
@@ -171,7 +170,7 @@ public class FriendsPanel extends WidgetBase {
     private void addFromField() {
         String name = field.getText().strip();
         if (name.isEmpty()) {
-            notify("Впиши ник, чтобы добавить", DANGER);
+            notify("Впиши ник, чтобы добавить", Theme.DANGER);
             return;
         }
         switch (friends.add(name)) {
@@ -183,8 +182,8 @@ public class FriendsPanel extends WidgetBase {
                 Addons.get().added(name, text -> notify(text, SUCCESS));
             }
             case ALREADY -> notify(name + " уже в друзьях", Theme.TEXT_SOFT);
-            case SELF -> notify("Себя добавить нельзя", DANGER);
-            case INVALID -> notify("Это не похоже на ник", DANGER);
+            case SELF -> notify("Себя добавить нельзя", Theme.DANGER);
+            case INVALID -> notify("Это не похоже на ник", Theme.DANGER);
         }
     }
 
@@ -260,7 +259,7 @@ public class FriendsPanel extends WidgetBase {
         Draw.text(g, Draw.trim(request.name(), textWidth, TextStyle.BODY_MEDIUM), textX, rowY + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
         Draw.text(g, Draw.trim(request.hint(), textWidth, TextStyle.SMALL), textX, rowY + 14, Theme.TEXT_DIM, TextStyle.SMALL);
         drawRequestButton(g, acceptX(), rowY, Icon.CHECK, SUCCESS, mouseX, mouseY);
-        drawRequestButton(g, declineX(), rowY, Icon.CLOSE, DANGER, mouseX, mouseY);
+        drawRequestButton(g, declineX(), rowY, Icon.CLOSE, Theme.DANGER, mouseX, mouseY);
     }
 
     private void drawRequestButton(Gfx g, int x, int rowY, Icon icon, int color, int mouseX, int mouseY) {

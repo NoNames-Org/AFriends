@@ -11,6 +11,7 @@ import dev.no.name.blooddesigner.gui.render.text.TextStyle;
 
 import java.util.List;
 
+// Выпадающий список действий. Без заголовка (title == null) — список под плашкой реакций у сообщения
 final class ChatMenu {
     static final int WIDTH = 150;
     private static final int PADDING = 4;
@@ -47,7 +48,19 @@ final class ChatMenu {
     }
 
     private int height() {
-        return HEADER_HEIGHT + items.size() * ITEM_HEIGHT + PADDING * 2;
+        return heightFor(items.size(), title != null);
+    }
+
+    static int heightFor(int count, boolean header) {
+        return (header ? HEADER_HEIGHT : 0) + count * ITEM_HEIGHT + PADDING * 2;
+    }
+
+    float x() {
+        return x;
+    }
+
+    float y() {
+        return y;
     }
 
     void draw(Gfx g, int mouseX, int mouseY) {
@@ -59,7 +72,9 @@ final class ChatMenu {
         Draw.pushOffset(g, 0, (1 - progress) * -3);
         Draw.shadow(g, x, y + 2, WIDTH, height(), Theme.RADIUS + 2, 12, Theme.SHADOW);
         Draw.box(g, x, y, WIDTH, height(), Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER_HOVER);
-        Draw.text(g, Draw.trim(title, WIDTH - PADDING * 4), x + PADDING * 2, y + PADDING + 3, Theme.TEXT_DIM, TextStyle.SMALL);
+        if (title != null) {
+            Draw.text(g, Draw.trim(title, WIDTH - PADDING * 4), x + PADDING * 2, y + PADDING + 3, Theme.TEXT_DIM, TextStyle.SMALL);
+        }
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
             float itemX = x + PADDING;
@@ -78,7 +93,11 @@ final class ChatMenu {
     }
 
     private float itemY(int index) {
-        return y + PADDING + HEADER_HEIGHT + index * ITEM_HEIGHT;
+        return y + PADDING + (title != null ? HEADER_HEIGHT : 0) + index * ITEM_HEIGHT;
+    }
+
+    boolean contains(double mouseX, double mouseY) {
+        return open && mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height();
     }
 
     boolean click(double mouseX, double mouseY) {

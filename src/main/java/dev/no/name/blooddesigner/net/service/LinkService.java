@@ -16,6 +16,7 @@ import dev.no.name.blooddesigner.net.media.PreparedImage;
 import dev.no.name.blooddesigner.net.e2e.SafetyNumber;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
+import dev.no.name.blooddesigner.net.model.LinkGroup;
 import dev.no.name.blooddesigner.net.model.LinkSnapshot;
 import dev.no.name.blooddesigner.net.model.Presence;
 import dev.no.name.blooddesigner.net.rpc.Failures;
@@ -63,6 +64,7 @@ public final class LinkService {
         this.official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
         // картинки переписки лежат рядом с папкой сети: config/blooddesigner/media
         this.media = new MediaCache(folder.resolveSibling("media"), blobs);
+        AnnouncementFeed.get().votes().setRequester(this::query);
     }
 
     public LinkSnapshot snapshot() {
@@ -185,7 +187,79 @@ public final class LinkService {
 
     // forwardedFrom — чьё сообщение пересылаем (null — своё)
     public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom) {
-        return sendPayload(friendId, new ChatPayload.Text(text, id, null, forwardedFrom));
+        return sendText(friendId, text, id, forwardedFrom, null);
+    }
+
+    // reply — на какое сообщение ответ (null — не ответ)
+    public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom,
+                                              dev.no.name.blooddesigner.core.MessageReply reply) {
+        return sendPayload(friendId, new ChatPayload.Text(text, id, null, forwardedFrom, reply));
+    }
+
+    // ---- групповые чаты ----
+
+    // новая группа из друзей; в ответе id группы или null, если не вышло (тогда code — причина)
+    public CompletableFuture<JsonObject> createGroup(java.util.List<String> memberIds) {
+        JsonObject data = new JsonObject();
+        com.google.gson.JsonArray members = new com.google.gson.JsonArray();
+        memberIds.forEach(members::add);
+        data.add("members", members);
+        return query("group.create", data).thenApply(json -> {
+            onWorker(runtime -> runtime.sync.request());
+            return json;
+        });
+    }
+
+    public CompletableFuture<String> addToGroup(String group, String friendId) {
+        JsonObject data = new JsonObject();
+        data.addProperty("group", group);
+        data.addProperty("id", friendId);
+        return action("group.add", data);
+    }
+
+    public CompletableFuture<String> leaveGroup(String group) {
+        JsonObject data = new JsonObject();
+        data.addProperty("group", group);
+        return action("group.leave", data);
+    }
+
+    public CompletableFuture<String> kickFromGroup(String group, String memberId) {
+        JsonObject data = new JsonObject();
+        data.addProperty("group", group);
+        data.addProperty("id", memberId);
+        return action("group.kick", data);
+    }
+
+    // сообщение в группу: каждому участнику отдельным сквозным конвертом. "ok" — дошло до всех, иначе код первого отказа
+    public CompletableFuture<String> sendGroupText(String group, String text, String id,
+                                                   dev.no.name.blooddesigner.core.MessageReply reply) {
+        return sendToGroup(group, new ChatPayload.Text(text, id, null, null, reply, group));
+    }
+
+    public CompletableFuture<String> sendGroupName(String group, String name) {
+        return sendToGroup(group, new ChatPayload.GroupName(group, name));
+    }
+
+    private CompletableFuture<String> sendToGroup(String groupId, ChatPayload payload) {
+        return call(runtime -> {
+            LinkGroup group = snapshot.group(groupId);
+            if (group == null) {
+                return CompletableFuture.failedFuture(new TunnelError("not_member"));
+            }
+            CompletableFuture<?>[] sends = group.members().stream()
+                    .map(member -> runtime.outbox.send(member, payload)).toArray(CompletableFuture[]::new);
+            return CompletableFuture.allOf(sends);
+        });
+    }
+
+    // удалить у друга сообщения с этими id
+    public CompletableFuture<String> sendDelete(String friendId, java.util.List<String> targets) {
+        return sendPayload(friendId, new ChatPayload.Delete(targets));
+    }
+
+    // закрепить или открепить у друга сообщение с этим id
+    public CompletableFuture<String> sendPin(String friendId, String target, boolean pinned) {
+        return sendPayload(friendId, new ChatPayload.Pin(target, pinned));
     }
 
     // реакция на сообщение с этим id; reaction == null — снять свою
@@ -211,6 +285,11 @@ public final class LinkService {
 
     public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
                                                      String forwardedFrom) {
+        return sendImage(friendId, prepared, id, caption, forwardedFrom, null);
+    }
+
+    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
+                                                     String forwardedFrom, dev.no.name.blooddesigner.core.MessageReply reply) {
         CompletableFuture<MessageImage> result = new CompletableFuture<>();
         worker.execute(() -> {
             LinkFriend friend = snapshot.friend(friendId);
@@ -231,7 +310,7 @@ public final class LinkService {
                 MessageImage image = new MessageImage(blob, Bytes.base64(key), prepared.mime(), prepared.width(),
                         prepared.height(), prepared.bytes().length, prepared.sha256());
                 media.store(image, prepared.bytes());
-                return current.outbox.send(friend, new ChatPayload.Text(caption, id, image, forwardedFrom)).thenApply(done -> image);
+                return current.outbox.send(friend, new ChatPayload.Text(caption, id, image, forwardedFrom, reply)).thenApply(done -> image);
             }, worker).whenComplete((image, error) -> {
                 if (error != null) {
                     result.completeExceptionally(error);
@@ -296,6 +375,19 @@ public final class LinkService {
             LinkFriend friend = snapshot.friend(friendId);
             result.complete(runtime == null || friend == null ? null : SafetyNumber.of(runtime.identity.signPublic(),
                     runtime.identity.exchangePublic(), friend.keys().signKey(), friend.keys().exchangeKey()));
+        });
+        return result;
+    }
+
+    // запрос с ответом: null, если связи нет или сервер отказал (опросы объявлений)
+    private CompletableFuture<JsonObject> query(String op, JsonObject data) {
+        CompletableFuture<JsonObject> result = new CompletableFuture<>();
+        worker.execute(() -> {
+            if (runtime == null || snapshot.connection() != Connection.ONLINE) {
+                result.complete(null);
+                return;
+            }
+            runtime.connection.request(op, data).whenComplete((json, error) -> result.complete(error != null ? null : json));
         });
         return result;
     }

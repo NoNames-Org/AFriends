@@ -36,6 +36,16 @@ public record PreparedImage(byte[] bytes, String mime, int width, int height, St
         }
     }
 
+    // голосовое идёт тем же путём, что и картинка: своё шифрование, сервер видит только шум.
+    // width — длительность в сотых секунды, height — заглушка (поле обязано быть положительным)
+    public static PreparedImage voice(byte[] bytes, int centiseconds) {
+        if (bytes.length > MessageImage.MAX_SIZE) {
+            throw new TunnelError("image_too_big");
+        }
+        return new PreparedImage(bytes, dev.no.name.blooddesigner.core.voice.VoiceClip.MIME, Math.max(1, centiseconds), 1,
+                sha256(bytes));
+    }
+
     public static PreparedImage of(byte[] bytes) {
         String mime = mimeOf(bytes);
         if (mime == null) {
