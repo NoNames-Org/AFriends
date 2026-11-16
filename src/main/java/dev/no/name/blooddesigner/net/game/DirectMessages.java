@@ -180,7 +180,7 @@ public final class DirectMessages implements MessageRoute {
         if (friend == null) {
             return null;
         }
-        String where = friend.online() ? LinkText.line(friend, System.currentTimeMillis()) : "Не в сети — прочитает при входе";
+        String where = friend.online() ? LinkText.line(friend, System.currentTimeMillis()) : "Не в сети";
         return where + " · сквозное шифрование";
     }
 }
