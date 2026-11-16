@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.battlepass;
 
+import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassNavigator;
 import dev.no.name.blooddesigner.core.battlepass.BloodBalance;
@@ -12,6 +13,7 @@ import dev.no.name.blooddesigner.gui.render.Colors;
 import dev.no.name.blooddesigner.gui.render.Draw;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.render.text.TextStyle;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
@@ -28,6 +30,8 @@ public class ShopScreen extends MenuScreenBase {
     private static final int PAD = 12;
     private static final int BACK_WIDTH = 96;
     private static final int MAX_LINES = 9;
+    private static final Identifier BANNER = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID,
+            "textures/gui/shop_banner.png");
 
     public ShopScreen() {
         super("Покупка Premium");
@@ -89,8 +93,8 @@ public class ShopScreen extends MenuScreenBase {
     }
 
     private void drawBanner(Gfx g, int mouseX, int mouseY) {
-        MenuUi.banner(g, left, top, WIDTH, BANNER_HEIGHT, Icon.CROWN);
-        MenuUi.headline(g, "PREMIUM", left + PAD + 2, top + PAD + 2, 2.6f, MenuUi.GOLD);
+        MenuUi.pixelBanner(g, BANNER, left, top, WIDTH, BANNER_HEIGHT);
+        MenuUi.display(g, "ПРЕМИУМ", left + PAD + 2, top + PAD + 2, 2.4f, MenuUi.GOLD);
         Draw.text(g, "Открой Premium-линию батл пасса", left + PAD + 3, top + 50, Colors.fade(Theme.TEXT, 0.8f));
         boolean backHovered = inside(mouseX, mouseY, backX(), buttonY(), BACK_WIDTH, MenuUi.BUTTON_HEIGHT);
         MenuUi.button(g, backX(), buttonY(), BACK_WIDTH, Icon.ARROW_LEFT, "К уровням", ButtonStyle.LIGHT, true, backHovered);
@@ -103,7 +107,8 @@ public class ShopScreen extends MenuScreenBase {
         int y = cardY();
         MenuUi.panel(g, x, y, CARD_WIDTH, CARD_HEIGHT);
         if (best) {
-            Draw.border(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.GOLD, 0.7f));
+            Draw.gradient(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, 0xF2401019, 0xF21E0A0E);
+            Draw.border(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.GOLD, 0.8f));
             String tag = "ВЫГОДНЕЕ";
             float tagW = Draw.width(tag, TextStyle.BODY) + 12;
             Draw.roundedRect(g, x + CARD_WIDTH - PAD - tagW, y + PAD - 1, tagW, 12, 6, MenuUi.GOLD);
@@ -124,15 +129,15 @@ public class ShopScreen extends MenuScreenBase {
                 lineY += 10;
             }
         }
-        drawPrice(g, product, x, mouseX, mouseY);
+        drawPrice(g, product, best, x, mouseX, mouseY);
     }
 
-    private void drawPrice(Gfx g, Product product, int x, int mouseX, int mouseY) {
+    private void drawPrice(Gfx g, Product product, boolean best, int x, int mouseX, int mouseY) {
         int priceY = buyY() - 30;
         Draw.rect(g, x + PAD, priceY - 6, CARD_WIDTH - PAD * 2, 1, Theme.BORDER_HOVER);
         String price = String.valueOf(product.price());
-        MenuUi.headline(g, price, x + PAD, priceY, 1.6f, Theme.TEXT);
-        Draw.text(g, "бладиков", x + PAD + 5 + MenuUi.headlineWidth(price, 1.6f), priceY + 5, Theme.TEXT_SOFT);
+        MenuUi.display(g, price, x + PAD, priceY, 1.6f, Theme.TEXT);
+        Draw.text(g, "бладиков", x + PAD + 5 + MenuUi.displayWidth(price, 1.6f), priceY + 5, Theme.TEXT_SOFT);
         String balance = product.affordable()
                 ? "Баланс " + product.balance()
                 : "Не хватает " + (product.price() - product.balance());
@@ -140,7 +145,7 @@ public class ShopScreen extends MenuScreenBase {
                 product.affordable() ? Theme.TEXT_DIM : MenuUi.RED);
         int w = CARD_WIDTH - PAD * 2;
         boolean hovered = inside(mouseX, mouseY, x + PAD, buyY(), w, MenuUi.BUTTON_HEIGHT);
-        ButtonStyle style = product.affordable() ? ButtonStyle.PRIMARY : ButtonStyle.OUTLINE;
+        ButtonStyle style = !product.affordable() ? ButtonStyle.OUTLINE : best ? ButtonStyle.GOLD : ButtonStyle.LIGHT;
         MenuUi.button(g, x + PAD, buyY(), w, Icon.CROWN, "Купить за " + product.price(), style, true, hovered);
     }
 

@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.battlepass;
 
+import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassNavigator;
 import dev.no.name.blooddesigner.core.battlepass.BloodBalance;
@@ -14,6 +15,7 @@ import dev.no.name.blooddesigner.gui.render.Colors;
 import dev.no.name.blooddesigner.gui.render.Draw;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.render.text.TextStyle;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
@@ -33,6 +35,10 @@ public class QuestsScreen extends MenuScreenBase {
     private static final int PAD = 12;
     private static final float ICON_SCALE = 2;
     private static final int BACK_WIDTH = 96;
+    private static final Identifier BANNER = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID,
+            "textures/gui/quests_banner.png");
+    /** Цвет группы по порядку: ежедневные, еженедельные, ежемесячные. */
+    private static final int[] GROUP_COLORS = {MenuUi.BLOOD, MenuUi.GOLD, 0xFFA46BFF};
 
     public QuestsScreen() {
         super("Задания");
@@ -83,7 +89,7 @@ public class QuestsScreen extends MenuScreenBase {
         drawBanner(g, view, mouseX, mouseY);
         List<Group> groups = view.groups();
         for (int i = 0; i < groups.size() && i < MAX_GROUPS; i++) {
-            drawGroup(g, groups.get(i), groupTop(view, i), mouseX, mouseY);
+            drawGroup(g, groups.get(i), groupTop(view, i), GROUP_COLORS[i % GROUP_COLORS.length], mouseX, mouseY);
         }
         g.nextStratum();
         for (int i = 0; i < groups.size() && i < MAX_GROUPS; i++) {
@@ -92,8 +98,8 @@ public class QuestsScreen extends MenuScreenBase {
     }
 
     private void drawBanner(Gfx g, View view, int mouseX, int mouseY) {
-        MenuUi.banner(g, left, top, WIDTH, BANNER_HEIGHT, Icon.BOOK);
-        MenuUi.headline(g, "ЗАДАНИЯ", left + PAD + 2, top + PAD + 2, 2.6f, Theme.TEXT);
+        MenuUi.pixelBanner(g, BANNER, left, top, WIDTH, BANNER_HEIGHT);
+        MenuUi.display(g, "ЗАДАНИЯ", left + PAD + 2, top + PAD + 2, 2.4f, Theme.TEXT);
         String subtitle = view.total() > 0
                 ? "Выполнено " + view.done() + " из " + view.total() + "  ·  опыт начисляется сам"
                 : "Выполняй задания и получай опыт для батл пасса";
@@ -105,21 +111,23 @@ public class QuestsScreen extends MenuScreenBase {
         MenuUi.button(g, closeX(), buttonY(), MenuUi.BUTTON_HEIGHT, Icon.CLOSE, null, ButtonStyle.OUTLINE, true, closeHovered);
     }
 
-    private void drawGroup(Gfx g, Group group, int y, int mouseX, int mouseY) {
+    private void drawGroup(Gfx g, Group group, int y, int accent, int mouseX, int mouseY) {
         long done = group.entries().stream().filter(entry -> entry.quest().done()).count();
-        Draw.text(g, group.title(), left + 2, y + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.roundedRect(g, left + 2, y + 3, 3, 10, 1.5f, accent);
+        Draw.text(g, group.title(), left + 10, y + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
         String count = done + " / " + group.entries().size();
-        Draw.text(g, count, left + 8 + Draw.width(group.title(), TextStyle.BODY_MEDIUM), y + 4, Theme.TEXT_DIM);
+        Draw.text(g, count, left + 16 + Draw.width(group.title(), TextStyle.BODY_MEDIUM), y + 4, Theme.TEXT_DIM);
         List<Entry> entries = group.entries();
         for (int i = 0; i < entries.size() && i < COLUMNS; i++) {
-            drawCard(g, entries.get(i).quest(), cardX(i), y + GROUP_TITLE, mouseX, mouseY);
+            drawCard(g, entries.get(i).quest(), cardX(i), y + GROUP_TITLE, accent, mouseX, mouseY);
         }
     }
 
-    private void drawCard(Gfx g, Quest quest, int x, int y, int mouseX, int mouseY) {
+    private void drawCard(Gfx g, Quest quest, int x, int y, int accent, int mouseX, int mouseY) {
         boolean hovered = inside(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
         MenuUi.panel(g, x, y, CARD_WIDTH, CARD_HEIGHT);
         if (quest.done()) {
+            Draw.roundedRect(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.GREEN, 0.07f));
             Draw.border(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.GREEN, 0.6f));
         } else if (hovered) {
             Draw.border(g, x, y, CARD_WIDTH, CARD_HEIGHT, Theme.PANEL_RADIUS, Theme.BORDER_SELECTED);
@@ -139,7 +147,7 @@ public class QuestsScreen extends MenuScreenBase {
             lineY += 10;
         }
         int barY = y + CARD_HEIGHT - 26;
-        int barColor = quest.done() ? MenuUi.GREEN : Theme.ACCENT;
+        int barColor = quest.done() ? MenuUi.GREEN : accent;
         MenuUi.progressBar(g, x + 8, barY, CARD_WIDTH - 16, 5, quest.fill(), barColor);
         String count = quest.progress() + " / " + quest.goal();
         int rowY = barY + 10;

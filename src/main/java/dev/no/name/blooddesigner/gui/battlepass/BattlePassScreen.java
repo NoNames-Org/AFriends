@@ -36,8 +36,6 @@ public class BattlePassScreen extends MenuScreenBase {
     private static final int TOP_HEIGHT = 172;
     private static final Identifier BANNER = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID,
             "textures/gui/battlepass_banner.png");
-    private static final int BANNER_TEXTURE_WIDTH = 269;
-    private static final int BANNER_TEXTURE_HEIGHT = 86;
     private static final int QUEST_PANEL_WIDTH = 186;
     private static final int QUEST_ROW_HEIGHT = 36;
     private static final int QUEST_HEADER_HEIGHT = 22;
@@ -186,32 +184,20 @@ public class BattlePassScreen extends MenuScreenBase {
     }
 
     private void drawBanner(Gfx g, View view, int mouseX, int mouseY) {
-        Draw.shadow(g, left, top + 3, WIDTH, TOP_HEIGHT, Theme.PANEL_RADIUS, 16, Colors.fade(Theme.SHADOW, 0.8f));
-        g.image(BANNER, left, top, WIDTH, TOP_HEIGHT, BANNER_TEXTURE_WIDTH, BANNER_TEXTURE_HEIGHT);
-        // затемняем слева под текст и снизу под карточку Premium
-        Draw.gradientHorizontal(g, left, top, WIDTH * 0.55f, TOP_HEIGHT, Theme.PANEL_RADIUS, 0xD9080305, 0x00080305);
-        Draw.gradient(g, left, top + TOP_HEIGHT * 0.5f, WIDTH, TOP_HEIGHT * 0.5f, Theme.PANEL_RADIUS, 0x00080305, 0x99080305);
-        Draw.border(g, left, top, WIDTH, TOP_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.BLOOD, 0.45f));
-
-        drawDisplay(g, "БАТЛ ПАСС", left + PAD + 2, top + PAD + 2, 2.4f);
+        MenuUi.pixelBanner(g, BANNER, left, top, WIDTH, TOP_HEIGHT);
+        MenuUi.display(g, "БАТЛ ПАСС", left + PAD + 2, top + PAD + 2, 2.4f, Theme.TEXT);
         BattlePassProgress progress = view.progress();
         Draw.text(g, "Твой уровень", left + PAD + 3, top + 48, Colors.fade(Theme.TEXT, 0.75f));
         String level = String.valueOf(progress.level());
-        drawDisplay(g, level, left + PAD + 2, top + 60, 1.8f);
+        MenuUi.display(g, level, left + PAD + 2, top + 60, 1.8f, Theme.TEXT);
         if (progress.maxLevel() > 0) {
-            Draw.text(g, "/ " + progress.maxLevel(), left + PAD + 8 + MenuUi.headlineWidth(level, 1.8f, TextStyle.DISPLAY),
+            Draw.text(g, "/ " + progress.maxLevel(), left + PAD + 8 + MenuUi.displayWidth(level, 1.8f),
                     top + 68, Colors.fade(Theme.TEXT, 0.6f));
         }
         boolean closeHovered = inside(mouseX, mouseY, closeX(), top + PAD, MenuUi.BUTTON_HEIGHT, MenuUi.BUTTON_HEIGHT);
         MenuUi.button(g, closeX(), top + PAD, MenuUi.BUTTON_HEIGHT, Icon.CLOSE, null, ButtonStyle.OUTLINE, true, closeHovered);
         MenuUi.balance(g, closeX() - 6, top + PAD, BloodBalance.current());
         drawPremiumCard(g, progress, mouseX, mouseY);
-    }
-
-    /** Крупный текст шрифтом Unbounded с тёмно-красной тенью, как в макете. */
-    private static void drawDisplay(Gfx g, String text, float x, float y, float scale) {
-        MenuUi.headline(g, text, x, y + 1.5f, scale, MenuUi.BLOOD_DEEP, TextStyle.DISPLAY);
-        MenuUi.headline(g, text, x, y, scale, Theme.TEXT, TextStyle.DISPLAY);
     }
 
     private void drawPremiumCard(Gfx g, BattlePassProgress progress, int mouseX, int mouseY) {

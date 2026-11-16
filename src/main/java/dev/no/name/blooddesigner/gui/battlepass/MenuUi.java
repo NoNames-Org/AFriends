@@ -7,6 +7,7 @@ import dev.no.name.blooddesigner.gui.render.Draw;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.render.text.TextStyle;
 import net.minecraft.client.gui.Font;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix3x2fStack;
 
@@ -35,30 +36,26 @@ final class MenuUi {
         Draw.border(g, x, y, w, h, Theme.PANEL_RADIUS, Theme.BORDER_HOVER);
     }
 
-    /** Яркий баннер в цвет темы: градиент, косые полосы и мягкое свечение, как обложка сезона. */
-    static void banner(Gfx g, float x, float y, float w, float h, Icon emblem) {
-        int deep = Colors.mix(Theme.ACCENT, 0xFF05060A, 0.78f);
-        int mid = Colors.mix(Theme.ACCENT, 0xFF05060A, 0.55f);
+    /**
+     * Баннер с пиксельной картинкой (текстура вдвое меньше холста, скруглённые углы уже в ней):
+     * затемнение слева под текст и снизу, красная рамка.
+     */
+    static void pixelBanner(Gfx g, Identifier texture, int x, int y, int w, int h) {
         Draw.shadow(g, x, y + 3, w, h, Theme.PANEL_RADIUS, 16, Colors.fade(Theme.SHADOW, 0.8f));
-        Draw.gradientHorizontal(g, x, y, w, h, Theme.PANEL_RADIUS, deep, mid);
-        g.enableScissor((int) x, (int) y, (int) (x + w), (int) (y + h));
-        Matrix3x2fStack pose = g.pose();
-        for (int i = 0; i < 6; i++) {
-            pose.pushMatrix();
-            pose.translate(x + w * 0.35f + i * 34, y - 20);
-            pose.rotate((float) Math.toRadians(24));
-            Draw.rect(g, 0, 0, 14, h * 2, Colors.fade(Theme.ACCENT, 0.07f - i * 0.008f));
-            pose.popMatrix();
-        }
-        float glow = h * 1.4f;
-        Draw.roundedRect(g, x + w - glow * 0.75f, y + h / 2f - glow / 2f, glow, glow, glow / 2f, Colors.fade(Theme.ACCENT, 0.16f));
-        if (emblem != null) {
-            float size = h * 0.72f;
-            Draw.icon(g, emblem, x + w - size - h * 0.22f, y + (h - size) / 2f, size, Colors.fade(Theme.ACCENT, 0.35f));
-        }
-        Draw.gradient(g, x, y + h * 0.55f, w, h * 0.45f, 0, 0x00000000, 0x55000000);
-        g.disableScissor();
-        Draw.border(g, x, y, w, h, Theme.PANEL_RADIUS, Colors.fade(Theme.ACCENT, 0.45f));
+        g.image(texture, x, y, w, h, w / 2, h / 2);
+        Draw.gradientHorizontal(g, x, y, w * 0.55f, h, Theme.PANEL_RADIUS, 0xD9080305, 0x00080305);
+        Draw.gradient(g, x, y + h * 0.5f, w, h * 0.5f, Theme.PANEL_RADIUS, 0x00080305, 0x99080305);
+        Draw.border(g, x, y, w, h, Theme.PANEL_RADIUS, Colors.fade(BLOOD, 0.45f));
+    }
+
+    /** Крупный текст шрифтом Unbounded с тёмно-красной тенью. */
+    static void display(Gfx g, String text, float x, float y, float scale, int color) {
+        headline(g, text, x, y + 1.5f, scale, BLOOD_DEEP, TextStyle.DISPLAY);
+        headline(g, text, x, y, scale, color, TextStyle.DISPLAY);
+    }
+
+    static float displayWidth(String text, float scale) {
+        return headlineWidth(text, scale, TextStyle.DISPLAY);
     }
 
     /**
