@@ -1,6 +1,11 @@
 package dev.no.name.blooddesigner.core;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Сообщение в файле переписки и в отложенных: старые поля как были, новые — только если есть. */
 public final class MessageJson {
@@ -15,8 +20,10 @@ public final class MessageJson {
         if (message.id() != null) {
             item.addProperty("id", message.id());
         }
-        if (message.image() != null) {
-            item.add("img", message.image().toJson());
+        if (!message.images().isEmpty()) {
+            JsonArray images = new JsonArray();
+            message.images().forEach(image -> images.add(image.toJson()));
+            item.add("imgs", images);
         }
         if (message.reaction() != null) {
             item.addProperty("rm", message.reaction());
@@ -29,11 +36,25 @@ public final class MessageJson {
 
     public static PrivateMessage read(JsonObject item) {
         String id = item.has("id") ? item.get("id").getAsString() : null;
-        MessageImage image = item.has("img") && item.get("img").isJsonObject() ? MessageImage.fromJson(item.getAsJsonObject("img")) : null;
+        List<MessageImage> images = new ArrayList<>();
+        if (item.has("imgs") && item.get("imgs").isJsonArray()) {
+            for (JsonElement element : item.getAsJsonArray("imgs")) {
+                MessageImage image = element.isJsonObject() ? MessageImage.fromJson(element.getAsJsonObject()) : null;
+                if (image != null) {
+                    images.add(image);
+                }
+            }
+        } else if (item.has("img") && item.get("img").isJsonObject()) {
+            // так картинка хранилась в первой версии
+            MessageImage image = MessageImage.fromJson(item.getAsJsonObject("img"));
+            if (image != null) {
+                images.add(image);
+            }
+        }
         String mine = item.has("rm") ? item.get("rm").getAsString() : null;
         String theirs = item.has("rt") ? item.get("rt").getAsString() : null;
         // в старых отложенных поля «me» нет: там всегда входящие
         return new PrivateMessage(item.has("me") && item.get("me").getAsBoolean(), item.get("text").getAsString(),
-                item.get("time").getAsLong(), id, image, Reactions.valid(mine) ? mine : null, Reactions.valid(theirs) ? theirs : null);
+                item.get("time").getAsLong(), id, images, Reactions.valid(mine) ? mine : null, Reactions.valid(theirs) ? theirs : null);
     }
 }

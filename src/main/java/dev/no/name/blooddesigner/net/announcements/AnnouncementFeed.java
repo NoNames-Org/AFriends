@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.net.service.LinkEndpoint;
 import org.slf4j.Logger;
@@ -128,9 +129,11 @@ public final class AnnouncementFeed {
                 continue;
             }
             String text = json.get("text").getAsString().strip();
-            if (!text.isEmpty()) {
+            // картинки портала; где они в тексте — метки [img]
+            List<MessageImage> images = MessageImage.listFromPortal(json);
+            if (!text.isEmpty() || !images.isEmpty()) {
                 result.add(new PrivateMessage(false, text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) : text,
-                        json.get("created").getAsLong()));
+                        json.get("created").getAsLong(), null, images, null, null));
             }
         }
         result.sort(Comparator.comparingLong(PrivateMessage::time));

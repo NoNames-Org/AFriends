@@ -70,7 +70,8 @@ public final class OfficialInbox {
             if (item.has("fromPlayer") && item.get("fromPlayer").getAsBoolean()) {
                 continue;
             }
-            listener.official(item.get("text").getAsString(), item.get("created").getAsLong());
+            listener.official(item.get("text").getAsString(), dev.no.name.blooddesigner.core.MessageImage.listFromPortal(item),
+                    item.get("created").getAsLong());
         }
         if (newest != lastId) {
             lastId = newest;

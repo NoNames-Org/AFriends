@@ -96,9 +96,16 @@ public final class Inbox {
             }
             byte[] plain = sessions.open(from.keys(), Bytes.fromBase64(event.get("body").getAsString()), System.currentTimeMillis());
             dispatch(from, ChatPayload.decode(plain), time);
-        } catch (E2eException | IllegalArgumentException e) {
-            LOGGER.warn("{}: конверт от {} не расшифровался ({})", BloodDesigner.NAME, from.name(),
-                    e instanceof E2eException e2e ? e2e.code() : "base64");
+        } catch (E2eException e) {
+            if ("duplicate".equals(e.code())) {
+                // повтор уже прочитанного конверта: показывать нечего, просто подтверждаем серверу
+                LOGGER.info("{}: повторный конверт от {} пропущен", BloodDesigner.NAME, from.name());
+            } else {
+                LOGGER.warn("{}: конверт от {} не расшифровался ({})", BloodDesigner.NAME, from.name(), e.code());
+                listener.unreadable(from, time);
+            }
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("{}: конверт от {} не расшифровался (base64)", BloodDesigner.NAME, from.name());
             listener.unreadable(from, time);
         }
         acknowledge(event);

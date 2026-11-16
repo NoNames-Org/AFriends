@@ -20,6 +20,10 @@ public interface InboxListener {
     }
 
     // личное сообщение от BloodDesigner с портала (не от друга, без шифрования); по умолчанию никуда не идёт
+    default void official(String text, java.util.List<dev.no.name.blooddesigner.core.MessageImage> images, long time) {
+        official(text, time);
+    }
+
     default void official(String text, long time) {
     }
 }

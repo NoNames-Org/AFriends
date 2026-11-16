@@ -42,7 +42,8 @@ public sealed interface ChatPayload {
         switch (this) {
             case Text text -> {
                 json.addProperty("k", "text");
-                json.addProperty("t", text.image() != null && text.text().isBlank() ? IMAGE_FALLBACK : text.text());
+                json.addProperty("t", text.image() == null ? text.text()
+                        : text.text().isBlank() ? IMAGE_FALLBACK : text.text() + "\n" + IMAGE_FALLBACK);
                 if (text.id() != null) {
                     json.addProperty("id", text.id());
                 }
@@ -96,8 +97,9 @@ public sealed interface ChatPayload {
         }
         MessageImage image = json.has("img") && json.get("img").isJsonObject() ? MessageImage.fromJson(json.getAsJsonObject("img")) : null;
         if (image != null) {
-            // запасной текст для старых версий новой версии не нужен: вместо него картинка
-            return new Text(IMAGE_FALLBACK.equals(text) ? "" : text, id, image);
+            // запасной текст для старых версий новой версии не нужен: вместо него картинка, остаётся подпись
+            String caption = text.endsWith(IMAGE_FALLBACK) ? text.substring(0, text.length() - IMAGE_FALLBACK.length()).strip() : text;
+            return new Text(caption.length() > MAX_TEXT ? caption.substring(0, MAX_TEXT) : caption, id, image);
         }
         return text.isBlank() || text.length() > MAX_TEXT ? null : new Text(text, id, null);
     }

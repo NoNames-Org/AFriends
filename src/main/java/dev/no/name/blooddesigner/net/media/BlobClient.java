@@ -33,7 +33,7 @@ public final class BlobClient {
             String id = json.get("id").getAsString();
             URI target;
             try {
-                target = address(id);
+                target = address("/v1/blobs/", id);
             } catch (TunnelError e) {
                 return CompletableFuture.failedFuture(e);
             }
@@ -50,10 +50,19 @@ public final class BlobClient {
         });
     }
 
+    // картинка портала: открытая, без ключа; /v1/media/<id>
+    public CompletableFuture<byte[]> downloadMedia(String id) {
+        return fetch(id, "/v1/media/");
+    }
+
     public CompletableFuture<byte[]> download(String id) {
+        return fetch(id, "/v1/blobs/");
+    }
+
+    private CompletableFuture<byte[]> fetch(String id, String prefix) {
         URI target;
         try {
-            target = address(id);
+            target = address(prefix, id);
         } catch (TunnelError e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -78,7 +87,7 @@ public final class BlobClient {
     }
 
     // тот же сервер, что и у сети: wss://host/v1/tunnel → https://host/v1/blobs/<id>
-    private static URI address(String id) {
+    private static URI address(String prefix, String id) {
         LinkEndpoint endpoint = LinkEndpoint.configured();
         if (endpoint == null) {
             throw new TunnelError("offline");
@@ -86,6 +95,6 @@ public final class BlobClient {
         URI tunnel = endpoint.address();
         String scheme = "ws".equalsIgnoreCase(tunnel.getScheme()) ? "http" : "https";
         int port = tunnel.getPort();
-        return URI.create(scheme + "://" + tunnel.getHost() + (port > 0 ? ":" + port : "") + "/v1/blobs/" + id);
+        return URI.create(scheme + "://" + tunnel.getHost() + (port > 0 ? ":" + port : "") + prefix + id);
     }
 }

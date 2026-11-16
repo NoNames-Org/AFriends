@@ -39,6 +39,7 @@ class LinkServiceInteropTest {
         final LinkService service;
         final BlockingQueue<String> texts = new LinkedBlockingQueue<>();
         final BlockingQueue<MessageImage> images = new LinkedBlockingQueue<>();
+        final BlockingQueue<String> captions = new LinkedBlockingQueue<>();
         final BlockingQueue<String> reactions = new LinkedBlockingQueue<>();
 
         Player(String name, Path folder, ClientKind client) {
@@ -57,6 +58,7 @@ class LinkServiceInteropTest {
         public void message(LinkFriend from, String text, String id, MessageImage image, long time) {
             if (image != null) {
                 images.add(image);
+                captions.add(text);
             } else {
                 text(from, text, time);
             }
@@ -142,9 +144,10 @@ class LinkServiceInteropTest {
             ByteArrayOutputStream png = new ByteArrayOutputStream();
             ImageIO.write(picture, "png", png);
             PreparedImage prepared = PreparedImage.of(png.toByteArray());
-            MessageImage sent = alice.service.sendImage(bobId, prepared, "aaaabbbbccccdddd").get(30, TimeUnit.SECONDS);
+            MessageImage sent = alice.service.sendImage(bobId, prepared, "aaaabbbbccccdddd", "смотри").get(30, TimeUnit.SECONDS);
             MessageImage received = bob.images.poll(10, TimeUnit.SECONDS);
             assertEquals(sent, received);
+            assertEquals("смотри", bob.captions.poll(1, TimeUnit.SECONDS));
             Path file = bob.service.media().file(received).get(30, TimeUnit.SECONDS);
             assertArrayEquals(png.toByteArray(), Files.readAllBytes(file));
 

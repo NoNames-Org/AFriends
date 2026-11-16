@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.game;
 
 import dev.no.name.blooddesigner.compat.Compat;
+import dev.no.name.blooddesigner.core.MessageContent;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
@@ -13,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
+import java.util.List;
 
 // Расшифрованные сообщения из сети — в переписку BloodDesigner на потоке игры.
 // В меню переписки нет, поэтому сообщения ждут входа в мир
@@ -53,8 +55,8 @@ final class IncomingChat implements InboxListener {
     }
 
     @Override
-    public void official(String text, long time) {
-        Minecraft.getInstance().execute(() -> deliver(PrivateMessages.OFFICIAL, new PrivateMessage(false, text, time)));
+    public void official(String text, List<MessageImage> images, long time) {
+        Minecraft.getInstance().execute(() -> deliver(PrivateMessages.OFFICIAL, new PrivateMessage(false, text, time, null, images, null, null)));
     }
 
     // раз в тик: зашли в мир — отложенное раскладывается по перепискам
@@ -72,13 +74,24 @@ final class IncomingChat implements InboxListener {
         // BloodDesigner не игнорируется: это сообщения от админов мода
         if (PrivateMessages.isOfficial(partner)) {
             social.messages().add(partner, message);
-            Compat.localMessage(officialLine(message.text()));
+            Compat.localMessage(officialLine(chatText(message)));
             return;
         }
         if (social.ignored().isIgnored(partner)) {
             return;
         }
         social.messages().add(partner, message);
+    }
+
+    // в игровой чат — без меток [img]; если есть картинки, пометка о них
+    private static String chatText(PrivateMessage message) {
+        String plain = MessageContent.plain(message.text());
+        if (message.images().isEmpty()) {
+            return plain;
+        }
+        String mark = message.images().size() == 1 ? (message.image().animated() ? "[Гифка]" : "[Изображение]")
+                : "[Изображения: " + message.images().size() + "]";
+        return plain.isEmpty() ? mark : plain + " " + mark;
     }
 
     // строка в игровом чате: «BloodDesigner » красным, текст белым

@@ -200,7 +200,7 @@ public final class LinkService {
 
     // Картинка другу: шифруем своим ключом, заливаем на сервер, ключ и ссылку — сквозным сообщением.
     // Готово — придёт описание картинки (для своей переписки); отказ — исключение с кодом
-    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id) {
+    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption) {
         CompletableFuture<MessageImage> result = new CompletableFuture<>();
         worker.execute(() -> {
             LinkFriend friend = snapshot.friend(friendId);
@@ -221,7 +221,7 @@ public final class LinkService {
                 MessageImage image = new MessageImage(blob, Bytes.base64(key), prepared.mime(), prepared.width(),
                         prepared.height(), prepared.bytes().length, prepared.sha256());
                 media.store(image, prepared.bytes());
-                return current.outbox.send(friend, new ChatPayload.Text("", id, image)).thenApply(done -> image);
+                return current.outbox.send(friend, new ChatPayload.Text(caption, id, image)).thenApply(done -> image);
             }, worker).whenComplete((image, error) -> {
                 if (error != null) {
                     result.completeExceptionally(error);

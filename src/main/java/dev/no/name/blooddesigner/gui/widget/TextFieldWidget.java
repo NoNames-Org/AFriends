@@ -27,6 +27,8 @@ public class TextFieldWidget extends Widget {
 
     private boolean allSelected;
     private boolean focused;
+    // без рамки: поле живёт внутри общей полосы ввода (у переписки), рамку рисует она
+    private boolean framed = true;
 
     public TextFieldWidget(Icon icon, String placeholder) {
         this.icon = icon;
@@ -35,6 +37,11 @@ public class TextFieldWidget extends Widget {
 
     public TextFieldWidget withMaxLength(int length) {
         this.maxLength = length;
+        return this;
+    }
+
+    public TextFieldWidget withoutFrame() {
+        this.framed = false;
         return this;
     }
 
@@ -53,13 +60,16 @@ public class TextFieldWidget extends Widget {
         hover.setTarget(contains(mouseX, mouseY));
         float focusAmount = focus.get();
 
-        int border = Colors.mix(Colors.mix(Theme.BORDER, Theme.BORDER_HOVER, hover.get()), Theme.BORDER_SELECTED, focusAmount);
-        Draw.box(g, x, y, width, height, Theme.RADIUS, Colors.mix(Theme.CARD, Theme.CARD_HOVER, focusAmount), border);
+        if (framed) {
+            int border = Colors.mix(Colors.mix(Theme.BORDER, Theme.BORDER_HOVER, hover.get()), Theme.BORDER_SELECTED, focusAmount);
+            Draw.box(g, x, y, width, height, Theme.RADIUS, Colors.mix(Theme.CARD, Theme.CARD_HOVER, focusAmount), border);
+        }
+        if (icon != null) {
+            Draw.icon(g, icon, x + PADDING - 1, y + (height - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL,
+                    Colors.mix(Theme.TEXT_FAINT, Theme.TEXT, focusAmount));
+        }
 
-        Draw.icon(g, icon, x + PADDING - 1, y + (height - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL,
-                Colors.mix(Theme.TEXT_FAINT, Theme.TEXT, focusAmount));
-
-        int textX = x + PADDING + Theme.ICON_SMALL + 3;
+        int textX = x + (framed ? PADDING : 0) + (icon != null ? Theme.ICON_SMALL + 3 : 0);
         int textY = y + (height - 8) / 2;
         String shown = Draw.trim(text, x + width - PADDING - textX - 2);
         if (text.isEmpty()) {

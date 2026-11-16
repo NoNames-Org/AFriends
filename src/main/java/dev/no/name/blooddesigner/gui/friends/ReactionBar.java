@@ -17,12 +17,13 @@ final class ReactionBar {
     private static final int PAD = 4;
     private static final int BUTTON = 14;
 
-    enum Kind { REACT, SAVE, OPEN }
+    enum Kind { REACT, SAVE, OPEN, FAVORITE }
 
     record Choice(Kind kind, String reaction) {
     }
 
     private PrivateMessage message;
+    private dev.no.name.blooddesigner.core.MessageImage target;
     private boolean reactions;
     private boolean image;
     private float x;
@@ -38,11 +39,20 @@ final class ReactionBar {
         return message;
     }
 
-    void open(PrivateMessage message, boolean reactions, float mouseX, float mouseY, int areaWidth, int areaHeight) {
+    // картинка, по которой кликнули правой кнопкой (у сообщения с портала их может быть несколько)
+    dev.no.name.blooddesigner.core.MessageImage target() {
+        return target;
+    }
+
+    void open(PrivateMessage message, dev.no.name.blooddesigner.core.MessageImage target, boolean reactions,
+              float mouseX, float mouseY, int areaWidth, int areaHeight) {
         this.message = message;
+        this.target = target;
         this.reactions = reactions;
-        this.image = message.image() != null;
-        width = reactions ? Reactions.ALL.size() * CELL + PAD * 2 : 120;
+        this.image = target != null;
+        // ширина — под ряд реакций и под кнопки картинки (у гифки их три)
+        float imageWidth = target == null ? 0 : target.animated() ? 200 : 120;
+        width = Math.max(reactions ? Reactions.ALL.size() * CELL + PAD * 2 : 0, imageWidth);
         height = (reactions ? CELL + PAD * 2 : PAD) + (image ? BUTTON + PAD : 0);
         x = Math.max(4, Math.min(mouseX - width / 2, areaWidth - width - 4));
         // над курсором, а если не влезает — под ним
@@ -76,9 +86,11 @@ final class ReactionBar {
         }
         if (image) {
             float rowY = y + height - PAD - BUTTON;
-            float half = (width - PAD * 3) / 2;
-            drawButton(g, "Сохранить", x + PAD, rowY, half, mouseX, mouseY);
-            drawButton(g, "Открыть", x + PAD * 2 + half, rowY, half, mouseX, mouseY);
+            String[] labels = buttons();
+            float each = (width - PAD * (labels.length + 1)) / labels.length;
+            for (int i = 0; i < labels.length; i++) {
+                drawButton(g, labels[i], x + PAD + i * (each + PAD), rowY, each, mouseX, mouseY);
+            }
         }
     }
 
@@ -97,9 +109,20 @@ final class ReactionBar {
             return new Choice(null, null);
         }
         if (image && mouseY >= y + height - PAD - BUTTON) {
-            return new Choice(mouseX < x + width / 2 ? Kind.SAVE : Kind.OPEN, null);
+            int count = buttons().length;
+            int index = Math.max(0, Math.min(count - 1, (int) ((mouseX - x) / (width / count))));
+            return new Choice(index == 0 ? Kind.SAVE : index == 1 ? Kind.OPEN : Kind.FAVORITE, null);
         }
         return new Choice(null, null);
+    }
+
+    // у гифки ещё звёздочка: в избранное или обратно
+    private String[] buttons() {
+        if (target != null && target.animated()) {
+            boolean favorite = dev.no.name.blooddesigner.gui.media.GifFavorites.get().contains(target.sha256());
+            return new String[] {"Сохранить", "Открыть", favorite ? "★ Убрать" : "★ В избранное"};
+        }
+        return new String[] {"Сохранить", "Открыть"};
     }
 
     private static void drawButton(Gfx g, String label, float bx, float by, float bw, int mouseX, int mouseY) {

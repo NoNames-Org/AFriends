@@ -92,6 +92,12 @@ final class Ratchet {
         byte[] remoteKey = Arrays.copyOf(header, DhKey.KEY_BYTES);
         long previousCount = Bytes.readU32(header, DhKey.KEY_BYTES);
         long number = Bytes.readU32(header, DhKey.KEY_BYTES + 4);
+        // Уже прочитанное в этой цепочке: ключ сообщения одноразовый и стёрт. Так бывает, когда сервер прислал конверт
+        // повторно (игра закрылась раньше, чем подтвердила получение) — это не подделка и не чужие ключи
+        if (remote != null && Arrays.equals(remote, remoteKey) && number < received
+                && !skipped.containsKey(skippedId(remoteKey, number))) {
+            throw new E2eException("duplicate");
+        }
 
         Ratchet trial = copy();
         byte[] messageKey = trial.messageKeyFor(remoteKey, previousCount, number, now);

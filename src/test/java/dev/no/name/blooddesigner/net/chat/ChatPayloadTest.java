@@ -43,6 +43,17 @@ class ChatPayloadTest {
     }
 
     @Test
+    @DisplayName("картинка с подписью: подпись доходит без запасного текста, старая версия видит и подпись, и пометку")
+    void imageWithCaption() {
+        byte[] encoded = new ChatPayload.Text("смотри какой закат", "0011223344556677", IMAGE).encode();
+        String json = new String(encoded, StandardCharsets.UTF_8);
+        assertEquals(true, json.contains("смотри какой закат") && json.contains(ChatPayload.IMAGE_FALLBACK));
+        ChatPayload.Text text = (ChatPayload.Text) ChatPayload.decode(encoded);
+        assertEquals("смотри какой закат", text.text());
+        assertEquals(IMAGE, text.image());
+    }
+
+    @Test
     @DisplayName("реакция и её снятие; чужая реакция не из набора отбрасывается")
     void reaction() {
         ChatPayload.Reaction set = (ChatPayload.Reaction) ChatPayload.decode(new ChatPayload.Reaction("0011223344556677", "fire").encode());

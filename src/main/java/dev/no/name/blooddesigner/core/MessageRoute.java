@@ -21,8 +21,8 @@ public interface MessageRoute {
         return false;
     }
 
-    // картинка или гифка с диска; пусто — ушла в обработку, иначе причина. Поздний отказ — в failed
-    default Optional<String> sendImage(String partner, Path file, Consumer<String> failed) {
+    // картинка или гифка с диска и подпись под ней; пусто — ушла в обработку, иначе причина. Поздний отказ — в failed
+    default Optional<String> sendImage(String partner, Path file, String caption, Consumer<String> failed) {
         return Optional.of("Картинки можно отправлять только друзьям по сети");
     }
 

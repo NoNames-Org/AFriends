@@ -3,6 +3,7 @@ package dev.no.name.blooddesigner.gui.friends;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
+import dev.no.name.blooddesigner.gui.media.GifFavorites;
 import dev.no.name.blooddesigner.gui.media.MediaFiles;
 import net.minecraft.client.Minecraft;
 
@@ -11,12 +12,11 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Картинки и реакции в переписке: прикрепить файл или перетащить его в окно, поставить реакцию,
- * сохранить картинку себе или открыть в просмотрщике. Ошибки — в warn, подсказки — в info (над полем ввода)
+ * Картинки и реакции в переписке: выбрать файл или перетащить его в окно (он встаёт над полем ввода и уходит
+ * вместе с подписью), отправить избранную гифку, поставить реакцию, сохранить картинку себе, открыть её,
+ * добавить гифку в избранное. Ошибки — в warn, подсказки — в info (над полем ввода)
  */
 final class MediaActions {
-    private static final int MAX_DROP = 5;
-
     private final MessageRoute route;
     private final Consumer<String> warn;
     private final Consumer<String> info;
@@ -31,26 +31,41 @@ final class MediaActions {
         return route.supportsMedia(partner);
     }
 
-    void attach(String partner) {
+    // окно выбора файла; выбранный уходит в chosen (его покажут над полем ввода)
+    void choose(String partner, Consumer<Path> chosen) {
         if (!available(partner)) {
             warn.accept("Картинки можно отправлять только друзьям по сети");
             return;
         }
-        MediaFiles.chooseImage(file -> send(partner, file));
+        MediaFiles.chooseImage(chosen);
     }
 
-    // файлы, перетащенные в окно игры: картинки уходят по очереди, остальное пропускаем
-    void drop(String partner, List<Path> files) {
-        List<Path> images = files.stream().filter(MediaFiles::isImage).limit(MAX_DROP).toList();
+    // перетащили файлы в окно игры: первая картинка — к сообщению; null — картинок нет или нельзя
+    Path dropped(String partner, List<Path> files) {
+        List<Path> images = files.stream().filter(MediaFiles::isImage).toList();
         if (images.isEmpty()) {
             warn.accept("Можно перетащить только PNG, JPG или GIF");
-            return;
+            return null;
         }
         if (!available(partner)) {
             warn.accept("Картинки можно отправлять только друзьям по сети");
-            return;
+            return null;
         }
-        images.forEach(file -> send(partner, file));
+        if (images.size() > 1) {
+            info.accept("Картинки отправляются по одной — взята первая");
+        }
+        return images.get(0);
+    }
+
+    // картинка с подписью; false — сразу не ушла (причина уже в warn)
+    boolean send(String partner, Path file, String caption) {
+        return route.sendImage(partner, file, caption, warn).map(problem -> {
+            warn.accept(problem);
+            return false;
+        }).orElseGet(() -> {
+            info.accept("Картинка отправляется…");
+            return true;
+        });
     }
 
     void react(String partner, PrivateMessage message, String reaction) {
@@ -65,8 +80,15 @@ final class MediaActions {
         withFile(image, MediaFiles::open);
     }
 
-    private void send(String partner, Path file) {
-        route.sendImage(partner, file, warn).ifPresentOrElse(warn, () -> info.accept("Картинка отправляется…"));
+    // гифка из переписки — в избранное или обратно
+    void toggleFavorite(MessageImage image) {
+        GifFavorites favorites = GifFavorites.get();
+        if (favorites.contains(image.sha256())) {
+            favorites.remove(image.sha256());
+            info.accept("Гифка убрана из избранного");
+            return;
+        }
+        withFile(image, file -> info.accept(favorites.add(image.sha256(), file) ? "Гифка в избранном" : "Не получилось добавить"));
     }
 
     private void withFile(MessageImage image, Consumer<Path> action) {

@@ -5,13 +5,19 @@ import com.google.gson.JsonObject;
 import java.util.regex.Pattern;
 
 /**
- * Картинка или гифка в сообщении. Сам файл лежит на сервере сети зашифрованным (blob),
- * ключ знают только собеседники. sha256 — от исходного файла: по нему файл ищется в кеше и проверяется после расшифровки.
+ * Картинка или гифка в сообщении. От друга: файл лежит на сервере сети зашифрованным (blob), ключ знают только
+ * собеседники. С портала (объявления, BloodDesigner): файл открытый, ключа нет (key пустой), blob — id картинки портала.
+ * sha256 — от исходного файла: по нему файл ищется в кеше и проверяется после скачивания.
  */
 public record MessageImage(String blob, String key, String mime, int width, int height, long size, String sha256) {
     public static final long MAX_SIZE = 5L * 1024 * 1024;
     private static final Pattern BLOB = Pattern.compile("[0-9a-f]{32}");
     private static final Pattern SHA = Pattern.compile("[0-9a-f]{64}");
+
+    // картинка с портала: не зашифрована, качается с /v1/media
+    public boolean isPublic() {
+        return key.isEmpty();
+    }
 
     public boolean animated() {
         return "image/gif".equals(mime);
@@ -35,6 +41,31 @@ public record MessageImage(String blob, String key, String mime, int width, int 
         json.addProperty("s", size);
         json.addProperty("sha", sha256);
         return json;
+    }
+
+    // картинка портала в ответе сервера: {id, mime, width, height, size, sha256}; ключа нет — она открытая
+    public static MessageImage fromPortal(JsonObject json) {
+        try {
+            MessageImage image = new MessageImage(json.get("id").getAsString(), "", json.get("mime").getAsString(),
+                    json.get("width").getAsInt(), json.get("height").getAsInt(), json.get("size").getAsLong(),
+                    json.get("sha256").getAsString());
+            return image.valid() ? image : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    public static java.util.List<MessageImage> listFromPortal(JsonObject owner) {
+        java.util.List<MessageImage> images = new java.util.ArrayList<>();
+        if (owner.has("images") && owner.get("images").isJsonArray()) {
+            for (com.google.gson.JsonElement element : owner.getAsJsonArray("images")) {
+                MessageImage image = element.isJsonObject() ? fromPortal(element.getAsJsonObject()) : null;
+                if (image != null) {
+                    images.add(image);
+                }
+            }
+        }
+        return images;
     }
 
     // null — поля битые или подозрительные: такое сообщение покажется обычным текстом

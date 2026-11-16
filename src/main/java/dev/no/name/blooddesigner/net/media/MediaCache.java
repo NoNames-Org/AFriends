@@ -51,9 +51,11 @@ public final class MediaCache {
         if (Files.exists(target)) {
             return CompletableFuture.completedFuture(target);
         }
-        return loading.computeIfAbsent(image.sha256(), sha -> blobs.download(image.blob()).thenApply(sealed -> {
+        // картинка портала открытая, от друга — зашифрована его ключом
+        return loading.computeIfAbsent(image.sha256(), sha -> (image.isPublic() ? blobs.downloadMedia(image.blob())
+                : blobs.download(image.blob())).thenApply(sealed -> {
             try {
-                byte[] plain = MediaCrypto.open(Bytes.fromBase64(image.key()), sealed);
+                byte[] plain = image.isPublic() ? sealed : MediaCrypto.open(Bytes.fromBase64(image.key()), sealed);
                 if (!PreparedImage.sha256(plain).equals(image.sha256()) || PreparedImage.mimeOf(plain) == null) {
                     throw new TunnelError("image_corrupt");
                 }

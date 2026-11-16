@@ -93,7 +93,7 @@ public final class DirectMessages implements MessageRoute {
 
     // файл читается и проверяется не на потоке игры: GIF на 5 МБ разбирать заметно
     @Override
-    public Optional<String> sendImage(String partner, Path file, Consumer<String> failed) {
+    public Optional<String> sendImage(String partner, Path file, String caption, Consumer<String> failed) {
         LinkSnapshot state = link.snapshot();
         LinkFriend friend = state.friendNamed(partner);
         if (friend == null) {
@@ -104,10 +104,10 @@ public final class DirectMessages implements MessageRoute {
         }
         String id = MessageIds.next();
         CompletableFuture.supplyAsync(() -> PreparedImage.read(file))
-                .thenCompose(prepared -> link.sendImage(friend.id(), prepared, id))
+                .thenCompose(prepared -> link.sendImage(friend.id(), prepared, id, caption))
                 .whenComplete((image, error) -> Minecraft.getInstance().execute(() -> {
                     if (error == null) {
-                        social.messages().add(partner, new PrivateMessage(true, "", System.currentTimeMillis(), id, image));
+                        social.messages().add(partner, new PrivateMessage(true, caption, System.currentTimeMillis(), id, image));
                     } else {
                         failed.accept(imageProblem(Failures.codeOf(error)));
                     }

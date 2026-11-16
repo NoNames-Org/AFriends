@@ -29,6 +29,7 @@ import dev.no.name.blooddesigner.gui.render.text.TextStyle;
 import dev.no.name.blooddesigner.gui.sound.UiSound;
 import dev.no.name.blooddesigner.gui.sound.UiSounds;
 import dev.no.name.blooddesigner.gui.widget.ButtonWidget;
+import dev.no.name.blooddesigner.gui.widget.IconButtonWidget;
 import dev.no.name.blooddesigner.gui.widget.ContainerWidget;
 import dev.no.name.blooddesigner.gui.widget.TextFieldWidget;
 import dev.no.name.blooddesigner.gui.widget.Widget;
@@ -70,6 +71,10 @@ public class MessengerScreen extends ScreenBase {
     private static final int HEADER_FACE = 24;
     private static final int INPUT_HEIGHT = 20;
     private static final int SEND_WIDTH = 26;
+    // полоса ввода как в Telegram: скрепка слева, поле, значки справа; «отправить» — рядом
+    private static final int BAR_X = CHAT_X + PAD;
+    private static final int BAR_WIDTH = CHAT_WIDTH - PAD * 2 - SEND_WIDTH - 4;
+    private static final int BAR_ICON = 16;
     private static final int SEPARATOR_HEIGHT = 18;
     private static final int SCROLL_STEP = 16;
     private static final int MAX_TEXT = 200;
@@ -130,6 +135,8 @@ public class MessengerScreen extends ScreenBase {
     private final ReactionBar reactionBar = new ReactionBar();
     private final ImageViewer viewer = new ImageViewer();
     private final MediaActions media;
+    private final AttachmentStrip attachment = new AttachmentStrip();
+    private final GifPicker gifPicker = new GifPicker();
     // почему сообщение не ушло: подпись над полем ввода
     private String warning = "";
     private long warningAt;
@@ -153,22 +160,30 @@ public class MessengerScreen extends ScreenBase {
         this.messages = context.messages();
         this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
         AnnouncementFeed.get().refresh();
-        input = new TextFieldWidget(Icon.MESSAGE, "Напишите сообщение…").withMaxLength(MAX_TEXT);
-        // кнопки дополнений встают между полем и «отправить»
-        List<ComposeAction> actions = Addons.get().composeActions();
-        // «скрепка» для картинок — тоже кнопка у поля, левее кнопок дополнений
-        int actionsWidth = (actions.size() + 1) * (INPUT_HEIGHT + 4);
-        input.setBounds(CHAT_X + PAD, HEIGHT - PAD - INPUT_HEIGHT, CHAT_WIDTH - PAD * 2 - SEND_WIDTH - 4 - actionsWidth, INPUT_HEIGHT);
-        ButtonWidget attach = new ButtonWidget(Icon.IMAGE, () -> media.attach(partner));
-        attach.setBounds(WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
+        input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame();
+        int barY = HEIGHT - PAD - INPUT_HEIGHT;
+        // скрепка — слева внутри полосы: выбранная картинка встаёт над полем и уйдёт вместе с текстом
+        IconButtonWidget attach = new IconButtonWidget(Icon.IMAGE, () -> media.choose(this.partner, file -> {
+            attachment.stage(file);
+            input.focus();
+        }));
+        attach.setBounds(BAR_X + 2, barY, BAR_ICON, INPUT_HEIGHT);
         composer.addChild(attach);
+        // справа внутри полосы: кнопки дополнений и избранные гифки
+        List<ComposeAction> actions = Addons.get().composeActions();
+        int icons = actions.size() + 1;
+        int iconsX = BAR_X + BAR_WIDTH - 2 - icons * BAR_ICON;
         for (int i = 0; i < actions.size(); i++) {
             ComposeAction action = actions.get(i);
-            int buttonX = WIDTH - PAD - SEND_WIDTH - 4 - actionsWidth + (i + 1) * (INPUT_HEIGHT + 4);
-            ButtonWidget button = new ButtonWidget(action.icon(), () -> openCompose(action, buttonX));
-            button.setBounds(buttonX, HEIGHT - PAD - INPUT_HEIGHT, INPUT_HEIGHT, INPUT_HEIGHT);
+            int buttonX = iconsX + i * BAR_ICON;
+            IconButtonWidget button = new IconButtonWidget(action.icon(), () -> openCompose(action, buttonX));
+            button.setBounds(buttonX, barY, BAR_ICON, INPUT_HEIGHT);
             composer.addChild(button);
         }
+        IconButtonWidget gifs = new IconButtonWidget(Icon.STAR, this::toggleGifs);
+        gifs.setBounds(iconsX + actions.size() * BAR_ICON, barY, BAR_ICON, INPUT_HEIGHT);
+        composer.addChild(gifs);
+        input.setBounds(BAR_X + 2 + BAR_ICON + 2, barY, iconsX - (BAR_X + 2 + BAR_ICON + 2) - 2, INPUT_HEIGHT);
         search.setBounds(LIST_X + PAD, PAD, LIST_WIDTH - PAD * 2, FIELD_HEIGHT);
         ButtonWidget send = new ButtonWidget(Icon.SEND, this::send);
         send.setBounds(WIDTH - PAD - SEND_WIDTH, HEIGHT - PAD - INPUT_HEIGHT, SEND_WIDTH, INPUT_HEIGHT);
@@ -204,6 +219,8 @@ public class MessengerScreen extends ScreenBase {
     private void select(String chat) {
         reactionBar.close();
         viewer.close();
+        gifPicker.close();
+        attachment.clear();
         messages.close();
         partner = chat;
         pending.clear();
@@ -305,12 +322,14 @@ public class MessengerScreen extends ScreenBase {
         if (isAnnouncements()) {
             drawReadOnly(g, "Только чтение — сюда приходят новости мода");
         } else if (partner != null) {
+            drawBar(g, hoverX, canvasY);
             composer.render(g, hoverX, canvasY);
         }
         g.nextStratum();
         drawRailTooltip(g, hoverX, canvasY);
         menu.draw(g, canvasX, canvasY);
         reactionBar.draw(g, canvasX, canvasY);
+        gifPicker.draw(g, canvasX, canvasY);
         if (viewer.isOpen()) {
             g.nextStratum();
             viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
@@ -455,8 +474,8 @@ public class MessengerScreen extends ScreenBase {
         if (addons.hideMessages()) {
             return "Скрыто";
         }
-        if (last.image() != null) {
-            return last.image().animated() ? "GIF" : "Картинка";
+        if (!last.images().isEmpty()) {
+            return dev.no.name.blooddesigner.core.MessageContent.preview(last);
         }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
         return card == null ? last.text() : card.title();
@@ -520,13 +539,34 @@ public class MessengerScreen extends ScreenBase {
         drawWarning(g);
     }
 
+    // верх области ввода: если картинка прикреплена, её превью стоит над полосой
+    private int composerTop() {
+        return HEIGHT - PAD - INPUT_HEIGHT - (attachment.isStaged() && !isReadOnly() ? AttachmentStrip.HEIGHT + 4 : 0);
+    }
+
+    // общая рамка полосы ввода: внутри неё скрепка, поле и значки
+    private void drawBar(Gfx g, int mouseX, int mouseY) {
+        int barY = HEIGHT - PAD - INPUT_HEIGHT;
+        int border = input.isFocused() ? Theme.BORDER_SELECTED : Theme.BORDER;
+        Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, border);
+        attachment.draw(g, BAR_X, barY - AttachmentStrip.HEIGHT - 4, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
+    }
+
+    private void toggleGifs() {
+        if (!media.available(partner)) {
+            warn("Гифки можно отправлять только друзьям по сети");
+            return;
+        }
+        gifPicker.toggle(BAR_X + BAR_WIDTH, composerTop());
+    }
+
     private void drawWarning(Gfx g) {
         if (warning.isEmpty() || System.currentTimeMillis() - warningAt > WARNING_MS) {
             return;
         }
         float width = Math.min(CHAT_WIDTH - PAD * 2, Draw.width(warning, TextStyle.SMALL) + 12);
         float x = CHAT_X + (CHAT_WIDTH - width) / 2f;
-        float y = HEIGHT - PAD - INPUT_HEIGHT - 18;
+        float y = composerTop() - 18;
         Draw.box(g, x, y, width, 14, Theme.RADIUS, Theme.POPUP, DANGER);
         Draw.text(g, Draw.trim(warning, (int) width - 12, TextStyle.SMALL), x + 6, y + 4, DANGER, TextStyle.SMALL);
     }
@@ -573,7 +613,7 @@ public class MessengerScreen extends ScreenBase {
 
     private void drawMessages(Gfx g) {
         int top = HEADER_HEIGHT + 4;
-        int bottom = HEIGHT - PAD - INPUT_HEIGHT - 6;
+        int bottom = composerTop() - 6;
         List<PrivateMessage> chat = chatMessages(partner);
         trackNewMessages(chat);
         long now = System.currentTimeMillis();
@@ -714,6 +754,14 @@ public class MessengerScreen extends ScreenBase {
 
     private void send() {
         String text = input.getText().strip();
+        // прикреплённая картинка уходит вместе с текстом: картинка сверху, текст подписью
+        if (attachment.isStaged()) {
+            if (partner != null && !isReadOnly() && media.send(partner, attachment.file(), text)) {
+                attachment.clear();
+                input.setText("");
+            }
+            return;
+        }
         if (!text.isEmpty() && sendText(text)) {
             input.setText("");
         }
@@ -836,12 +884,27 @@ public class MessengerScreen extends ScreenBase {
             clickViewer(viewer.click(x, y));
             return true;
         }
+        if (gifPicker.isOpen()) {
+            GifPicker.Click click = gifPicker.click(x, y, right);
+            if (click == null) {
+                // мимо панели — просто закрыть, клик дальше не идёт
+                gifPicker.close();
+                return true;
+            }
+            clickGif(click);
+            return true;
+        }
+        if (!right && attachment.click(x, y)) {
+            UiSounds.play(UiSound.CLICK);
+            return true;
+        }
         if (reactionBar.isOpen()) {
             PrivateMessage target = reactionBar.message();
+            dev.no.name.blooddesigner.core.MessageImage targetImage = reactionBar.target();
             ReactionBar.Choice choice = reactionBar.click(x, y);
             reactionBar.close();
             if (choice != null) {
-                applyChoice(target, choice);
+                applyChoice(target, targetImage, choice);
                 return true;
             }
         }
@@ -884,7 +947,7 @@ public class MessengerScreen extends ScreenBase {
     // картинка — открыть крупно; плашка реакции — поставить или снять свою; правый клик — всплывашка реакций
     private boolean clickBubble(double x, double y, boolean right) {
         int top = HEADER_HEIGHT + 4;
-        int bottom = HEIGHT - PAD - INPUT_HEIGHT - 6;
+        int bottom = composerTop() - 6;
         if (y < top || y > bottom) {
             return false;
         }
@@ -894,11 +957,12 @@ public class MessengerScreen extends ScreenBase {
             }
             PrivateMessage message = bubble.message();
             boolean canReact = canReact(message);
+            dev.no.name.blooddesigner.core.MessageImage image = bubble.imageAt(x, y);
             if (right) {
-                if (!canReact && message.image() == null) {
+                if (!canReact && image == null) {
                     return false;
                 }
-                reactionBar.open(message, canReact, (float) x, (float) y, WIDTH, HEIGHT);
+                reactionBar.open(message, image, canReact, (float) x, (float) y, WIDTH, HEIGHT);
                 UiSounds.play(UiSound.DROPDOWN_OPEN);
                 return true;
             }
@@ -909,8 +973,8 @@ public class MessengerScreen extends ScreenBase {
                     return true;
                 }
             }
-            if (bubble.onImage(x, y)) {
-                viewer.open(message.image());
+            if (image != null) {
+                viewer.open(image);
                 UiSounds.play(UiSound.CLICK);
                 return true;
             }
@@ -924,14 +988,32 @@ public class MessengerScreen extends ScreenBase {
         return message.id() != null && partner != null && !isReadOnly() && !isNotes() && !isOfficial() && media.available(partner);
     }
 
-    private void applyChoice(PrivateMessage message, ReactionBar.Choice choice) {
+    private void applyChoice(PrivateMessage message, dev.no.name.blooddesigner.core.MessageImage image, ReactionBar.Choice choice) {
         if (choice.kind() == null) {
             return;
         }
         switch (choice.kind()) {
             case REACT -> media.react(partner, message, choice.reaction());
-            case SAVE -> media.save(message.image());
-            case OPEN -> media.open(message.image());
+            case SAVE -> media.save(image);
+            case OPEN -> media.open(image);
+            case FAVORITE -> media.toggleFavorite(image);
+        }
+        UiSounds.play(UiSound.CLICK);
+    }
+
+    private void clickGif(GifPicker.Click click) {
+        switch (click) {
+            case GifPicker.Send send -> {
+                gifPicker.close();
+                if (partner != null && media.available(partner)) {
+                    media.send(partner, send.gif().file(), "");
+                }
+            }
+            case GifPicker.Remove remove -> {
+                dev.no.name.blooddesigner.gui.media.GifFavorites.get().remove(remove.gif().sha256());
+                warnInfo("Гифка убрана из избранного");
+            }
+            case GifPicker.Inside inside -> { }
         }
         UiSounds.play(UiSound.CLICK);
     }
@@ -950,7 +1032,11 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public void onFilesDrop(List<Path> files) {
         if (partner != null && !isReadOnly() && !isNotes() && !isOfficial()) {
-            media.drop(partner, files);
+            Path file = media.dropped(partner, files);
+            if (file != null) {
+                attachment.stage(file);
+                input.focus();
+            }
         }
     }
 
@@ -1012,6 +1098,9 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = toCanvasX(mouseX);
+        if (gifPicker.scroll(x, toCanvasY(mouseY), scrollY)) {
+            return true;
+        }
         int step = (int) Math.round(scrollY * SCROLL_STEP);
         if (x >= LIST_X && x < CHAT_X) {
             listScroll = Math.max(0, listScroll - step);
@@ -1030,9 +1119,10 @@ public class MessengerScreen extends ScreenBase {
             menu.close();
             return true;
         }
-        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen())) {
+        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen() || gifPicker.isOpen())) {
             viewer.close();
             reactionBar.close();
+            gifPicker.close();
             return true;
         }
         if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) && input.isFocused()) {

@@ -71,17 +71,27 @@ public final class ImageTextures {
 
     // зовётся с потока игры при каждом кадре отрисовки
     public Entry entry(MessageImage image, MessageRoute route) {
-        Entry existing = entries.get(image.sha256());
+        return load(image.sha256(), image.animated(), () -> route.imageFile(image));
+    }
+
+    // файл с диска, ещё не отправленный: превью над полем ввода и избранные гифки
+    public Entry file(Path file, boolean animated) {
+        String key = "file-" + Integer.toHexString(file.toAbsolutePath().toString().hashCode());
+        return load(key, animated, () -> CompletableFuture.completedFuture(file));
+    }
+
+    private Entry load(String key, boolean animated, java.util.function.Supplier<CompletableFuture<Path>> source) {
+        Entry existing = entries.get(key);
         if (existing != null) {
             return existing;
         }
         Entry entry = new Entry();
-        entries.put(image.sha256(), entry);
+        entries.put(key, entry);
         evict();
-        route.imageFile(image)
+        source.get()
                 .thenApplyAsync(path -> {
                     try {
-                        return new Loaded(path, ImageFrames.read(path, image.animated()));
+                        return new Loaded(path, ImageFrames.read(path, animated));
                     } catch (Exception e) {
                         throw new IllegalStateException(e);
                     }
@@ -90,8 +100,8 @@ public final class ImageTextures {
                     if (error != null) {
                         LOGGER.info("{}: картинка не открылась ({})", BloodDesigner.NAME, error.getMessage());
                         entry.state = State.FAILED;
-                    } else if (entries.get(image.sha256()) == entry) {
-                        upload(image.sha256(), entry, loaded);
+                    } else if (entries.get(key) == entry) {
+                        upload(key, entry, loaded);
                     }
                 }));
         return entry;
