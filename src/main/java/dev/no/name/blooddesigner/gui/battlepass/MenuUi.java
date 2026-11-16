@@ -19,9 +19,12 @@ final class MenuUi {
     static final int GREEN = 0xFF5BD47A;
     static final int RED = 0xFFFF6B6B;
     static final int BLOOD = 0xFFE51B1B;
+    static final int BLOOD_DEEP = 0xFF8F0E1A;
+    static final int WINE = 0xFF5A1520;
     static final int BUTTON_HEIGHT = 20;
+    private static final int GOLD_TEXT = 0xFF2A1404;
 
-    enum ButtonStyle { PRIMARY, LIGHT, OUTLINE }
+    enum ButtonStyle { PRIMARY, LIGHT, OUTLINE, GOLD }
 
     private MenuUi() {
     }
@@ -63,6 +66,10 @@ final class MenuUi {
      * берём шрифт под увеличенный размер: так буквы остаются чёткими, а не пиксельными.
      */
     static void headline(Gfx g, String text, float x, float y, float scale, int color) {
+        headline(g, text, x, y, scale, color, TextStyle.TITLE);
+    }
+
+    static void headline(Gfx g, String text, float x, float y, float scale, int color, TextStyle style) {
         int base = Draw.pixelScale();
         int sharp = sharpScale(base, scale);
         Matrix3x2fStack pose = g.pose();
@@ -70,14 +77,18 @@ final class MenuUi {
         pose.translate(x, y);
         pose.scale(sharp / (float) base, sharp / (float) base);
         Draw.setPixelScale(sharp);
-        Draw.text(g, text, 0, 0, color, TextStyle.TITLE);
+        Draw.text(g, text, 0, 0, color, style);
         Draw.setPixelScale(base);
         pose.popMatrix();
     }
 
     static float headlineWidth(String text, float scale) {
+        return headlineWidth(text, scale, TextStyle.TITLE);
+    }
+
+    static float headlineWidth(String text, float scale, TextStyle style) {
         int base = Draw.pixelScale();
-        return Draw.width(text, TextStyle.TITLE) * sharpScale(base, scale) / (float) base;
+        return Draw.width(text, style) * sharpScale(base, scale) / (float) base;
     }
 
     /** Ближайший размер пикселя, под который есть шрифт (1..8). */
@@ -100,6 +111,11 @@ final class MenuUi {
                 fill = hovered ? 0xFFFFFFFF : 0xFFE9EAEE;
                 border = fill;
                 color = 0xFF111216;
+            }
+            case GOLD -> {
+                fill = hovered ? Colors.mix(GOLD, 0xFFFFFFFF, 0.2f) : GOLD;
+                border = fill;
+                color = GOLD_TEXT;
             }
             default -> {
                 fill = hovered ? Theme.CARD_HOVER : Colors.fade(Theme.CARD, 0.85f);

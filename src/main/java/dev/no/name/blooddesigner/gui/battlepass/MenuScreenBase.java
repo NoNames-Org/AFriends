@@ -133,6 +133,11 @@ abstract class MenuScreenBase extends ScreenBase {
         return Compat.isKeyDown(InputConstants.KEY_LSHIFT) || Compat.isKeyDown(InputConstants.KEY_RSHIFT);
     }
 
+    /** Во сколько раз холст меньше экранных координат: экранная координата / это = координата холста. */
+    protected float canvasScale() {
+        return scale;
+    }
+
     private double toCanvas(double screenValue) {
         return screenValue / scale;
     }

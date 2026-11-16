@@ -33,6 +33,42 @@ class ImageFramesTest {
     }
 
     @Test
+    @DisplayName("крупная версия для просмотра держит больше пикселей, но не больше FULL_SIDE")
+    void fullSize(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("huge.png");
+        ImageIO.write(new BufferedImage(4096, 1024, BufferedImage.TYPE_INT_RGB), "png", file.toFile());
+        ImageFrames frames = ImageFrames.read(file, false, ImageFrames.FULL_SIDE);
+        assertEquals(ImageFrames.FULL_SIDE, frames.width());
+        assertEquals(ImageFrames.FULL_SIDE / 4, frames.height());
+    }
+
+    @Test
+    @DisplayName("маленькая картинка не растягивается")
+    void keepsSmall(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("small.png");
+        ImageIO.write(new BufferedImage(200, 100, BufferedImage.TYPE_INT_RGB), "png", file.toFile());
+        ImageFrames frames = ImageFrames.read(file, false, ImageFrames.FULL_SIDE);
+        assertEquals(200, frames.width());
+        assertEquals(100, frames.height());
+    }
+
+    @Test
+    @DisplayName("сильное уменьшение сохраняет цвет: шахматка 1px сжимается в ровный серый, а не в рябь")
+    void smoothDownscale(@TempDir Path dir) throws IOException {
+        BufferedImage checker = new BufferedImage(1440, 1440, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 1440; y++) {
+            for (int x = 0; x < 1440; x++) {
+                checker.setRGB(x, y, ((x + y) & 1) == 0 ? 0xFFFFFF : 0x000000);
+            }
+        }
+        Path file = dir.resolve("checker.png");
+        ImageIO.write(checker, "png", file.toFile());
+        BufferedImage result = ImageFrames.read(file, false).frames().get(0);
+        int gray = result.getRGB(100, 100) & 0xFF;
+        assertEquals(128, gray, 12);
+    }
+
+    @Test
     @DisplayName("гифка раскладывается на кадры с задержками и крутится по кругу")
     void gif(@TempDir Path dir) throws IOException {
         Path file = dir.resolve("anim.gif");

@@ -5,7 +5,7 @@ import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
+import dev.no.name.blooddesigner.compat.SmoothTexture;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,16 +71,25 @@ public final class ImageTextures {
 
     // зовётся с потока игры при каждом кадре отрисовки
     public Entry entry(MessageImage image, MessageRoute route) {
-        return load(image.sha256(), image.animated(), () -> route.imageFile(image));
+        return load(image.sha256(), image.animated(), ImageFrames.MAX_SIDE, () -> route.imageFile(image));
+    }
+
+    // крупная версия для просмотра во всё окно. Гифка остаётся маленькой: 150 крупных кадров съели бы видеопамять
+    public Entry full(MessageImage image, MessageRoute route) {
+        if (image.animated() || Math.max(image.width(), image.height()) <= ImageFrames.MAX_SIDE) {
+            return entry(image, route);
+        }
+        return load(image.sha256() + "-full", false, ImageFrames.FULL_SIDE, () -> route.imageFile(image));
     }
 
     // файл с диска, ещё не отправленный: превью над полем ввода и избранные гифки
     public Entry file(Path file, boolean animated) {
         String key = "file-" + Integer.toHexString(file.toAbsolutePath().toString().hashCode());
-        return load(key, animated, () -> CompletableFuture.completedFuture(file));
+        return load(key, animated, ImageFrames.MAX_SIDE, () -> CompletableFuture.completedFuture(file));
     }
 
-    private Entry load(String key, boolean animated, java.util.function.Supplier<CompletableFuture<Path>> source) {
+    private Entry load(String key, boolean animated, int maxSide,
+                       java.util.function.Supplier<CompletableFuture<Path>> source) {
         Entry existing = entries.get(key);
         if (existing != null) {
             return existing;
@@ -91,7 +100,7 @@ public final class ImageTextures {
         source.get()
                 .thenApplyAsync(path -> {
                     try {
-                        return new Loaded(path, ImageFrames.read(path, animated));
+                        return new Loaded(path, ImageFrames.read(path, animated, maxSide));
                     } catch (Exception e) {
                         throw new IllegalStateException(e);
                     }
@@ -122,7 +131,7 @@ public final class ImageTextures {
                 }
             }
             Identifier id = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID, "media/" + sha + "/" + i);
-            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "BloodDesigner image", pixels));
+            Minecraft.getInstance().getTextureManager().register(id, new SmoothTexture(() -> "BloodDesigner image", pixels));
             ids.add(id);
         }
         entry.file = loaded.file();

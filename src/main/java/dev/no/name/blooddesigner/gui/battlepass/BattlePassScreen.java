@@ -1,5 +1,6 @@
 package dev.no.name.blooddesigner.gui.battlepass;
 
+import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.compat.Gfx;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassMenu;
 import dev.no.name.blooddesigner.core.battlepass.BattlePassMenu.Reward;
@@ -18,19 +19,31 @@ import dev.no.name.blooddesigner.gui.render.Draw;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.render.text.TextStyle;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** Свой экран уровней БП: баннер с Premium, панель заданий, полоса уровня, две линии наград, страницы. */
+/**
+ * Свой экран уровней БП: баннер с картинкой (заголовок, уровень, Premium, задания поверх),
+ * полоса уровня, две линии наград, страницы.
+ */
 public class BattlePassScreen extends MenuScreenBase {
     private static final int WIDTH = 538;
     private static final int GAP = 8;
-    private static final int TOP_HEIGHT = 146;
+    private static final int TOP_HEIGHT = 172;
+    private static final Identifier BANNER = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID,
+            "textures/gui/battlepass_banner.png");
+    private static final int BANNER_TEXTURE_WIDTH = 269;
+    private static final int BANNER_TEXTURE_HEIGHT = 86;
     private static final int QUEST_PANEL_WIDTH = 186;
-    private static final int BANNER_WIDTH = WIDTH - QUEST_PANEL_WIDTH - GAP;
+    private static final int QUEST_ROW_HEIGHT = 36;
+    private static final int QUEST_HEADER_HEIGHT = 22;
+    private static final int PREMIUM_CARD_WIDTH = 236;
+    private static final int BUY_WIDTH = 64;
+    private static final int LINE = 0xFF3A1A20;
     private static final int LEVEL_HEIGHT = 28;
     private static final int LABEL_WIDTH = 25;
     private static final int COLUMNS = BattlePassMenu.LEVELS_PER_PAGE;
@@ -44,7 +57,7 @@ public class BattlePassScreen extends MenuScreenBase {
     private static final int PAGE_GAP = 5;
     private static final long PULSE_PERIOD = 1400;
     private static final long PAGE_STEP_TIMEOUT_MS = 1500;
-    private static final int PREMIUM_CARD_HEIGHT = 50;
+    private static final int PREMIUM_CARD_HEIGHT = 56;
 
     /**
      * Цель листания живёт вне экрана: при переходе на страницу сервер может закрыть меню и открыть новое,
@@ -57,6 +70,8 @@ public class BattlePassScreen extends MenuScreenBase {
     private static final long TARGET_LIFETIME_MS = 15_000;
 
     private Component serverTitle;
+    /** Прокрутка списка заданий на баннере, в пикселях холста. */
+    private float questScroll;
 
     public BattlePassScreen(Component serverTitle) {
         super("Батл пасс");
@@ -108,8 +123,25 @@ public class BattlePassScreen extends MenuScreenBase {
         return gridTop() + ROW_HEIGHT * 2 + GAP;
     }
 
+    // панель заданий лежит на баннере справа
     private int questX() {
-        return left + BANNER_WIDTH + GAP;
+        return left + WIDTH - PAD - QUEST_PANEL_WIDTH;
+    }
+
+    private int questTop() {
+        return top + PAD;
+    }
+
+    private int questHeight() {
+        return TOP_HEIGHT - PAD * 2;
+    }
+
+    private int questListTop() {
+        return questTop() + QUEST_HEADER_HEIGHT;
+    }
+
+    private int questListBottom() {
+        return allQuestsY() - 6;
     }
 
     private int premiumCardY() {
@@ -117,19 +149,20 @@ public class BattlePassScreen extends MenuScreenBase {
     }
 
     private int buyX() {
-        return left + PAD + 236 - 8 - 64;
+        return left + PAD + PREMIUM_CARD_WIDTH - 10 - BUY_WIDTH;
     }
 
     private int buyY() {
-        return premiumCardY() + (PREMIUM_CARD_HEIGHT - MenuUi.BUTTON_HEIGHT) / 2;
+        return premiumCardY() + PREMIUM_CARD_HEIGHT - 10 - MenuUi.BUTTON_HEIGHT;
     }
 
     private int allQuestsY() {
-        return top + TOP_HEIGHT - PAD - MenuUi.BUTTON_HEIGHT;
+        return questTop() + questHeight() - 8 - MenuUi.BUTTON_HEIGHT;
     }
 
+    // крестик и баланс — у левого края панели заданий
     private int closeX() {
-        return left + BANNER_WIDTH - PAD - MenuUi.BUTTON_HEIGHT;
+        return questX() - 8 - MenuUi.BUTTON_HEIGHT;
     }
 
     // ---------- отрисовка ----------
@@ -153,15 +186,21 @@ public class BattlePassScreen extends MenuScreenBase {
     }
 
     private void drawBanner(Gfx g, View view, int mouseX, int mouseY) {
-        MenuUi.banner(g, left, top, BANNER_WIDTH, TOP_HEIGHT, Icon.TROPHY);
-        MenuUi.headline(g, "БАТЛ ПАСС", left + PAD + 2, top + PAD + 2, 2.6f, Theme.TEXT);
+        Draw.shadow(g, left, top + 3, WIDTH, TOP_HEIGHT, Theme.PANEL_RADIUS, 16, Colors.fade(Theme.SHADOW, 0.8f));
+        g.image(BANNER, left, top, WIDTH, TOP_HEIGHT, BANNER_TEXTURE_WIDTH, BANNER_TEXTURE_HEIGHT);
+        // затемняем слева под текст и снизу под карточку Premium
+        Draw.gradientHorizontal(g, left, top, WIDTH * 0.55f, TOP_HEIGHT, Theme.PANEL_RADIUS, 0xD9080305, 0x00080305);
+        Draw.gradient(g, left, top + TOP_HEIGHT * 0.5f, WIDTH, TOP_HEIGHT * 0.5f, Theme.PANEL_RADIUS, 0x00080305, 0x99080305);
+        Draw.border(g, left, top, WIDTH, TOP_HEIGHT, Theme.PANEL_RADIUS, Colors.fade(MenuUi.BLOOD, 0.45f));
+
+        drawDisplay(g, "БАТЛ ПАСС", left + PAD + 2, top + PAD + 2, 2.4f);
         BattlePassProgress progress = view.progress();
-        Draw.text(g, "Твой уровень", left + PAD + 3, top + 50, Colors.fade(Theme.TEXT, 0.75f));
+        Draw.text(g, "Твой уровень", left + PAD + 3, top + 48, Colors.fade(Theme.TEXT, 0.75f));
         String level = String.valueOf(progress.level());
-        MenuUi.headline(g, level, left + PAD + 2, top + 61, 1.8f, Theme.TEXT);
+        drawDisplay(g, level, left + PAD + 2, top + 60, 1.8f);
         if (progress.maxLevel() > 0) {
-            Draw.text(g, "/ " + progress.maxLevel(), left + PAD + 8 + MenuUi.headlineWidth(level, 1.8f), top + 68,
-                    Colors.fade(Theme.TEXT, 0.6f));
+            Draw.text(g, "/ " + progress.maxLevel(), left + PAD + 8 + MenuUi.headlineWidth(level, 1.8f, TextStyle.DISPLAY),
+                    top + 68, Colors.fade(Theme.TEXT, 0.6f));
         }
         boolean closeHovered = inside(mouseX, mouseY, closeX(), top + PAD, MenuUi.BUTTON_HEIGHT, MenuUi.BUTTON_HEIGHT);
         MenuUi.button(g, closeX(), top + PAD, MenuUi.BUTTON_HEIGHT, Icon.CLOSE, null, ButtonStyle.OUTLINE, true, closeHovered);
@@ -169,66 +208,100 @@ public class BattlePassScreen extends MenuScreenBase {
         drawPremiumCard(g, progress, mouseX, mouseY);
     }
 
+    /** Крупный текст шрифтом Unbounded с тёмно-красной тенью, как в макете. */
+    private static void drawDisplay(Gfx g, String text, float x, float y, float scale) {
+        MenuUi.headline(g, text, x, y + 1.5f, scale, MenuUi.BLOOD_DEEP, TextStyle.DISPLAY);
+        MenuUi.headline(g, text, x, y, scale, Theme.TEXT, TextStyle.DISPLAY);
+    }
+
     private void drawPremiumCard(Gfx g, BattlePassProgress progress, int mouseX, int mouseY) {
         int x = left + PAD;
         int y = premiumCardY();
-        int w = 236;
-        Draw.box(g, x, y, w, PREMIUM_CARD_HEIGHT, Theme.RADIUS + 2, 0x66000000, Colors.fade(MenuUi.GOLD, 0.55f));
-        Draw.icon(g, Icon.CROWN, x + 8, y + 8, Theme.ICON_SMALL, MenuUi.GOLD);
-        Draw.text(g, "PREMIUM", x + 20, y + 8, MenuUi.GOLD, TextStyle.BODY_MEDIUM);
+        int w = PREMIUM_CARD_WIDTH;
+        Draw.gradient(g, x, y, w, PREMIUM_CARD_HEIGHT, Theme.RADIUS + 2, 0xD9781220, 0xD928080E);
+        Draw.border(g, x, y, w, PREMIUM_CARD_HEIGHT, Theme.RADIUS + 2, Colors.fade(MenuUi.GOLD, 0.5f));
+        Draw.icon(g, Icon.CROWN, x + 10, y + 9, Theme.ICON_SMALL, MenuUi.GOLD);
+        Draw.text(g, "ПРЕМИУМ", x + 22, y + 9, MenuUi.GOLD, TextStyle.DISPLAY);
         if (progress.premiumActive()) {
-            Draw.text(g, "Активен  ·  уровень " + progress.premiumLevel(), x + 8, y + 22, Theme.TEXT);
-            MenuUi.progressBar(g, x + 8, y + 36, w - 16, 5, progress.premiumFill(), MenuUi.GOLD);
+            float badgeX = x + 28 + Draw.width("ПРЕМИУМ", TextStyle.DISPLAY);
+            float badgeW = Draw.width("АКТИВЕН", TextStyle.SMALL) + 8;
+            Draw.box(g, badgeX, y + 8, badgeW, 10, 5, Colors.fade(MenuUi.GREEN, 0.15f), MenuUi.GREEN);
+            Draw.text(g, "АКТИВЕН", badgeX + 4, y + 10, MenuUi.GREEN, TextStyle.SMALL);
+            Draw.text(g, "Уровень Premium " + progress.premiumLevel(), x + 10, y + 28, Theme.TEXT, TextStyle.BODY_MEDIUM);
+            String xp = progress.premiumXp() + " / " + progress.premiumXpNeeded();
+            Draw.text(g, xp, x + w - 10 - Draw.width(xp), y + 28, MenuUi.GOLD);
+            MenuUi.progressBar(g, x + 10, y + 42, w - 20, 5, progress.premiumFill(), MenuUi.GOLD);
             return;
         }
-        Draw.text(g, "Своя линия наград", x + 8, y + 22, Colors.fade(Theme.TEXT, 0.85f));
-        Draw.text(g, "и косметика на уровнях", x + 8, y + 33, Colors.fade(Theme.TEXT, 0.85f));
-        boolean hovered = inside(mouseX, mouseY, buyX(), buyY(), 64, MenuUi.BUTTON_HEIGHT);
-        MenuUi.button(g, buyX(), buyY(), 64, Icon.CROWN, "Купить", ButtonStyle.LIGHT, true, hovered);
+        Draw.text(g, "Вторая линия наград", x + 10, y + 26, Colors.fade(Theme.TEXT, 0.9f));
+        Draw.text(g, "до 100 уровня", x + 10, y + 37, Colors.fade(Theme.TEXT, 0.9f));
+        boolean hovered = inside(mouseX, mouseY, buyX(), buyY(), BUY_WIDTH, MenuUi.BUTTON_HEIGHT);
+        MenuUi.button(g, buyX(), buyY(), BUY_WIDTH, Icon.CROWN, "Купить", ButtonStyle.GOLD, true, hovered);
     }
 
     private void drawQuestPanel(Gfx g, int mouseX, int mouseY) {
         int x = questX();
-        MenuUi.panel(g, x, top, QUEST_PANEL_WIDTH, TOP_HEIGHT);
-        Draw.icon(g, Icon.BOOK, x + PAD, top + PAD + 1, Theme.ICON_SMALL, Theme.ACCENT);
-        Draw.text(g, "Задания", x + PAD + 13, top + PAD, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        List<Quest> quests = previewQuests();
-        int w = QUEST_PANEL_WIDTH - PAD * 2;
+        int y = questTop();
+        int pad = 10;
+        int w = QUEST_PANEL_WIDTH - pad * 2;
+        Draw.roundedRect(g, x, y, QUEST_PANEL_WIDTH, questHeight(), Theme.PANEL_RADIUS, 0xE0160A0D);
+        Draw.border(g, x, y, QUEST_PANEL_WIDTH, questHeight(), Theme.PANEL_RADIUS, LINE);
+        Draw.text(g, "Задания", x + pad, y + 8, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        List<Quest> quests = sortedQuests();
+        if (!quests.isEmpty()) {
+            long done = quests.stream().filter(Quest::done).count();
+            String summary = "выполнено " + done + " из " + quests.size();
+            Draw.text(g, summary, x + QUEST_PANEL_WIDTH - pad - Draw.width(summary, TextStyle.SMALL), y + 9, MenuUi.GREEN,
+                    TextStyle.SMALL);
+        }
+        Draw.rect(g, x + 1, questListTop() - 1, QUEST_PANEL_WIDTH - 2, 1, LINE);
         if (quests.isEmpty()) {
-            int hintY = top + 32;
-            for (String line : MenuUi.wrap("Открой все задания, и здесь появится твой прогресс.", w, 3, TextStyle.BODY)) {
-                Draw.text(g, line, x + PAD, hintY, Theme.TEXT_DIM, TextStyle.BODY);
+            int hintY = questListTop() + 8;
+            for (String line : MenuUi.wrap("Открой «Все задания», и здесь появится твой прогресс.", w, 3, TextStyle.BODY)) {
+                Draw.text(g, line, x + pad, hintY, Theme.TEXT_DIM, TextStyle.BODY);
                 hintY += 11;
             }
+        } else {
+            questScroll = Math.max(0, Math.min(questScroll, maxQuestScroll(quests.size())));
+            g.enableScissor(x, questListTop(), x + QUEST_PANEL_WIDTH, questListBottom());
+            float rowY = questListTop() + 6 - questScroll;
+            for (Quest quest : quests) {
+                if (rowY + QUEST_ROW_HEIGHT > questListTop() && rowY < questListBottom()) {
+                    drawQuest(g, quest, x + pad, rowY, w);
+                }
+                rowY += QUEST_ROW_HEIGHT;
+            }
+            g.disableScissor();
         }
-        int y = top + 30;
-        for (Quest quest : quests) {
-            Draw.text(g, Draw.trim(quest.title(), w - 40), x + PAD, y, quest.done() ? MenuUi.GREEN : Theme.TEXT);
-            String count = quest.progress() + "/" + quest.goal();
-            Draw.text(g, count, x + PAD + w - Draw.width(count), y, Theme.TEXT_SOFT);
-            MenuUi.progressBar(g, x + PAD, y + 12, w, 4, quest.fill(), quest.done() ? MenuUi.GREEN : Theme.ACCENT);
-            Draw.text(g, quest.reward(), x + PAD, y + 20, MenuUi.GOLD, TextStyle.BODY);
-            y += 36;
-        }
-        boolean hovered = inside(mouseX, mouseY, x + PAD, allQuestsY(), w, MenuUi.BUTTON_HEIGHT);
-        MenuUi.button(g, x + PAD, allQuestsY(), w, Icon.LIST, "Все задания", ButtonStyle.LIGHT, true, hovered);
+        boolean hovered = inside(mouseX, mouseY, x + pad, allQuestsY(), w, MenuUi.BUTTON_HEIGHT);
+        MenuUi.button(g, x + pad, allQuestsY(), w, Icon.LIST, "Все задания", ButtonStyle.LIGHT, true, hovered);
     }
 
-    /** Два невыполненных квеста из последнего открытия меню квестов (или два первых, если всё выполнено). */
-    private static List<Quest> previewQuests() {
-        List<Quest> all = QuestMenu.lastSeen();
-        List<Quest> preview = new ArrayList<>();
-        for (Quest quest : all) {
-            if (!quest.done() && preview.size() < 2) {
-                preview.add(quest);
-            }
+    // одна строка задания: группа, название, полоса, награда и бонус серии, счётчик
+    private static void drawQuest(Gfx g, Quest quest, float x, float y, int w) {
+        Draw.text(g, Draw.trim(quest.kind().toUpperCase(java.util.Locale.ROOT), w, TextStyle.SMALL), x, y, Theme.TEXT_FAINT,
+                TextStyle.SMALL);
+        String count = quest.progress() + "/" + quest.goal();
+        Draw.text(g, Draw.trim(quest.title(), w - (int) Draw.width(count) - 6), x, y + 8,
+                quest.done() ? MenuUi.GREEN : Theme.TEXT);
+        Draw.text(g, count, x + w - Draw.width(count), y + 8, Theme.TEXT_SOFT);
+        MenuUi.progressBar(g, x, y + 19, w, 3, quest.fill(), quest.done() ? MenuUi.GREEN : MenuUi.BLOOD);
+        Draw.text(g, quest.reward(), x, y + 25, MenuUi.GOLD, TextStyle.SMALL);
+        if (!quest.bonus().isEmpty()) {
+            Draw.text(g, "серия " + quest.bonus(), x + Draw.width(quest.reward(), TextStyle.SMALL) + 8, y + 25,
+                    Theme.TEXT_DIM, TextStyle.SMALL);
         }
-        for (int i = 0; i < all.size() && preview.size() < 2; i++) {
-            if (!preview.contains(all.get(i))) {
-                preview.add(all.get(i));
-            }
-        }
-        return preview;
+    }
+
+    private float maxQuestScroll(int count) {
+        return Math.max(0, count * QUEST_ROW_HEIGHT + 6 - (questListBottom() - questListTop()));
+    }
+
+    /** Задания из последнего открытия меню квестов: сначала невыполненные. */
+    private static List<Quest> sortedQuests() {
+        List<Quest> quests = new ArrayList<>(QuestMenu.lastSeen());
+        quests.sort(java.util.Comparator.comparing(Quest::done));
+        return quests;
     }
 
     private void drawLevel(Gfx g, BattlePassProgress progress) {
@@ -242,9 +315,8 @@ public class BattlePassScreen extends MenuScreenBase {
         String label = "Уровень " + progress.level();
         float pill = Draw.width(label, TextStyle.BODY_MEDIUM) + 16;
         float fillW = Math.max(pill, pill + (barW - pill) * progress.fill());
-        Draw.gradientHorizontal(g, barX, barY, fillW, barH, Theme.RADIUS,
-                Colors.fade(Theme.ACCENT, 0.85f), Colors.fade(Theme.ACCENT, 0.45f));
-        Draw.text(g, label, barX + 8, barY + (barH - 8) / 2f, Theme.ACCENT_TEXT, TextStyle.BODY_MEDIUM);
+        Draw.gradientHorizontal(g, barX, barY, fillW, barH, Theme.RADIUS, MenuUi.BLOOD_DEEP, MenuUi.BLOOD);
+        Draw.text(g, label, barX + 8, barY + (barH - 8) / 2f, Theme.TEXT, TextStyle.BODY_MEDIUM);
         String xp = "Опыт " + progress.xp() + " / " + progress.xpNeeded();
         Draw.text(g, xp, barX + barW - 8 - Draw.width(xp), barY + (barH - 8) / 2f, Theme.TEXT);
     }
@@ -253,7 +325,8 @@ public class BattlePassScreen extends MenuScreenBase {
         int y = gridTop();
         MenuUi.panel(g, left, y, WIDTH, ROW_HEIGHT * 2);
         Draw.roundedRect(g, left + 1, rowTop(true), WIDTH - 2, ROW_HEIGHT - 1, Theme.PANEL_RADIUS - 1,
-                Colors.fade(MenuUi.GOLD, 0.09f));
+                Colors.fade(MenuUi.WINE, 0.7f));
+        Draw.rect(g, left + 1, y + 1, LABEL_WIDTH - 1, ROW_HEIGHT - 1, 0x33000000);
         Draw.rect(g, left + 1, rowTop(true), WIDTH - 2, 1, Theme.BORDER_HOVER);
         Draw.rect(g, left + LABEL_WIDTH, y + 1, 1, ROW_HEIGHT * 2 - 2, Theme.BORDER_HOVER);
         MenuUi.verticalText(g, "Обычная", left + LABEL_WIDTH / 2f, rowTop(false) + ROW_HEIGHT / 2f, Theme.TEXT_SOFT,
@@ -288,15 +361,16 @@ public class BattlePassScreen extends MenuScreenBase {
                 Draw.roundedRect(g, x + 2, rowY + 2, CELL_WIDTH - 4, ROW_HEIGHT - 4, Theme.RADIUS, Colors.fade(Theme.TEXT, 0.05f));
             }
             if (available) {
-                int glow = Colors.fade(Theme.ACCENT, 0.35f + 0.45f * pulse);
-                Draw.border(g, x + 2, rowY + 2, CELL_WIDTH - 4, ROW_HEIGHT - 4, Theme.RADIUS, glow);
+                int accent = premium ? MenuUi.GOLD : Theme.TEXT;
+                Draw.border(g, x + 2, rowY + 2, CELL_WIDTH - 4, ROW_HEIGHT - 4, Theme.RADIUS,
+                        Colors.fade(accent, 0.35f + 0.45f * pulse));
                 float pillW = Draw.width("Забрать", TextStyle.BODY) + 10;
-                Draw.roundedRect(g, x + (CELL_WIDTH - pillW) / 2f, rowY + ROW_HEIGHT - 17, pillW, 12, 6, Theme.ACCENT);
-                Draw.text(g, "Забрать", x + (CELL_WIDTH - pillW) / 2f + 5, rowY + ROW_HEIGHT - 15, Theme.ACCENT_TEXT, TextStyle.BODY);
+                Draw.roundedRect(g, x + (CELL_WIDTH - pillW) / 2f, rowY + ROW_HEIGHT - 17, pillW, 12, 6, accent);
+                Draw.text(g, "Забрать", x + (CELL_WIDTH - pillW) / 2f + 5, rowY + ROW_HEIGHT - 15, 0xFF1A0A0D, TextStyle.BODY);
             }
-            if (reward.level() > 0) {
-                boolean current = !premium && reward.level() == progress.level();
-                Draw.text(g, String.valueOf(reward.level()), x + 5, rowY + 5, current ? Theme.ACCENT : Theme.TEXT_SOFT,
+            if (reward.level() > 0 && !premium) {
+                boolean current = reward.level() == progress.level();
+                Draw.text(g, String.valueOf(reward.level()), x + 5, rowY + 5, current ? Theme.TEXT : Theme.TEXT_DIM,
                         TextStyle.BODY_MEDIUM);
             }
         }
@@ -362,9 +436,9 @@ public class BattlePassScreen extends MenuScreenBase {
     private void drawPageButton(Gfx g, float x, float y, Icon icon, String label, boolean current, boolean enabled,
                                 int mouseX, int mouseY) {
         boolean hovered = enabled && !current && inside(mouseX, mouseY, x, y, PAGE_BUTTON, PAGE_BUTTON);
-        int fill = current ? Theme.ACCENT : hovered ? Theme.CARD_HOVER : Colors.fade(Theme.CARD, 0.9f);
-        int border = current ? Theme.ACCENT : hovered ? Theme.BORDER_SELECTED : Theme.BORDER_HOVER;
-        int color = current ? Theme.ACCENT_TEXT : enabled ? (hovered ? Theme.TEXT : Theme.TEXT_SOFT) : Theme.TEXT_FAINT;
+        int fill = current ? MenuUi.BLOOD : hovered ? Theme.CARD_HOVER : Colors.fade(Theme.CARD, 0.9f);
+        int border = current ? MenuUi.BLOOD : hovered ? Theme.BORDER_SELECTED : Theme.BORDER_HOVER;
+        int color = current ? Theme.TEXT : enabled ? (hovered ? Theme.TEXT : Theme.TEXT_SOFT) : Theme.TEXT_FAINT;
         Draw.box(g, x, y, PAGE_BUTTON, PAGE_BUTTON, PAGE_BUTTON / 2f, fill, border);
         if (icon != null) {
             Draw.icon(g, icon, x + (PAGE_BUTTON - Theme.ICON_SMALL) / 2f, y + (PAGE_BUTTON - Theme.ICON_SMALL) / 2f,
@@ -502,11 +576,11 @@ public class BattlePassScreen extends MenuScreenBase {
             onClose();
             return true;
         }
-        if (!view.progress().premiumActive() && inside(x, y, buyX(), buyY(), 64, MenuUi.BUTTON_HEIGHT)) {
+        if (!view.progress().premiumActive() && inside(x, y, buyX(), buyY(), BUY_WIDTH, MenuUi.BUTTON_HEIGHT)) {
             BattlePassNavigator.openShop();
             return true;
         }
-        if (inside(x, y, questX() + PAD, allQuestsY(), QUEST_PANEL_WIDTH - PAD * 2, MenuUi.BUTTON_HEIGHT)) {
+        if (inside(x, y, questX() + 10, allQuestsY(), QUEST_PANEL_WIDTH - 20, MenuUi.BUTTON_HEIGHT)) {
             clickSlot(BattlePassMenu.QUESTS_SLOT, false);
             return true;
         }
@@ -557,6 +631,14 @@ public class BattlePassScreen extends MenuScreenBase {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         View view = view();
+        // над списком заданий колесо листает задания, а не страницы наград
+        double canvasX = mouseX / canvasScale();
+        double canvasY = mouseY / canvasScale();
+        if (inside(canvasX, canvasY, questX(), questListTop(), QUEST_PANEL_WIDTH, questListBottom() - questListTop())) {
+            questScroll = Math.max(0, Math.min(questScroll - (float) scrollY * QUEST_ROW_HEIGHT * 0.6f,
+                    maxQuestScroll(QuestMenu.lastSeen().size())));
+            return true;
+        }
         if (view != null && scrollY != 0 && (targetPage <= 0 || targetPage == view.page())) {
             if (scrollY < 0) {
                 goTo(view, view.page() + 1, view.hasNext());

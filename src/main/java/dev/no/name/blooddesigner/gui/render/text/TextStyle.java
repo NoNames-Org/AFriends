@@ -9,7 +9,9 @@ public enum TextStyle {
     SMALL("small", 6.0f),
     BODY("body", 7.0f),
     BODY_MEDIUM("body_medium", 7.0f),
-    TITLE("title", 10.0f);
+    TITLE("title", 10.0f),
+    /** Unbounded Black: крупные заголовки и цифры (батл пасс). */
+    DISPLAY("display", 10.0f);
 
     public static final int MAX_PIXEL_SCALE = 8;
 

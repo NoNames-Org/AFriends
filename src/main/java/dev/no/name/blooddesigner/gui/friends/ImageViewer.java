@@ -42,7 +42,14 @@ final class ImageViewer {
             return;
         }
         Draw.roundedRect(g, 0, 0, width, height, Theme.PANEL_RADIUS, 0xE6050608);
-        ImageTextures.Entry entry = ImageTextures.get().entry(image, route);
+        // пока крупная версия собирается, показываем маленькую из чата, чтобы не мигала «Загрузка…»
+        ImageTextures.Entry entry = ImageTextures.get().full(image, route);
+        if (entry.state() != ImageTextures.State.READY) {
+            ImageTextures.Entry preview = ImageTextures.get().entry(image, route);
+            if (preview.state() == ImageTextures.State.READY || entry.state() == ImageTextures.State.FAILED) {
+                entry = preview;
+            }
+        }
         float areaWidth = width - MARGIN * 2;
         float areaHeight = height - MARGIN * 3 - BUTTON_HEIGHT;
         float scale = Math.min(areaWidth / image.width(), areaHeight / image.height());

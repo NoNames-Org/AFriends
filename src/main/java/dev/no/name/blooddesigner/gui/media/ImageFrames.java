@@ -20,14 +20,21 @@ import java.util.List;
 /**
  * Картинка, разложенная на кадры для показа в чате: у PNG и JPG кадр один, у GIF — все, собранные целиком
  * (в GIF кадр часто лишь заплатка поверх прошлого). Всё уменьшено, чтобы длинная сторона была не больше MAX_SIDE:
- * в чате больше не нужно, а память видеокарты не резиновая. Работает без потока игры
+ * в чате больше не нужно, а память видеокарты не резиновая. Для просмотра во всё окно картинка читается крупнее —
+ * до FULL_SIDE. Работает без потока игры
  */
 public record ImageFrames(int width, int height, List<BufferedImage> frames, int[] delays) {
     public static final int MAX_SIDE = 360;
+    public static final int FULL_SIDE = 2048;
     private static final int MAX_FRAMES = 150;
     private static final int MIN_DELAY_MS = 20;
 
     public static ImageFrames read(Path file, boolean animated) throws IOException {
+        return read(file, animated, MAX_SIDE);
+    }
+
+    // maxSide — предел длинной стороны после уменьшения; меньшие картинки не растягиваются
+    public static ImageFrames read(Path file, boolean animated, int maxSide) throws IOException {
         try (ImageInputStream input = ImageIO.createImageInputStream(file.toFile())) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
             if (!readers.hasNext()) {
@@ -36,21 +43,21 @@ public record ImageFrames(int width, int height, List<BufferedImage> frames, int
             ImageReader reader = readers.next();
             try {
                 reader.setInput(input, false, false);
-                return animated ? gif(reader) : still(reader);
+                return animated ? gif(reader, maxSide) : still(reader, maxSide);
             } finally {
                 reader.dispose();
             }
         }
     }
 
-    private static ImageFrames still(ImageReader reader) throws IOException {
+    private static ImageFrames still(ImageReader reader, int maxSide) throws IOException {
         BufferedImage image = reader.read(0);
-        BufferedImage scaled = scale(image);
+        BufferedImage scaled = scale(image, maxSide);
         return new ImageFrames(scaled.getWidth(), scaled.getHeight(), List.of(scaled), new int[] {0});
     }
 
     // GIF: кадр рисуется поверх холста со своим сдвигом, потом холст чистится по правилу disposal
-    private static ImageFrames gif(ImageReader reader) throws IOException {
+    private static ImageFrames gif(ImageReader reader, int maxSide) throws IOException {
         int count = Math.min(reader.getNumImages(true), MAX_FRAMES);
         int canvasWidth = reader.getWidth(0);
         int canvasHeight = reader.getHeight(0);
@@ -80,7 +87,7 @@ public record ImageFrames(int width, int height, List<BufferedImage> frames, int
             Graphics2D g = canvas.createGraphics();
             g.drawImage(frame, x, y, null);
             g.dispose();
-            frames.add(scale(canvas));
+            frames.add(scale(canvas, maxSide));
 
             if ("restoreToBackgroundColor".equals(disposal)) {
                 Graphics2D clear = canvas.createGraphics();
@@ -118,17 +125,27 @@ public record ImageFrames(int width, int height, List<BufferedImage> frames, int
         return frames.size() - 1;
     }
 
-    private static BufferedImage scale(BufferedImage source) {
+    private static BufferedImage scale(BufferedImage source, int maxSide) {
         int width = source.getWidth();
         int height = source.getHeight();
-        float factor = Math.min(1f, MAX_SIDE / (float) Math.max(width, height));
+        float factor = Math.min(1f, maxSide / (float) Math.max(width, height));
         int targetWidth = Math.max(1, Math.round(width * factor));
         int targetHeight = Math.max(1, Math.round(height * factor));
-        BufferedImage result = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
+        // билинейный шаг берёт лишь 4 соседних пикселя: при сжатии сильнее чем вдвое теряются детали и лезет лесенка,
+        // поэтому сначала уменьшаем пополам, пока до цели не останется меньше двух раз
+        BufferedImage current = source;
+        while (current.getWidth() / 2 >= targetWidth && current.getHeight() / 2 >= targetHeight) {
+            current = resize(current, current.getWidth() / 2, current.getHeight() / 2);
+        }
+        return resize(current, targetWidth, targetHeight);
+    }
+
+    private static BufferedImage resize(BufferedImage source, int width, int height) {
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = result.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(source, 0, 0, targetWidth, targetHeight, null);
+        g.drawImage(source, 0, 0, width, height, null);
         g.dispose();
         return result;
     }

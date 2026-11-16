@@ -33,9 +33,9 @@ BloodDesigner от дополнений не зависит: без них вс�
 
 | Minecraft | Java | Файл |
 |---|---|---|
-| 1.21.11 | 21 | `blooddesigner-1.1.5+1.21.11.jar` |
-| 26.1 – 26.1.2 | 25 | `blooddesigner-1.1.5+26.1.2.jar` |
-| 26.3 | 25 | `blooddesigner-1.1.5+26.3.jar` |
+| 1.21.11 | 21 | `blooddesigner-1.1.6+1.21.11.jar` |
+| 26.1 – 26.1.2 | 25 | `blooddesigner-1.1.6+26.1.2.jar` |
+| 26.3 | 25 | `blooddesigner-1.1.6+26.3.jar` |
 
 Нужны Fabric Loader 0.20.1+ и Fabric API. Готовые файлы — в [релизах](../../releases).
 
