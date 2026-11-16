@@ -494,6 +494,9 @@ public class MessengerScreen extends ScreenBase {
             drawNotesTile(g, x, y, size);
         } else {
             drawFace(g, context.friends().skinOf(entry), (int) x, (int) y, size);
+            if (OnlineDot.isOnline(entry)) {
+                OnlineDot.draw(g, x, y, size);
+            }
         }
     }
 
@@ -607,6 +610,9 @@ public class MessengerScreen extends ScreenBase {
             status = "Твой личный чат для заметок";
         } else {
             drawFace(g, context.friends().skinOf(partner), faceX, faceY, HEADER_FACE);
+            if (OnlineDot.isOnline(partner)) {
+                OnlineDot.draw(g, faceX, faceY, HEADER_FACE);
+            }
             title = messages.displayName(partner);
             boolean offline = messages.offlineAt(partner) > 0;
             Friend friend = context.friends().find(partner);

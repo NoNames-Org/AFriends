@@ -46,11 +46,10 @@ public class FriendsPanel extends WidgetBase {
     private static final int SCROLL_STEP = 16;
     private static final int NAME_LENGTH = 16;
     private static final long NOTICE_MS = 3000;
-    private static final int SUCCESS = 0xFF5CFFB0;
+    private static final int SUCCESS = OnlineDot.COLOR;
     private static final int DANGER = 0xFFFF6B6B;
     private static final Pattern NAME_CHAR = Pattern.compile("[A-Za-z0-9_]");
     private static final int STATUS_LENGTH = 40;
-    private static final int DOT = 6;
     private static final int REQUEST_BUTTON = 14;
 
     private final FriendManager friends;
@@ -211,8 +210,7 @@ public class FriendsPanel extends WidgetBase {
     }
 
     private static boolean online(Friend friend) {
-        FriendStatus.Status status = Addons.get().status(friend.name());
-        return status != null && status.online();
+        return OnlineDot.isOnline(friend.name());
     }
 
     private int listTop() {
@@ -304,8 +302,7 @@ public class FriendsPanel extends WidgetBase {
         FriendStatus.Status status = Addons.get().status(friend.name());
         boolean online = status != null && status.online();
         if (online) {
-            Draw.roundedRect(g, faceX + FACE - DOT + 2, faceY + FACE - DOT + 2, DOT, DOT, DOT / 2f, Theme.PANEL_BOTTOM);
-            Draw.roundedRect(g, faceX + FACE - DOT + 3, faceY + FACE - DOT + 3, DOT - 2, DOT - 2, (DOT - 2) / 2f, SUCCESS);
+            OnlineDot.draw(g, faceX, faceY, FACE);
         }
         String line = isIgnored ? "Игнорируется" : status == null ? null : status.line();
         boolean twoLines = line != null && !line.isEmpty();
