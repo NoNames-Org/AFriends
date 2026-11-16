@@ -124,7 +124,7 @@ final class GroupRoute implements GroupChats {
             social.messages().setTitle(chat, title);
             social.messages().ensureChat(chat);
             // название доходит до участников, когда sync отдаст им группу: шлём, как только она есть у нас
-            sendTitleWhenReady(group, title, 0);
+            sendTitleWhenReady(group, null, title, 0);
             done.accept(chat);
         }));
     }
@@ -142,8 +142,8 @@ final class GroupRoute implements GroupChats {
                 problem.accept(groupProblem(code));
                 return;
             }
-            // новичку — название группы, остальные его уже знают
-            sendTitleWhenReady(group, social.messages().displayName(chat), 0);
+            // новичку — название группы; он попадёт в наш снимок только после sync, до этого конверт ему не уйдёт
+            sendTitleWhenReady(group, friend.id(), social.messages().displayName(chat), 0);
         }));
     }
 
@@ -184,14 +184,16 @@ final class GroupRoute implements GroupChats {
         }));
     }
 
-    // участники видны после sync: несколько попыток с паузой, пока группа не появится в снимке
-    private void sendTitleWhenReady(String group, String title, int attempt) {
-        if (link.snapshot().group(group) != null || attempt >= 10) {
+    // участники видны после sync: несколько попыток с паузой, пока группа (и новичок, если он есть) не появится в снимке
+    private void sendTitleWhenReady(String group, String newcomer, String title, int attempt) {
+        LinkGroup known = link.snapshot().group(group);
+        boolean ready = known != null && (newcomer == null || known.member(newcomer) != null);
+        if (ready || attempt >= 10) {
             link.sendGroupName(group, title);
             return;
         }
         CompletableFuture.delayedExecutor(500, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .execute(() -> onGame(() -> sendTitleWhenReady(group, title, attempt + 1)));
+                .execute(() -> onGame(() -> sendTitleWhenReady(group, newcomer, title, attempt + 1)));
     }
 
     private static String groupProblem(String code) {
@@ -200,6 +202,7 @@ final class GroupRoute implements GroupChats {
             case "not_friends" -> "Позвать можно только друга по сети";
             case "group_full" -> "В группе уже " + LinkGroup.MAX_MEMBERS + " участника";
             case "too_many_groups" -> "Слишком много групп";
+            case "member_too_many_groups" -> "У друга уже слишком много групп";
             case "not_owner" -> "Исключать может только владелец группы";
             case "not_member" -> "Ты больше не в этой группе";
             case "rate_limited" -> "Слишком часто — подожди немного";

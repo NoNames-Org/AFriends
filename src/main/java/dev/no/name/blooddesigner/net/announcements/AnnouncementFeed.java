@@ -125,7 +125,8 @@ public final class AnnouncementFeed {
 
     private synchronized HttpClient client() {
         if (client == null) {
-            client = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
+            // HTTP/1.1: по http:// клиент Java шлёт Upgrade: h2c, и сервер сети принимает это за WebSocket
+            client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(TIMEOUT).build();
         }
         return client;
     }

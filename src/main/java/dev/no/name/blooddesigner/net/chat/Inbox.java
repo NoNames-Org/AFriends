@@ -43,6 +43,21 @@ public final class Inbox {
     private final InboxListener listener;
     private final Runnable resync;
     private final List<Waiting> waiting = new ArrayList<>();
+    private final List<GroupWaiting> groupWaiting = new ArrayList<>();
+
+    // уже расшифрованное в группу, о которой мы ещё не знаем: нас только что добавили, sync не дошёл
+    private static final class GroupWaiting {
+        final LinkFriend from;
+        final ChatPayload payload;
+        final long time;
+        boolean seenSync;
+
+        GroupWaiting(LinkFriend from, ChatPayload payload, long time) {
+            this.from = from;
+            this.payload = payload;
+            this.time = time;
+        }
+    }
 
     public Inbox(LinkCalls calls, E2eSessions sessions, PinnedKeys pinned, PresenceKeys presenceKeys,
                  Supplier<LinkSnapshot> snapshot, InboxListener listener, Runnable resync) {
@@ -87,6 +102,18 @@ public final class Inbox {
                 item.seenSync = true;
             }
         }
+        Iterator<GroupWaiting> groups = groupWaiting.iterator();
+        while (groups.hasNext()) {
+            GroupWaiting item = groups.next();
+            if (isMember(groupOf(item.payload), item.from)) {
+                groups.remove();
+                dispatch(item.from, item.payload, item.time);
+            } else if (item.seenSync) {
+                groups.remove();
+            } else {
+                item.seenSync = true;
+            }
+        }
     }
 
     private void open(LinkFriend from, JsonObject event) {
@@ -113,20 +140,22 @@ public final class Inbox {
     }
 
     private void dispatch(LinkFriend from, ChatPayload payload, long time) {
-        switch (payload) {
-            case ChatPayload.Text text when text.group() != null -> {
-                // в группу пишет только её участник: чужой id группы в конверте не пройдёт
-                if (isMember(text.group(), from)) {
-                    listener.groupMessage(text.group(), from, text.text(), text.id(), text.image(), text.reply(), time);
-                }
+        String group = groupOf(payload);
+        if (group != null && !isMember(group, from)) {
+            // группа или участник ещё не в снимке: ждём ближайшего sync, после него чужое выбрасываем
+            groupWaiting.add(new GroupWaiting(from, payload, time));
+            if (snapshot.get().synced()) {
+                resync.run();
             }
+            return;
+        }
+        switch (payload) {
+            // в группу пишет только её участник: это проверено выше
+            case ChatPayload.Text text when text.group() != null ->
+                    listener.groupMessage(text.group(), from, text.text(), text.id(), text.image(), text.reply(), time);
             case ChatPayload.Text text -> listener.message(from, text.text(), text.id(), text.image(), text.forwardedFrom(),
                     text.reply(), time);
-            case ChatPayload.GroupName group -> {
-                if (isMember(group.group(), from)) {
-                    listener.groupNamed(group.group(), from, group.name(), time);
-                }
-            }
+            case ChatPayload.GroupName named -> listener.groupNamed(named.group(), from, named.name(), time);
             case ChatPayload.Delete delete -> listener.deleted(from, delete.targets(), time);
             case ChatPayload.Pin pin -> listener.pinned(from, pin.target(), pin.pinned(), time);
             case ChatPayload.Reaction reaction -> listener.reaction(from, reaction.target(), reaction.reaction(), time);
@@ -139,6 +168,15 @@ public final class Inbox {
             case ChatPayload.Unknown unknown -> { }
             case null -> listener.unreadable(from, time);
         }
+    }
+
+    // id группы, если конверт для группового чата, иначе null
+    private static String groupOf(ChatPayload payload) {
+        return switch (payload) {
+            case ChatPayload.Text text -> text.group();
+            case ChatPayload.GroupName named -> named.group();
+            case null, default -> null;
+        };
     }
 
     private boolean isMember(String group, LinkFriend from) {

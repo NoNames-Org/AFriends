@@ -348,7 +348,7 @@ public final class PrivateMessages {
         drafts.forEach((key, text) -> draftsJson.addProperty(isReserved(key) ? key : displayName(key), text));
         json.add(DRAFTS_KEY, draftsJson);
         JsonArray pinnedArray = new JsonArray();
-        pinned.forEach(name -> pinnedArray.add(displayName(name)));
+        pinned.forEach(name -> pinnedArray.add(isReserved(name) ? name : displayName(name)));
         json.add(PINNED_KEY, pinnedArray);
         JsonObject pinsJson = new JsonObject();
         pins.forEach((key, keys) -> {

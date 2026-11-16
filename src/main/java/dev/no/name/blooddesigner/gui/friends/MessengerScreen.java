@@ -1096,6 +1096,14 @@ public class MessengerScreen extends ScreenBase {
     }
 
     // окна группы — только при живой сети: без неё состав не поменять
+    // поле названия группы забирало ввод текста и, закрываясь, выключило его: возвращаем полю сообщения
+    private boolean afterEditor(boolean handled) {
+        if (!groupEditor.isOpen()) {
+            input.refocus();
+        }
+        return handled;
+    }
+
     private void openGroupEditor(Runnable open) {
         GroupChats groups = groups();
         if (groups == null || !groups.available()) {
@@ -1195,7 +1203,7 @@ public class MessengerScreen extends ScreenBase {
             return true;
         }
         if (groupEditor.isOpen()) {
-            return groupEditor.click(x, y);
+            return afterEditor(groupEditor.click(x, y));
         }
         if (forwardPicker.isOpen()) {
             String target = forwardPicker.click(x, y);
@@ -1585,7 +1593,7 @@ public class MessengerScreen extends ScreenBase {
             return true;
         }
         if (groupEditor.isOpen()) {
-            return groupEditor.keyPressed(key);
+            return afterEditor(groupEditor.keyPressed(key));
         }
         if (voiceStrip.isRecording()) {
             if (key == InputConstants.KEY_ESCAPE) {

@@ -54,4 +54,22 @@ class PrivateMessagesTest {
         assertTrue(loaded.isPinned("bob"));
         assertEquals(List.of("Bob"), loaded.partners());
     }
+
+    @Test
+    @DisplayName("группа: закреп, название и черновик переживают перезапуск, даже если название как ник")
+    void groupSurvivesReload() {
+        PrivateMessages messages = new PrivateMessages();
+        String group = PrivateMessages.groupKey("0123456789abcdef");
+        messages.add("Bob", new PrivateMessage(false, "x", 1));
+        messages.ensureChat(group);
+        messages.setTitle(group, "Bob");
+        messages.togglePin(group);
+        messages.setDraft(group, "черновик");
+        PrivateMessages loaded = new PrivateMessages();
+        loaded.fromJson(messages.toJson());
+        assertTrue(loaded.isPinned(group));
+        assertFalse(loaded.isPinned("bob"));
+        assertEquals("Bob", loaded.displayName(group));
+        assertEquals("черновик", loaded.draft(group));
+    }
 }

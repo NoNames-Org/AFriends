@@ -66,7 +66,10 @@ public final class MediaCache {
                 : blobs.download(image.blob())).thenApply(sealed -> {
             try {
                 byte[] plain = image.isPublic() ? sealed : MediaCrypto.open(Bytes.fromBase64(image.key()), sealed);
-                if (!PreparedImage.sha256(plain).equals(image.sha256()) || PreparedImage.mimeOf(plain) == null) {
+                // голосовое — не картинка: у него свой заголовок BDV1
+                boolean format = image.voice() ? dev.no.name.blooddesigner.core.voice.VoiceClip.peaksOf(plain) != null
+                        : PreparedImage.mimeOf(plain) != null;
+                if (!PreparedImage.sha256(plain).equals(image.sha256()) || !format) {
                     throw new TunnelError("image_corrupt");
                 }
                 write(target, plain);
