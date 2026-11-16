@@ -1,22 +1,7 @@
 package dev.no.name.blooddesigner.core.modes;
 
 public record ModeRoute(int mainSlot, Submenu submenu, int subSlot, String command) {
-    public enum Submenu {
-        NONE(null),
-        FFA("FFA selection"),
-        MEETUPS("Meetups"),
-        PRACTICE(null);
-
-        private final String infoName;
-
-        Submenu(String infoName) {
-            this.infoName = infoName;
-        }
-
-        public String infoName() {
-            return infoName;
-        }
-    }
+    public enum Submenu { NONE, FFA, MEETUPS, PRACTICE }
 
     public static ModeRoute direct(int mainSlot) {
         return new ModeRoute(mainSlot, Submenu.NONE, -1, null);

@@ -29,6 +29,17 @@ class ModeRouteTest {
     }
 
     @Test
+    @DisplayName("Practice на русском клиенте: «Практис #N» и «Онлайн: x/y»")
+    void practiceRussian() {
+        List<Option> options = List.of(
+                new Option(11, "Практис #1", List.of("", "Онлайн: 2/175", "", "Нажми, чтобы играть")),
+                new Option(15, "Практис #2", List.of("", "Онлайн: 0/175", "", "Нажми, чтобы играть")));
+        assertEquals(15, PracticePicker.pick(options, 11));
+        assertEquals(true, PracticePicker.isRoom("Практис #2"));
+        assertEquals(false, PracticePicker.isRoom("Назад"));
+    }
+
+    @Test
     @DisplayName("Practice: полный сервер не выбираем")
     void practiceSkipsFull() {
         List<Option> options = List.of(

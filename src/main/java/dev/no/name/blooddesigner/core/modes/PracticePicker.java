@@ -5,8 +5,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class PracticePicker {
-    private static final Pattern ONLINE = Pattern.compile("Online:\\s*(\\d+)\\s*/\\s*(\\d+)");
-    private static final String NAME_PREFIX = "Practice #";
+    // язык клиента не важен: «Practice #1» / «Практис #1», «Online: 2/175» / «Онлайн: 2/175»
+    private static final Pattern ONLINE = Pattern.compile("(\\d+)\\s*/\\s*(\\d+)");
+    private static final Pattern ROOM_NAME = Pattern.compile("#\\d+");
 
     public record Option(int slot, String name, List<String> lore) {
         public Option {
@@ -21,7 +22,7 @@ public final class PracticePicker {
         int best = fallback;
         int bestFree = 0;
         for (Option option : options) {
-            if (!option.name().startsWith(NAME_PREFIX)) {
+            if (!isRoom(option.name())) {
                 continue;
             }
             int free = freeSlots(option.lore());
@@ -31,6 +32,11 @@ public final class PracticePicker {
             }
         }
         return best;
+    }
+
+    /** Комната Practice: в названии есть «#номер». */
+    public static boolean isRoom(String name) {
+        return ROOM_NAME.matcher(name).find();
     }
 
     private static int freeSlots(List<String> lore) {

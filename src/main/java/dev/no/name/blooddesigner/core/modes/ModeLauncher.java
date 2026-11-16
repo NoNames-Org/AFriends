@@ -98,9 +98,9 @@ public final class ModeLauncher {
                 finish(Status.TRANSFERRED);
                 return;
             }
+            // после /hub ждать нечего: сервер переносит сам, а навигатору незачем висеть на «Подключаем…»
             sendCommand(modeRoute.command());
-            status = Status.WAITING;
-            deadline = now() + ANSWER_TIMEOUT_MS;
+            finish(Status.TRANSFERRED);
             return;
         }
         if (findHotbar(true) < 0) {
@@ -229,13 +229,15 @@ public final class ModeLauncher {
     private void onServerMessage(String plain) {
         String text = String.join(" ", ServerMessages.lines(plain));
         String lower = text.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("you are now queued")) {
+        // сервер пишет на языке клиента, поэтому каждое сообщение знаем и на английском, и на русском
+        if (lower.startsWith("you are now queued") || lower.startsWith("вы теперь в очереди")) {
             finish(Status.QUEUED);
-        } else if (lower.startsWith("you left the queue")) {
+        } else if (lower.startsWith("you left the queue") || lower.startsWith("вы покинули очередь")) {
             if (status == Status.QUEUED) {
                 finish(Status.IDLE);
             }
-        } else if (lower.startsWith("unable to connect to") && status == Status.WAITING) {
+        } else if ((lower.startsWith("unable to connect to") || lower.startsWith("не удалось подключиться"))
+                && status == Status.WAITING) {
             fail(text);
         } else if (lower.startsWith("вы перенесены") && status == Status.WAITING) {
             finish(Status.TRANSFERRED);
@@ -266,11 +268,20 @@ public final class ModeLauncher {
                 .anyMatch(slot -> MAIN_MENU_MARK.equals(model(slot.getItem())));
     }
 
+    /**
+     * Подменю после нашего клика (CHOOSING уже проверил, что окно новое). Надписи зависят от языка клиента
+     * («Meetups» / «Митапы», «Practice #1» / «Практис #1»), а раскладка нет, поэтому названия не сверяем:
+     * достаточно, что это не главное меню и оно уже прогрузилось.
+     */
     private static boolean isSubmenu(AbstractContainerMenu menu, ModeRoute.Submenu submenu) {
-        if (submenu == ModeRoute.Submenu.PRACTICE) {
-            return menu.slots.stream().anyMatch(slot -> name(slot.getItem()).startsWith("Practice #"));
+        if (isMainMenu(menu)) {
+            return false;
         }
-        return menu.slots.size() > INFO_SLOT && submenu.infoName().equals(name(menu.getSlot(INFO_SLOT).getItem()));
+        if (submenu == ModeRoute.Submenu.PRACTICE) {
+            return menu.slots.stream().anyMatch(slot -> !(slot.container instanceof Inventory)
+                    && PracticePicker.isRoom(name(slot.getItem())));
+        }
+        return menu.slots.size() > INFO_SLOT && !menu.getSlot(INFO_SLOT).getItem().isEmpty();
     }
 
     private static List<PracticePicker.Option> practiceOptions(AbstractContainerMenu menu) {

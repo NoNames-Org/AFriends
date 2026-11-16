@@ -420,6 +420,10 @@ public class ModeSelectScreen extends ScreenBase {
             launcher.leaveQueue();
         } else if (mode.route() != null && !launcher.isBusy()) {
             launcher.launch(mode.id(), mode.route());
+            // «Лобби» — просто команда /hub: ждать в навигаторе нечего, закрываем его сразу
+            if (mode.route().isCommand() && launcher.status() == ModeLauncher.Status.TRANSFERRED) {
+                Compat.setScreen(null);
+            }
         }
     }
 
