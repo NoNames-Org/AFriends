@@ -20,7 +20,9 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Свой экран магазина bloodstone вместо серверного: шапка со страницей и балансом, на главной — плитки категорий
@@ -125,7 +127,7 @@ public class StoreScreen extends MenuScreenBase {
 
     // описание, перенесённое по ширине карточки
     private static List<String> description(StoreItem product, int width) {
-        List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         for (String line : product.lines()) {
             lines.addAll(MenuUi.wrap(line, width, 3, TextStyle.SMALL));
         }
@@ -176,7 +178,7 @@ public class StoreScreen extends MenuScreenBase {
 
     private void drawHeader(Gfx g, int mouseX, int mouseY) {
         MenuUi.pixelBanner(g, BANNER, left, top, WIDTH, HEADER);
-        MenuUi.display(g, page.title().toUpperCase(java.util.Locale.ROOT), left + PAD + 2, top + PAD, 2f, MenuUi.GOLD);
+        MenuUi.display(g, page.title().toUpperCase(Locale.ROOT), left + PAD + 2, top + PAD, 2f, MenuUi.GOLD);
         Draw.text(g, page.subtitle(), left + PAD + 3, top + HEADER - PAD - 7, Colors.fade(Theme.TEXT, 0.8f));
         if (page != Page.MAIN) {
             boolean backHovered = inside(mouseX, mouseY, backX(), buttonY(), BACK_WIDTH, MenuUi.BUTTON_HEIGHT);

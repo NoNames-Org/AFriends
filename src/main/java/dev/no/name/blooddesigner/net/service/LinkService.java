@@ -1,7 +1,9 @@
 package dev.no.name.blooddesigner.net.service;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.net.announcements.AnnouncementFeed;
 import dev.no.name.blooddesigner.net.badges.BadgeDirectory;
 import dev.no.name.blooddesigner.net.chat.ChatPayload;
@@ -192,16 +194,16 @@ public final class LinkService {
 
     // reply — на какое сообщение ответ (null — не ответ)
     public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom,
-                                              dev.no.name.blooddesigner.core.MessageReply reply) {
+                                              MessageReply reply) {
         return sendPayload(friendId, new ChatPayload.Text(text, id, null, forwardedFrom, reply));
     }
 
     // ---- групповые чаты ----
 
     // новая группа из друзей; в ответе id группы или null, если не вышло (тогда code — причина)
-    public CompletableFuture<JsonObject> createGroup(java.util.List<String> memberIds) {
+    public CompletableFuture<JsonObject> createGroup(List<String> memberIds) {
         JsonObject data = new JsonObject();
-        com.google.gson.JsonArray members = new com.google.gson.JsonArray();
+        JsonArray members = new JsonArray();
         memberIds.forEach(members::add);
         data.add("members", members);
         return query("group.create", data).thenApply(json -> {
@@ -232,7 +234,7 @@ public final class LinkService {
 
     // сообщение в группу: каждому участнику отдельным сквозным конвертом. "ok" — дошло до всех, иначе код первого отказа
     public CompletableFuture<String> sendGroupText(String group, String text, String id,
-                                                   dev.no.name.blooddesigner.core.MessageReply reply) {
+                                                   MessageReply reply) {
         return sendToGroup(group, new ChatPayload.Text(text, id, null, null, reply, group));
     }
 
@@ -253,7 +255,7 @@ public final class LinkService {
     }
 
     // удалить у друга сообщения с этими id
-    public CompletableFuture<String> sendDelete(String friendId, java.util.List<String> targets) {
+    public CompletableFuture<String> sendDelete(String friendId, List<String> targets) {
         return sendPayload(friendId, new ChatPayload.Delete(targets));
     }
 
@@ -289,7 +291,7 @@ public final class LinkService {
     }
 
     public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
-                                                     String forwardedFrom, dev.no.name.blooddesigner.core.MessageReply reply) {
+                                                     String forwardedFrom, MessageReply reply) {
         CompletableFuture<MessageImage> result = new CompletableFuture<>();
         worker.execute(() -> {
             LinkFriend friend = snapshot.friend(friendId);
@@ -340,7 +342,7 @@ public final class LinkService {
                 media.store(image, prepared.bytes());
                 JsonObject data = new JsonObject();
                 data.addProperty("text", caption);
-                com.google.gson.JsonArray ids = new com.google.gson.JsonArray();
+                JsonArray ids = new JsonArray();
                 ids.add(image.blob());
                 data.add("images", ids);
                 return current.connection.request("official.send", data).thenApply(done -> image);

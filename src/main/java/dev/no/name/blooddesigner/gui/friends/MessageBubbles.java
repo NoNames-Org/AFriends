@@ -20,6 +20,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 final class MessageBubbles {
     static final int GAP = 3;
@@ -292,7 +293,7 @@ final class MessageBubbles {
     }
 
     private static int authorColor(String author) {
-        return AUTHOR_COLORS[Math.floorMod(author.toLowerCase(java.util.Locale.ROOT).hashCode(), AUTHOR_COLORS.length)];
+        return AUTHOR_COLORS[Math.floorMod(author.toLowerCase(Locale.ROOT).hashCode(), AUTHOR_COLORS.length)];
     }
 
     private static String forwardLabel(PrivateMessage message) {

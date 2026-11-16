@@ -1,7 +1,11 @@
 package dev.no.name.blooddesigner.gui.friends;
 
+import dev.no.name.blooddesigner.core.MessageContent;
+import dev.no.name.blooddesigner.core.voice.VoiceClip;
+import dev.no.name.blooddesigner.gui.media.GifFavorites;
 import dev.no.name.blooddesigner.gui.media.VoiceClips;
 import dev.no.name.blooddesigner.core.GroupChats;
+import dev.no.name.blooddesigner.gui.media.VoicePlayer;
 import dev.no.name.blooddesigner.net.announcements.AnnouncementPoll;
 import dev.no.name.blooddesigner.core.party.PartyInviteCard;
 import dev.no.name.blooddesigner.core.NotifySettings;
@@ -537,7 +541,7 @@ public class MessengerScreen extends ScreenBase {
             return "Скрыто";
         }
         if (!last.images().isEmpty()) {
-            return dev.no.name.blooddesigner.core.MessageContent.preview(last);
+            return MessageContent.preview(last);
         }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
         String text = card == null ? last.text() : card.title();
@@ -678,7 +682,7 @@ public class MessengerScreen extends ScreenBase {
         UiSounds.play(UiSound.CLICK);
     }
 
-    private void sendVoice(dev.no.name.blooddesigner.core.voice.VoiceClip clip) {
+    private void sendVoice(VoiceClip clip) {
         if (!canSendVoice()) {
             return;
         }
@@ -1476,7 +1480,7 @@ public class MessengerScreen extends ScreenBase {
                 }
             }
             case GifPicker.Remove remove -> {
-                dev.no.name.blooddesigner.gui.media.GifFavorites.get().remove(remove.gif().sha256());
+                GifFavorites.get().remove(remove.gif().sha256());
                 warnInfo("Гифка убрана из избранного");
             }
             case GifPicker.Inside inside -> { }
@@ -1656,7 +1660,7 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public void removed() {
         voiceStrip.cancel();
-        dev.no.name.blooddesigner.gui.media.VoicePlayer.get().stop();
+        VoicePlayer.get().stop();
         messages.setDraft(partner, input.getText());
         messages.close();
         MenuBlur.cancel();

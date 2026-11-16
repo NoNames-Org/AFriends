@@ -2,6 +2,7 @@ package dev.no.name.blooddesigner.net.media;
 
 import dev.no.name.blooddesigner.BloodDesigner;
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.voice.VoiceClip;
 import dev.no.name.blooddesigner.net.crypto.Bytes;
 import dev.no.name.blooddesigner.net.tunnel.TunnelError;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.GeneralSecurityException;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +42,7 @@ public final class MediaCache {
     public MessageImage keepLocal(PreparedImage prepared) {
         byte[] id = new byte[16];
         new java.security.SecureRandom().nextBytes(id);
-        MessageImage image = new MessageImage(java.util.HexFormat.of().formatHex(id), "", prepared.mime(), prepared.width(),
+        MessageImage image = new MessageImage(HexFormat.of().formatHex(id), "", prepared.mime(), prepared.width(),
                 prepared.height(), prepared.bytes().length, prepared.sha256());
         store(image, prepared.bytes());
         return image;
@@ -67,7 +69,7 @@ public final class MediaCache {
             try {
                 byte[] plain = image.isPublic() ? sealed : MediaCrypto.open(Bytes.fromBase64(image.key()), sealed);
                 // голосовое — не картинка: у него свой заголовок BDV1
-                boolean format = image.voice() ? dev.no.name.blooddesigner.core.voice.VoiceClip.peaksOf(plain) != null
+                boolean format = image.voice() ? VoiceClip.peaksOf(plain) != null
                         : PreparedImage.mimeOf(plain) != null;
                 if (!PreparedImage.sha256(plain).equals(image.sha256()) || !format) {
                     throw new TunnelError("image_corrupt");

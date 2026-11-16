@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.media;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.net.rpc.LinkCalls;
 import dev.no.name.blooddesigner.net.service.LinkEndpoint;
@@ -53,7 +54,7 @@ public final class BlobClient {
     // картинка портала: открытая, без ключа; /v1/media/<id>
     // открытая картинка для чата BloodDesigner: место через туннель (official.media), PUT /v1/media/<id>;
     // ответ — описание картинки, как у картинок портала
-    public CompletableFuture<com.google.gson.JsonObject> uploadMedia(LinkCalls calls, byte[] plain) {
+    public CompletableFuture<JsonObject> uploadMedia(LinkCalls calls, byte[] plain) {
         JsonObject data = new JsonObject();
         data.addProperty("size", plain.length);
         return calls.request("official.media", data).thenCompose(json -> {
@@ -72,7 +73,7 @@ public final class BlobClient {
                 if (response.statusCode() != 200) {
                     throw new TunnelError("upload_failed");
                 }
-                return com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("media");
+                return JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("media");
             });
         });
     }

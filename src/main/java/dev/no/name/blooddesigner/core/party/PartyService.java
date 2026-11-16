@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public final class PartyService {
     private static final long INFO_WINDOW_MS = 3000;
@@ -16,7 +18,7 @@ public final class PartyService {
 
     private static final long AUTO_REFRESH_MS = 20_000;
     private static final long MIN_REFRESH_GAP_MS = 3000;
-    private static final java.util.Set<String> NO_PLAYER = java.util.Set.of("no player was found", "игрок не обнаружен");
+    private static final Set<String> NO_PLAYER = Set.of("no player was found", "игрок не обнаружен");
 
     private static final List<String> KICK_VERBS = List.of("kick", "remove");
 
@@ -112,7 +114,7 @@ public final class PartyService {
         long now = now();
         PartyEvent event = PartyMessages.parse(plain);
         if (event == null) {
-            if (now < actionUntil && NO_PLAYER.contains(plain.strip().toLowerCase(java.util.Locale.ROOT))) {
+            if (now < actionUntil && NO_PLAYER.contains(plain.strip().toLowerCase(Locale.ROOT))) {
                 state.setStatus("Игрок не найден");
                 return true;
             }

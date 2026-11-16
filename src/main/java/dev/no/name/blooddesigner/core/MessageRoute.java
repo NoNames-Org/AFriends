@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.core;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -60,7 +61,7 @@ public interface MessageRoute {
     }
 
     // удалить сообщения у себя, а forBoth — ещё и у собеседника (только друг по сети и сообщения с id)
-    default void delete(String partner, java.util.List<PrivateMessage> messages, boolean forBoth, Consumer<String> failed) {
+    default void delete(String partner, List<PrivateMessage> messages, boolean forBoth, Consumer<String> failed) {
     }
 
     // закрепить или открепить сообщение у себя, а forBoth — ещё и у собеседника
@@ -68,12 +69,12 @@ public interface MessageRoute {
     }
 
     // можно ли удалить или закрепить у обоих: друг по сети и у всех сообщений есть id
-    default boolean canSync(String partner, java.util.List<PrivateMessage> messages) {
+    default boolean canSync(String partner, List<PrivateMessage> messages) {
         return false;
     }
 
     // пересланные картинки в «Избранное»: они уже в кеше, заново не грузятся
-    default void keepNote(String text, java.util.List<MessageImage> images, String forwardedFrom) {
+    default void keepNote(String text, List<MessageImage> images, String forwardedFrom) {
     }
 
     // поставить свою реакцию на сообщение (reaction == null — снять)

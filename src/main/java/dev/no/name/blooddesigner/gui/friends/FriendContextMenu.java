@@ -16,6 +16,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class FriendContextMenu extends WidgetBase {
@@ -30,9 +31,9 @@ public class FriendContextMenu extends WidgetBase {
     private final List<Item> items;
     private final int panelX;
 
-    public record Item(Icon icon, java.util.function.Function<Friend, String> label, Consumer<Friend> action,
+    public record Item(Icon icon, Function<Friend, String> label, Consumer<Friend> action,
                        Predicate<Friend> danger, Predicate<Friend> visible) {
-        public Item(Icon icon, java.util.function.Function<Friend, String> label, Consumer<Friend> action,
+        public Item(Icon icon, Function<Friend, String> label, Consumer<Friend> action,
                     Predicate<Friend> danger) {
             this(icon, label, action, danger, friend -> true);
         }

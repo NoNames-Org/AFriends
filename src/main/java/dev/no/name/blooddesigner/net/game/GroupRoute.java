@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -192,7 +193,7 @@ final class GroupRoute implements GroupChats {
             link.sendGroupName(group, title);
             return;
         }
-        CompletableFuture.delayedExecutor(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        CompletableFuture.delayedExecutor(500, TimeUnit.MILLISECONDS)
                 .execute(() -> onGame(() -> sendTitleWhenReady(group, newcomer, title, attempt + 1)));
     }
 

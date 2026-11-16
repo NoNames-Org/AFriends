@@ -1,7 +1,10 @@
 package dev.no.name.blooddesigner.net.chat;
 
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.net.model.LinkFriend;
+
+import java.util.List;
 
 // что из входящих конвертов уходит в игру; вызывается с потока сети
 public interface InboxListener {
@@ -22,12 +25,12 @@ public interface InboxListener {
 
     // то же, но ответ на сообщение reply
     default void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom,
-                         dev.no.name.blooddesigner.core.MessageReply reply, long time) {
+                         MessageReply reply, long time) {
         message(from, text, id, image, forwardedFrom, time);
     }
 
     // друг удалил у обоих сообщения с этими id
-    default void deleted(LinkFriend from, java.util.List<String> targets, long time) {
+    default void deleted(LinkFriend from, List<String> targets, long time) {
     }
 
     // друг закрепил (pinned) или открепил у обоих сообщение с этим id
@@ -39,8 +42,8 @@ public interface InboxListener {
     }
 
     // сообщение в групповом чате group от участника from
-    default void groupMessage(String group, LinkFriend from, String text, String id, dev.no.name.blooddesigner.core.MessageImage image,
-                              dev.no.name.blooddesigner.core.MessageReply reply, long time) {
+    default void groupMessage(String group, LinkFriend from, String text, String id, MessageImage image,
+                              MessageReply reply, long time) {
     }
 
     // участник from назвал или переименовал группу
@@ -48,7 +51,7 @@ public interface InboxListener {
     }
 
     // личное сообщение от BloodDesigner с портала (не от друга, без шифрования); по умолчанию никуда не идёт
-    default void official(String text, java.util.List<dev.no.name.blooddesigner.core.MessageImage> images, long time) {
+    default void official(String text, List<MessageImage> images, long time) {
         official(text, time);
     }
 

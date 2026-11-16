@@ -1,7 +1,11 @@
 package dev.no.name.blooddesigner.core;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.no.name.blooddesigner.core.voice.VoiceClip;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -21,7 +25,7 @@ public record MessageImage(String blob, String key, String mime, int width, int 
 
     // голосовое сообщение (core.voice.VoiceClip): width — длительность в сотых секунды
     public boolean voice() {
-        return dev.no.name.blooddesigner.core.voice.VoiceClip.MIME.equals(mime);
+        return VoiceClip.MIME.equals(mime);
     }
 
     public int voiceCentiseconds() {
@@ -34,7 +38,7 @@ public record MessageImage(String blob, String key, String mime, int width, int 
 
     public String extension() {
         return switch (mime) {
-            case dev.no.name.blooddesigner.core.voice.VoiceClip.MIME -> "bdv";
+            case VoiceClip.MIME -> "bdv";
             case "image/png" -> "png";
             case "image/gif" -> "gif";
             default -> "jpg";
@@ -65,10 +69,10 @@ public record MessageImage(String blob, String key, String mime, int width, int 
         }
     }
 
-    public static java.util.List<MessageImage> listFromPortal(JsonObject owner) {
-        java.util.List<MessageImage> images = new java.util.ArrayList<>();
+    public static List<MessageImage> listFromPortal(JsonObject owner) {
+        List<MessageImage> images = new ArrayList<>();
         if (owner.has("images") && owner.get("images").isJsonArray()) {
-            for (com.google.gson.JsonElement element : owner.getAsJsonArray("images")) {
+            for (JsonElement element : owner.getAsJsonArray("images")) {
                 MessageImage image = element.isJsonObject() ? fromPortal(element.getAsJsonObject()) : null;
                 if (image != null) {
                     images.add(image);

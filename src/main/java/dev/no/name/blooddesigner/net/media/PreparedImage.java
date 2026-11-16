@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.media;
 
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.voice.VoiceClip;
 import dev.no.name.blooddesigner.net.tunnel.TunnelError;
 
 import javax.imageio.ImageIO;
@@ -42,7 +43,7 @@ public record PreparedImage(byte[] bytes, String mime, int width, int height, St
         if (bytes.length > MessageImage.MAX_SIZE) {
             throw new TunnelError("image_too_big");
         }
-        return new PreparedImage(bytes, dev.no.name.blooddesigner.core.voice.VoiceClip.MIME, Math.max(1, centiseconds), 1,
+        return new PreparedImage(bytes, VoiceClip.MIME, Math.max(1, centiseconds), 1,
                 sha256(bytes));
     }
 

@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.gui.friends;
 
 import dev.no.name.blooddesigner.core.MessageImage;
+import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.MessageRoute;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.gui.media.GifFavorites;
@@ -64,7 +65,7 @@ final class MediaActions {
     }
 
     // то же, ответом на сообщение reply
-    boolean send(String partner, Path file, String caption, dev.no.name.blooddesigner.core.MessageReply reply) {
+    boolean send(String partner, Path file, String caption, MessageReply reply) {
         return route.sendImage(partner, file, caption, null, reply, warn).map(problem -> {
             warn.accept(problem);
             return false;

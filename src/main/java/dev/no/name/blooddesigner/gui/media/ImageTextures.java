@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Картинки переписки как текстуры игры. Первый показ запускает загрузку (кеш на диске или скачивание),
@@ -89,7 +90,7 @@ public final class ImageTextures {
     }
 
     private Entry load(String key, boolean animated, int maxSide,
-                       java.util.function.Supplier<CompletableFuture<Path>> source) {
+                       Supplier<CompletableFuture<Path>> source) {
         Entry existing = entries.get(key);
         if (existing != null) {
             return existing;

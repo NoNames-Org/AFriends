@@ -24,7 +24,10 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.IntStream;
 
 /**
  * Свой экран уровней БП: баннер с картинкой (заголовок, уровень, Premium, задания поверх),
@@ -291,7 +294,7 @@ public class BattlePassScreen extends MenuScreenBase {
 
     // одна строка задания: группа, название, полоса, награда и бонус серии, счётчик
     private static void drawQuest(Gfx g, Quest quest, float x, float y, int w) {
-        Draw.text(g, Draw.trim(quest.kind().toUpperCase(java.util.Locale.ROOT), w, TextStyle.SMALL), x, y, Theme.TEXT_FAINT,
+        Draw.text(g, Draw.trim(quest.kind().toUpperCase(Locale.ROOT), w, TextStyle.SMALL), x, y, Theme.TEXT_FAINT,
                 TextStyle.SMALL);
         String count = quest.progress() + "/" + quest.goal();
         Draw.text(g, Draw.trim(quest.title(), w - (int) Draw.width(count) - 6), x, y + 8,
@@ -312,7 +315,7 @@ public class BattlePassScreen extends MenuScreenBase {
     /** Задания из последнего открытия меню квестов: сначала невыполненные. */
     private static List<Quest> sortedQuests() {
         List<Quest> quests = new ArrayList<>(QuestMenu.lastSeen());
-        quests.sort(java.util.Comparator.comparing(Quest::done));
+        quests.sort(Comparator.comparing(Quest::done));
         return quests;
     }
 
@@ -464,7 +467,7 @@ public class BattlePassScreen extends MenuScreenBase {
     private static int[] pageNumbers(View view) {
         int total = Math.max(view.totalPages(), view.page());
         if (total <= PAGE_BUTTONS) {
-            return java.util.stream.IntStream.rangeClosed(1, total).toArray();
+            return IntStream.rangeClosed(1, total).toArray();
         }
         int from = Math.max(2, view.page() - 2);
         int to = Math.min(total - 1, view.page() + 2);

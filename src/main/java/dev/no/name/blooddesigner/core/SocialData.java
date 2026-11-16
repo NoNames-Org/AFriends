@@ -3,7 +3,10 @@ package dev.no.name.blooddesigner.core;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -64,7 +67,7 @@ public final class SocialData {
     }
 
     // собеседник удалил сообщения у обоих: ищем во всех серверах, как реакцию
-    public void removeEverywhere(String partner, java.util.Collection<String> messageIds) {
+    public void removeEverywhere(String partner, Collection<String> messageIds) {
         allMessages().forEach(messages -> messages.remove(partner, messageIds));
     }
 
@@ -73,8 +76,8 @@ public final class SocialData {
         allMessages().forEach(messages -> messages.pin(partner, messageId, pinned));
     }
 
-    private java.util.List<PrivateMessages> allMessages() {
-        java.util.List<PrivateMessages> all = new java.util.ArrayList<>();
+    private List<PrivateMessages> allMessages() {
+        List<PrivateMessages> all = new ArrayList<>();
         scopes.values().forEach(scope -> all.add(scope.messages()));
         if (legacy != null) {
             all.add(legacy.messages());

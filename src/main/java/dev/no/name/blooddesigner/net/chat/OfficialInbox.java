@@ -3,6 +3,7 @@ package dev.no.name.blooddesigner.net.chat;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.net.rpc.Failures;
 import dev.no.name.blooddesigner.net.rpc.LinkCalls;
 import org.slf4j.Logger;
@@ -70,7 +71,7 @@ public final class OfficialInbox {
             if (item.has("fromPlayer") && item.get("fromPlayer").getAsBoolean()) {
                 continue;
             }
-            listener.official(item.get("text").getAsString(), dev.no.name.blooddesigner.core.MessageImage.listFromPortal(item),
+            listener.official(item.get("text").getAsString(), MessageImage.listFromPortal(item),
                     item.get("created").getAsLong());
         }
         if (newest != lastId) {

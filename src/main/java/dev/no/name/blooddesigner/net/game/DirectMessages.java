@@ -9,6 +9,7 @@ import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.core.PrivateMessages;
 import dev.no.name.blooddesigner.core.SocialData;
 import dev.no.name.blooddesigner.core.MessageIds;
+import dev.no.name.blooddesigner.net.chat.ChatPayload;
 import dev.no.name.blooddesigner.net.media.PreparedImage;
 import dev.no.name.blooddesigner.net.model.Connection;
 import dev.no.name.blooddesigner.net.rpc.Failures;
@@ -241,7 +242,7 @@ public final class DirectMessages implements MessageRoute {
 
     @Override
     public boolean canSync(String partner, List<PrivateMessage> messages) {
-        return !messages.isEmpty() && messages.size() <= dev.no.name.blooddesigner.net.chat.ChatPayload.MAX_DELETE
+        return !messages.isEmpty() && messages.size() <= ChatPayload.MAX_DELETE
                 && link.snapshot().friendNamed(partner) != null && messages.stream().allMatch(message -> message.id() != null);
     }
 
