@@ -6,6 +6,7 @@ import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.gui.battlepass.BattlePassScreen;
 import dev.no.name.blooddesigner.gui.battlepass.QuestsScreen;
 import dev.no.name.blooddesigner.gui.battlepass.ShopScreen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -33,6 +34,11 @@ public final class BattlePassHook {
         if (BattlePassMenu.isBattlePass(title)) {
             if (current instanceof BattlePassScreen screen) {
                 screen.follow(title);
+                return null;
+            }
+            if (BattlePassScreen.consumeStaleReopen()) {
+                // игрок уже закрыл меню: не показываем запоздалую страницу и закрываем её на сервере
+                Minecraft.getInstance().execute(Compat::closeContainer);
                 return null;
             }
             return new BattlePassScreen(title);

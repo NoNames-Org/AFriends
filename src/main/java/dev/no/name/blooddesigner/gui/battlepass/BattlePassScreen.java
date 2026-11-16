@@ -66,6 +66,8 @@ public class BattlePassScreen extends MenuScreenBase {
     private static long steppedAt;
     private static long targetSetAt;
     private static final long TARGET_LIFETIME_MS = 15_000;
+    /** Когда игрок закрыл меню посреди листания: ответ сервера на последний шаг ещё может прийти. */
+    private static long closedWhilePagingAt;
 
     private Component serverTitle;
     /** Прокрутка списка заданий на баннере, в пикселях холста. */
@@ -77,6 +79,30 @@ public class BattlePassScreen extends MenuScreenBase {
         if (Motion.now() - targetSetAt > TARGET_LIFETIME_MS) {
             targetPage = 0;
         }
+    }
+
+    /**
+     * Игрок закрыл меню сам: листание отменяем, чтобы при следующем открытии оно не продолжилось.
+     * Если шаг уже отправлен, сервер вот-вот откроет следующую страницу — {@link #consumeStaleReopen()} её погасит.
+     */
+    @Override
+    public void onClose() {
+        if (targetPage > 0 && Motion.now() - steppedAt < PAGE_STEP_TIMEOUT_MS) {
+            closedWhilePagingAt = Motion.now();
+        }
+        targetPage = 0;
+        steppedFrom = -1;
+        super.onClose();
+    }
+
+    /**
+     * Меню БП открылось сразу после того, как игрок закрыл его посреди листания: это ответ сервера
+     * на последний шаг, а не новое открытие. Срабатывает один раз.
+     */
+    public static boolean consumeStaleReopen() {
+        boolean stale = closedWhilePagingAt > 0 && Motion.now() - closedWhilePagingAt < PAGE_STEP_TIMEOUT_MS;
+        closedWhilePagingAt = 0;
+        return stale;
     }
 
     /** Сервер открыл следующую страницу: остаёмся на этом экране и просто берём новый заголовок. */
