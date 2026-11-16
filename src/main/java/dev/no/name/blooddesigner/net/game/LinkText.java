@@ -17,6 +17,9 @@ public final class LinkText {
         if (!configured) {
             return "Сервер сети ещё не настроен";
         }
+        if (SharedLinkFolder.busy()) {
+            return "Сеть уже открыта в другой копии игры";
+        }
         return switch (state.connection()) {
             case ONLINE -> state.onlineCount() > 0 ? "В сети · друзей онлайн: " + state.onlineCount() : "В сети";
             case CONNECTING -> "Подключение…";

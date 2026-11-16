@@ -12,6 +12,7 @@ import dev.no.name.blooddesigner.net.service.LocalProfile;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 
+import java.nio.channels.FileLock;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -30,12 +31,21 @@ public final class NetworkGame {
     private final TabWatcher tab = new TabWatcher();
     private boolean wasOnline;
     private boolean running;
+    // общая папка ключей сети одна на компьютер; сетью владеет та копия игры, что держит блокировку
+    private static final long LOCK_RETRY_MS = 10_000;
+    private final Path lockFile;
+    private FileLock lock;
+    private long nextLockTry;
 
     // save — записать конфиг, когда друг сам удалил нас и список изменился
     public NetworkGame(SocialData social, LinkSettings settings, Runnable save) {
         this.social = social;
         this.settings = settings;
-        Path folder = FabricLoader.getInstance().getConfigDir().resolve(BloodDesigner.MOD_ID).resolve("link");
+        Path root = SharedLinkFolder.root();
+        Path folder = SharedLinkFolder.linkFolder(root);
+        SharedLinkFolder.migrateQuietly(
+                FabricLoader.getInstance().getConfigDir().resolve(BloodDesigner.MOD_ID).resolve("link"), folder);
+        this.lockFile = SharedLinkFolder.lockFile(root);
         this.incoming = new IncomingChat(social, folder.resolve("parked.json"));
         this.link = new LinkService(folder, GameAccount::current, incoming);
         this.friends = new FriendSync(link, name -> {
@@ -60,8 +70,15 @@ public final class NetworkGame {
     }
 
     public void tick(Minecraft client) {
-        if (settings.enabled() != running) {
-            running = settings.enabled();
+        boolean wanted = settings.enabled();
+        if (wanted && lock == null && System.currentTimeMillis() >= nextLockTry) {
+            lock = SharedLinkFolder.tryLock(lockFile);
+            nextLockTry = System.currentTimeMillis() + LOCK_RETRY_MS;
+        }
+        SharedLinkFolder.setBusy(wanted && lock == null);
+        boolean shouldRun = wanted && lock != null;
+        if (shouldRun != running) {
+            running = shouldRun;
             if (running) {
                 lastProfile = null;
                 link.start();
