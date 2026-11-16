@@ -134,11 +134,23 @@ public class TextFieldWidget extends Widget {
             text = allSelected ? "" : text.substring(0, text.length() - 1);
             allSelected = false;
             UiSounds.play(UiSound.DELETE, 0.85f);
-        } else if (keyCode != InputConstants.KEY_LCONTROL && keyCode != InputConstants.KEY_RCONTROL) {
+        } else if (keyCode == InputConstants.KEY_DELETE && allSelected) {
+            text = "";
+            allSelected = false;
+            UiSounds.play(UiSound.DELETE, 0.85f);
+        } else if (isCaretMove(keyCode)) {
             allSelected = false;
         }
+        // буквы сюда тоже приходят, но выделение не снимаем: следом придёт charTyped и заменит выделенное символом
 
         return keyCode != InputConstants.KEY_ESCAPE;
+    }
+
+    /** Клавиши, которые в обычном поле снимают выделение и двигают курсор. */
+    private static boolean isCaretMove(int keyCode) {
+        return keyCode == InputConstants.KEY_LEFT || keyCode == InputConstants.KEY_RIGHT
+                || keyCode == InputConstants.KEY_UP || keyCode == InputConstants.KEY_DOWN
+                || keyCode == InputConstants.KEY_HOME || keyCode == InputConstants.KEY_END;
     }
 
     @Override
