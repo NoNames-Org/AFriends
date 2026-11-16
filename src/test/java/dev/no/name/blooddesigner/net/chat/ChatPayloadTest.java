@@ -54,6 +54,17 @@ class ChatPayloadTest {
     }
 
     @Test
+    @DisplayName("пересланное: пометка доходит, управляющие символы из неё вычищаются")
+    void forwarded() {
+        ChatPayload.Text text = (ChatPayload.Text) ChatPayload.decode(new ChatPayload.Text("привет", "0011223344556677", null, "Fell__o_o").encode());
+        assertEquals("Fell__o_o", text.forwardedFrom());
+        ChatPayload.Text dirty = (ChatPayload.Text) ChatPayload.decode(
+                "{\"k\":\"text\",\"t\":\"hi\",\"f\":\"A\\nB§c\"}".getBytes(StandardCharsets.UTF_8));
+        assertEquals("ABc", dirty.forwardedFrom());
+        assertNull(((ChatPayload.Text) ChatPayload.decode(new ChatPayload.Text("hi").encode())).forwardedFrom());
+    }
+
+    @Test
     @DisplayName("реакция и её снятие; чужая реакция не из набора отбрасывается")
     void reaction() {
         ChatPayload.Reaction set = (ChatPayload.Reaction) ChatPayload.decode(new ChatPayload.Reaction("0011223344556677", "fire").encode());

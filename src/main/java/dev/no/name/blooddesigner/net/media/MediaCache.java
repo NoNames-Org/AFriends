@@ -36,6 +36,16 @@ public final class MediaCache {
         return dir.resolve(image.sha256() + "." + image.extension());
     }
 
+    // картинка только для себя (в «Избранном»): в кеше по отпечатку, на сервер не уходит
+    public MessageImage keepLocal(PreparedImage prepared) {
+        byte[] id = new byte[16];
+        new java.security.SecureRandom().nextBytes(id);
+        MessageImage image = new MessageImage(java.util.HexFormat.of().formatHex(id), "", prepared.mime(), prepared.width(),
+                prepared.height(), prepared.bytes().length, prepared.sha256());
+        store(image, prepared.bytes());
+        return image;
+    }
+
     // своё только что отправленное: показываем без скачивания
     public void store(MessageImage image, byte[] plain) {
         try {

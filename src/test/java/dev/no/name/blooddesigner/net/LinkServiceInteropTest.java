@@ -151,6 +151,11 @@ class LinkServiceInteropTest {
             Path file = bob.service.media().file(received).get(30, TimeUnit.SECONDS);
             assertArrayEquals(png.toByteArray(), Files.readAllBytes(file));
 
+            // картинка в чат BloodDesigner: открытая, заливается на сервер и уходит админам с подписью
+            MessageImage official = alice.service.sendOfficialImage(prepared, "скрин бага").get(30, TimeUnit.SECONDS);
+            assertEquals(prepared.sha256(), official.sha256());
+            assertEquals(true, official.isPublic());
+
             // реакция на картинку и её снятие
             assertEquals("ok", bob.service.sendReaction(aliceId, "aaaabbbbccccdddd", "fire").get(10, TimeUnit.SECONDS));
             assertEquals(bob.name + " aaaabbbbccccdddd fire", alice.reactions.poll(10, TimeUnit.SECONDS));

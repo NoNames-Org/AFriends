@@ -15,6 +15,11 @@ public interface InboxListener {
         text(from, text, time);
     }
 
+    // то же, но пересланное: forwardedFrom — чьё оно было
+    default void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom, long time) {
+        message(from, text, id, image, time);
+    }
+
     // друг поставил (reaction != null) или снял реакцию на сообщение с этим id
     default void reaction(LinkFriend from, String target, String reaction, long time) {
     }

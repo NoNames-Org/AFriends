@@ -51,6 +51,32 @@ public final class BlobClient {
     }
 
     // картинка портала: открытая, без ключа; /v1/media/<id>
+    // открытая картинка для чата BloodDesigner: место через туннель (official.media), PUT /v1/media/<id>;
+    // ответ — описание картинки, как у картинок портала
+    public CompletableFuture<com.google.gson.JsonObject> uploadMedia(LinkCalls calls, byte[] plain) {
+        JsonObject data = new JsonObject();
+        data.addProperty("size", plain.length);
+        return calls.request("official.media", data).thenCompose(json -> {
+            String id = json.get("id").getAsString();
+            URI target;
+            try {
+                target = address("/v1/media/", id);
+            } catch (TunnelError e) {
+                return CompletableFuture.failedFuture(e);
+            }
+            HttpRequest request = builder(target)
+                    .header("Authorization", "Bearer " + json.get("token").getAsString())
+                    .header("Content-Type", "application/octet-stream")
+                    .PUT(HttpRequest.BodyPublishers.ofByteArray(plain)).build();
+            return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
+                if (response.statusCode() != 200) {
+                    throw new TunnelError("upload_failed");
+                }
+                return com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("media");
+            });
+        });
+    }
+
     public CompletableFuture<byte[]> downloadMedia(String id) {
         return fetch(id, "/v1/media/");
     }

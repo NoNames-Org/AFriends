@@ -1,0 +1,99 @@
+package dev.no.name.blooddesigner.gui.friends;
+
+import dev.no.name.blooddesigner.compat.Gfx;
+import dev.no.name.blooddesigner.core.PrivateMessage;
+import dev.no.name.blooddesigner.gui.Theme;
+import dev.no.name.blooddesigner.gui.render.Draw;
+import dev.no.name.blooddesigner.gui.render.text.TextStyle;
+
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * Окно «Переслать в…» посреди переписки: список чатов (Избранное, BloodDesigner, переписки), колёсико листает.
+ * Клик по чату — переслать туда, клик мимо или Esc — закрыть
+ */
+final class ForwardPicker {
+    private static final int WIDTH = 170;
+    private static final int ROW = 20;
+    private static final int FACE = 14;
+    private static final int PAD = 5;
+    private static final int TITLE = 14;
+    private static final int VISIBLE = 8;
+
+    // как нарисовать значок чата: его рисует экран переписки
+    interface TilePainter {
+        void paint(Gfx g, String entry, float x, float y, int size);
+    }
+
+    private PrivateMessage message;
+    private List<String> entries = List.of();
+    private int scroll;
+    private float x;
+    private float y;
+    private float height;
+
+    boolean isOpen() {
+        return message != null;
+    }
+
+    PrivateMessage message() {
+        return message;
+    }
+
+    void open(PrivateMessage message, List<String> entries, int areaWidth, int areaHeight) {
+        this.message = message;
+        this.entries = List.copyOf(entries);
+        this.scroll = 0;
+        height = PAD * 2 + TITLE + Math.min(VISIBLE, Math.max(1, entries.size())) * ROW;
+        x = (areaWidth - WIDTH) / 2f;
+        y = (areaHeight - height) / 2f;
+    }
+
+    void close() {
+        message = null;
+    }
+
+    void draw(Gfx g, int mouseX, int mouseY, Function<String, String> names, TilePainter tiles) {
+        if (message == null) {
+            return;
+        }
+        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
+        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
+        Draw.text(g, "Переслать в…", x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        if (entries.isEmpty()) {
+            Draw.textCentered(g, "Некуда пересылать", x + WIDTH / 2f, y + PAD + TITLE + 6, Theme.TEXT_DIM);
+            return;
+        }
+        for (int i = scroll; i < entries.size() && i < scroll + VISIBLE; i++) {
+            float rowY = y + PAD + TITLE + (i - scroll) * ROW;
+            boolean hover = mouseX >= x + PAD && mouseX < x + WIDTH - PAD && mouseY >= rowY && mouseY < rowY + ROW;
+            if (hover) {
+                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+            }
+            tiles.paint(g, entries.get(i), x + PAD, rowY + (ROW - FACE) / 2f, FACE);
+            Draw.text(g, Draw.trim(names.apply(entries.get(i)), WIDTH - PAD * 2 - FACE - 8), x + PAD + FACE + 6, rowY + 6, Theme.TEXT);
+        }
+    }
+
+    // чат, в который пересылать; null — мимо окна (его закрывают) или в пустое место окна
+    String click(double mouseX, double mouseY) {
+        if (message == null || mouseX < x || mouseX >= x + WIDTH || mouseY < y || mouseY >= y + height) {
+            return null;
+        }
+        int index = scroll + (int) Math.floor((mouseY - y - PAD - TITLE) / ROW);
+        return mouseY >= y + PAD + TITLE && index >= 0 && index < entries.size() ? entries.get(index) : "";
+    }
+
+    boolean contains(double mouseX, double mouseY) {
+        return message != null && mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height;
+    }
+
+    boolean scroll(double mouseX, double mouseY, double amount) {
+        if (!contains(mouseX, mouseY)) {
+            return false;
+        }
+        scroll = Math.max(0, Math.min(Math.max(0, entries.size() - VISIBLE), scroll + (amount < 0 ? 1 : -1)));
+        return true;
+    }
+}

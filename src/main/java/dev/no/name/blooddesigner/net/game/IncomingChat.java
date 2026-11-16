@@ -35,8 +35,10 @@ final class IncomingChat implements InboxListener {
     }
 
     @Override
-    public void message(LinkFriend from, String text, String id, MessageImage image, long time) {
-        Minecraft.getInstance().execute(() -> deliver(from.name(), new PrivateMessage(false, text, time, id, image)));
+    public void message(LinkFriend from, String text, String id, MessageImage image, String forwardedFrom, long time) {
+        List<MessageImage> images = image == null ? List.of() : List.of(image);
+        Minecraft.getInstance().execute(() -> deliver(from.name(),
+                new PrivateMessage(false, text, time, id, images, null, null, forwardedFrom)));
     }
 
     // реакция друга: сообщение ищется по id во всех серверах — она могла прийти и в главном меню

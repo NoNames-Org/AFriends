@@ -16,7 +16,7 @@ class MessageJsonTest {
     @Test
     @DisplayName("id, картинка и реакции переживают сохранение переписки")
     void roundTrip() {
-        PrivateMessage message = new PrivateMessage(true, "подпись", 42, "0011223344556677", java.util.List.of(IMAGE), "fire", "heart");
+        PrivateMessage message = new PrivateMessage(true, "подпись", 42, "0011223344556677", java.util.List.of(IMAGE), "fire", "heart", "Fell__o_o");
         assertEquals(message, MessageJson.read(MessageJson.write(message)));
     }
 

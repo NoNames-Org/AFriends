@@ -137,6 +137,8 @@ public class MessengerScreen extends ScreenBase {
     private final MediaActions media;
     private final AttachmentStrip attachment = new AttachmentStrip();
     private final GifPicker gifPicker = new GifPicker();
+    private final ForwardPicker forwardPicker = new ForwardPicker();
+    private final Forwarder forwarder;
     // почему сообщение не ушло: подпись над полем ввода
     private String warning = "";
     private long warningAt;
@@ -159,6 +161,7 @@ public class MessengerScreen extends ScreenBase {
         this.context = context;
         this.messages = context.messages();
         this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
+        this.forwarder = new Forwarder(context.route(), this::warn, this::warnInfo);
         AnnouncementFeed.get().refresh();
         input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame();
         int barY = HEIGHT - PAD - INPUT_HEIGHT;
@@ -218,6 +221,7 @@ public class MessengerScreen extends ScreenBase {
 
     private void select(String chat) {
         reactionBar.close();
+        forwardPicker.close();
         viewer.close();
         gifPicker.close();
         attachment.clear();
@@ -330,6 +334,7 @@ public class MessengerScreen extends ScreenBase {
         menu.draw(g, canvasX, canvasY);
         reactionBar.draw(g, canvasX, canvasY);
         gifPicker.draw(g, canvasX, canvasY);
+        forwardPicker.draw(g, canvasX, canvasY, this::chatName, this::drawEntryTile);
         if (viewer.isOpen()) {
             g.nextStratum();
             viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
@@ -431,15 +436,7 @@ public class MessengerScreen extends ScreenBase {
         boolean notes = announcements || PrivateMessages.NOTES.equals(entry);
         int faceX = x + 6;
         int faceY = rowY + (ROW_HEIGHT - ROW_FACE) / 2;
-        if (announcements) {
-            drawAnnouncementsTile(g, faceX, faceY, ROW_FACE);
-        } else if (PrivateMessages.isOfficial(entry)) {
-            drawOfficialTile(g, faceX, faceY, ROW_FACE);
-        } else if (notes) {
-            drawNotesTile(g, faceX, faceY, ROW_FACE);
-        } else {
-            drawFace(g, context.friends().skinOf(entry), faceX, faceY, ROW_FACE);
-        }
+        drawEntryTile(g, entry, faceX, faceY, ROW_FACE);
 
         float textX = faceX + ROW_FACE + 7;
         PrivateMessage last = lastMessage(entry);
@@ -485,6 +482,19 @@ public class MessengerScreen extends ScreenBase {
         Draw.roundedRect(g, x, y, size, size, Theme.RADIUS, ANNOUNCEMENTS_COLOR);
         float icon = size * 0.55f;
         Draw.icon(g, Icon.BELL, x + (size - icon) / 2, y + (size - icon) / 2, icon, 0xFFFFFFFF);
+    }
+
+    // значок чата: объявления, BloodDesigner, избранное или голова игрока (список чатов и окно пересылки)
+    private void drawEntryTile(Gfx g, String entry, float x, float y, int size) {
+        if (ANNOUNCEMENTS.equals(entry)) {
+            drawAnnouncementsTile(g, x, y, size);
+        } else if (PrivateMessages.isOfficial(entry)) {
+            drawOfficialTile(g, x, y, size);
+        } else if (PrivateMessages.NOTES.equals(entry)) {
+            drawNotesTile(g, x, y, size);
+        } else {
+            drawFace(g, context.friends().skinOf(entry), (int) x, (int) y, size);
+        }
     }
 
     private static void drawOfficialTile(Gfx g, float x, float y, int size) {
@@ -884,6 +894,18 @@ public class MessengerScreen extends ScreenBase {
             clickViewer(viewer.click(x, y));
             return true;
         }
+        if (forwardPicker.isOpen()) {
+            String target = forwardPicker.click(x, y);
+            PrivateMessage forwarded = forwardPicker.message();
+            if (target == null || !target.isEmpty()) {
+                forwardPicker.close();
+            }
+            if (target != null && !target.isEmpty()) {
+                forwarder.forward(forwarded, chatName(partner), target, chatName(target));
+                UiSounds.play(UiSound.SELECT);
+            }
+            return true;
+        }
         if (gifPicker.isOpen()) {
             GifPicker.Click click = gifPicker.click(x, y, right);
             if (click == null) {
@@ -959,9 +981,7 @@ public class MessengerScreen extends ScreenBase {
             boolean canReact = canReact(message);
             dev.no.name.blooddesigner.core.MessageImage image = bubble.imageAt(x, y);
             if (right) {
-                if (!canReact && image == null) {
-                    return false;
-                }
+                // правый клик по любому сообщению: хотя бы «Переслать» есть всегда
                 reactionBar.open(message, image, canReact, (float) x, (float) y, WIDTH, HEIGHT);
                 UiSounds.play(UiSound.DROPDOWN_OPEN);
                 return true;
@@ -983,6 +1003,34 @@ public class MessengerScreen extends ScreenBase {
         return false;
     }
 
+    // куда можно переслать: Избранное, BloodDesigner и переписки, кроме текущей
+    private List<String> forwardTargets() {
+        List<String> targets = new ArrayList<>();
+        targets.add(PrivateMessages.NOTES);
+        targets.add(PrivateMessages.OFFICIAL);
+        for (String entry : messages.partners()) {
+            if (!targets.contains(entry)) {
+                targets.add(entry);
+            }
+        }
+        targets.removeIf(entry -> entry.equalsIgnoreCase(partner == null ? "" : partner));
+        return targets;
+    }
+
+    // как чат называется для людей: в окне пересылки и в пометке «Переслано от …»
+    private String chatName(String entry) {
+        if (entry == null) {
+            return "";
+        }
+        if (ANNOUNCEMENTS.equals(entry)) {
+            return ANNOUNCEMENTS_TITLE;
+        }
+        if (PrivateMessages.NOTES.equals(entry)) {
+            return "Избранное";
+        }
+        return messages.displayName(entry);
+    }
+
     // реакции — только на сообщения с id и только с другом по сети
     private boolean canReact(PrivateMessage message) {
         return message.id() != null && partner != null && !isReadOnly() && !isNotes() && !isOfficial() && media.available(partner);
@@ -997,6 +1045,7 @@ public class MessengerScreen extends ScreenBase {
             case SAVE -> media.save(image);
             case OPEN -> media.open(image);
             case FAVORITE -> media.toggleFavorite(image);
+            case FORWARD -> forwardPicker.open(message, forwardTargets(), WIDTH, HEIGHT);
         }
         UiSounds.play(UiSound.CLICK);
     }
@@ -1031,7 +1080,7 @@ public class MessengerScreen extends ScreenBase {
     // файлы, перетащенные в окно игры, пока открыта переписка, — отправить картинками
     @Override
     public void onFilesDrop(List<Path> files) {
-        if (partner != null && !isReadOnly() && !isNotes() && !isOfficial()) {
+        if (partner != null && !isReadOnly()) {
             Path file = media.dropped(partner, files);
             if (file != null) {
                 attachment.stage(file);
@@ -1098,7 +1147,7 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = toCanvasX(mouseX);
-        if (gifPicker.scroll(x, toCanvasY(mouseY), scrollY)) {
+        if (gifPicker.scroll(x, toCanvasY(mouseY), scrollY) || forwardPicker.scroll(x, toCanvasY(mouseY), scrollY)) {
             return true;
         }
         int step = (int) Math.round(scrollY * SCROLL_STEP);
@@ -1119,10 +1168,11 @@ public class MessengerScreen extends ScreenBase {
             menu.close();
             return true;
         }
-        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen() || gifPicker.isOpen())) {
+        if (key == InputConstants.KEY_ESCAPE && (viewer.isOpen() || reactionBar.isOpen() || gifPicker.isOpen() || forwardPicker.isOpen())) {
             viewer.close();
             reactionBar.close();
             gifPicker.close();
+            forwardPicker.close();
             return true;
         }
         if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) && input.isFocused()) {

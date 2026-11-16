@@ -180,7 +180,12 @@ public final class LinkService {
 
     // сообщение другу по сети; id — для реакций; "ok" или код причины
     public CompletableFuture<String> sendText(String friendId, String text, String id) {
-        return sendPayload(friendId, new ChatPayload.Text(text, id, null));
+        return sendText(friendId, text, id, null);
+    }
+
+    // forwardedFrom — чьё сообщение пересылаем (null — своё)
+    public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom) {
+        return sendPayload(friendId, new ChatPayload.Text(text, id, null, forwardedFrom));
     }
 
     // реакция на сообщение с этим id; reaction == null — снять свою
@@ -201,6 +206,11 @@ public final class LinkService {
     // Картинка другу: шифруем своим ключом, заливаем на сервер, ключ и ссылку — сквозным сообщением.
     // Готово — придёт описание картинки (для своей переписки); отказ — исключение с кодом
     public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption) {
+        return sendImage(friendId, prepared, id, caption, null);
+    }
+
+    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
+                                                     String forwardedFrom) {
         CompletableFuture<MessageImage> result = new CompletableFuture<>();
         worker.execute(() -> {
             LinkFriend friend = snapshot.friend(friendId);
@@ -221,7 +231,40 @@ public final class LinkService {
                 MessageImage image = new MessageImage(blob, Bytes.base64(key), prepared.mime(), prepared.width(),
                         prepared.height(), prepared.bytes().length, prepared.sha256());
                 media.store(image, prepared.bytes());
-                return current.outbox.send(friend, new ChatPayload.Text(caption, id, image)).thenApply(done -> image);
+                return current.outbox.send(friend, new ChatPayload.Text(caption, id, image, forwardedFrom)).thenApply(done -> image);
+            }, worker).whenComplete((image, error) -> {
+                if (error != null) {
+                    result.completeExceptionally(error);
+                } else {
+                    result.complete(image);
+                }
+            });
+        });
+        return result;
+    }
+
+    // Картинка в чат BloodDesigner: её смотрят админы на портале, поэтому она не шифруется — заливается открыто
+    // (official.media даёт место, PUT /v1/media/<id>) и уходит в official.send вместе с подписью
+    public CompletableFuture<MessageImage> sendOfficialImage(PreparedImage prepared, String caption) {
+        CompletableFuture<MessageImage> result = new CompletableFuture<>();
+        worker.execute(() -> {
+            if (runtime == null || snapshot.connection() != Connection.ONLINE) {
+                result.completeExceptionally(new TunnelError("offline"));
+                return;
+            }
+            LinkRuntime current = runtime;
+            blobs.uploadMedia(current.connection, prepared.bytes()).thenComposeAsync(meta -> {
+                MessageImage image = MessageImage.fromPortal(meta);
+                if (image == null || !image.sha256().equals(prepared.sha256())) {
+                    return CompletableFuture.failedFuture(new TunnelError("upload_failed"));
+                }
+                media.store(image, prepared.bytes());
+                JsonObject data = new JsonObject();
+                data.addProperty("text", caption);
+                com.google.gson.JsonArray ids = new com.google.gson.JsonArray();
+                ids.add(image.blob());
+                data.add("images", ids);
+                return current.connection.request("official.send", data).thenApply(done -> image);
             }, worker).whenComplete((image, error) -> {
                 if (error != null) {
                     result.completeExceptionally(error);

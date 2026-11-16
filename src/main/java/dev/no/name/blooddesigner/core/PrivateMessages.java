@@ -106,8 +106,13 @@ public final class PrivateMessages {
     }
 
     public void addNote(String text, long now) {
+        addNote(new PrivateMessage(true, text, now));
+    }
+
+    // заметка с картинками или пересланная (картинки лежат только в кеше у себя)
+    public void addNote(PrivateMessage note) {
         List<PrivateMessage> notes = chats.computeIfAbsent(NOTES, name -> new ArrayList<>());
-        notes.add(new PrivateMessage(true, text, now));
+        notes.add(note);
         trim(notes);
         onChange.run();
     }

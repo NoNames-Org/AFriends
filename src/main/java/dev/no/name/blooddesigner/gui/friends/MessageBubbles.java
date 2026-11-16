@@ -34,6 +34,8 @@ final class MessageBubbles {
     private static final int CARD_ICON = 12;
     private static final int CARD_BUTTON = 14;
     private static final float CARD_MIN_WIDTH = 110;
+    // строка «Переслано от …» над содержимым пересланного сообщения
+    private static final int FORWARD_HEIGHT = 10;
 
     enum Stamp { TIME, PENDING, FAILED }
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
@@ -47,6 +49,15 @@ final class MessageBubbles {
 
         boolean hasImage() {
             return rich != null;
+        }
+
+        // пересланное: сверху строка «Переслано от …», пузырь выше и при надобности шире
+        Bubble withForward() {
+            if (message.forwardedFrom() == null) {
+                return this;
+            }
+            float labelWidth = Draw.width(forwardLabel(message), TextStyle.SMALL) + PADDING_X * 2;
+            return new Bubble(message, lines, Math.max(width, labelWidth), height + FORWARD_HEIGHT, timeInline, card, rich, chips);
         }
 
         // реакции дописываются строкой снизу: пузырь растёт и при надобности шире
@@ -102,12 +113,12 @@ final class MessageBubbles {
             if (!hidden && !message.images().isEmpty()) {
                 RichBubble.Layout rich = RichBubble.layout(message, maxText, stampWidth);
                 bubbles.add(new Bubble(message, List.of(), rich.width(), rich.height(), rich.timeInline(), null, rich, List.of())
-                        .withChips(chips));
+                        .withForward().withChips(chips));
                 continue;
             }
             MessageCard.Card card = hidden ? null : Addons.get().card(partner, message.text(), message.fromMe());
             if (card != null) {
-                bubbles.add(cardBubble(message, card, maxText).withChips(chips));
+                bubbles.add(cardBubble(message, card, maxText).withForward().withChips(chips));
                 continue;
             }
             List<String> lines = wrap(hidden ? HIDDEN : message.text(), maxText);
@@ -120,7 +131,7 @@ final class MessageBubbles {
             boolean inline = lastLine + TIME_GAP + stampWidth <= maxText;
             float contentWidth = inline ? Math.max(widest, lastLine + TIME_GAP + stampWidth) : Math.max(widest, stampWidth);
             float height = PADDING_Y * 2 + lines.size() * LINE_HEIGHT + (inline ? 0 : TIME_HEIGHT);
-            bubbles.add(new Bubble(message, lines, contentWidth + PADDING_X * 2, height, inline, null).withChips(chips));
+            bubbles.add(new Bubble(message, lines, contentWidth + PADDING_X * 2, height, inline, null).withForward().withChips(chips));
         }
         return bubbles;
     }
@@ -152,8 +163,14 @@ final class MessageBubbles {
         int fill = failed ? Theme.CARD_PRESSED : mine ? Theme.ACCENT : Theme.CARD_SELECTED;
         int textColor = failed ? Theme.TEXT_SOFT : mine ? Theme.ACCENT_TEXT : Theme.TEXT;
         Draw.roundedRect(g, x, top, bubble.width(), bubble.height(), RADIUS, fill);
+        float bubbleTop = top;
+        if (bubble.message().forwardedFrom() != null) {
+            Draw.text(g, Draw.trim(forwardLabel(bubble.message()), (int) bubble.width() - PADDING_X * 2, TextStyle.SMALL),
+                    x + PADDING_X, top + PADDING_Y, Colors.fade(textColor, 0.6f), TextStyle.SMALL);
+            top += FORWARD_HEIGHT;
+        }
         if (bubble.hasImage()) {
-            return drawImage(g, bubble, x, top, stamp, route, textColor);
+            return drawImage(g, bubble, x, top, bubbleTop, stamp, route, textColor);
         }
         CardButton button = bubble.card() == null ? null : drawCard(g, bubble, x, top, textColor);
         float lineY = top + PADDING_Y + (bubble.card() == null ? 0 : LINE_HEIGHT * 2
@@ -173,11 +190,16 @@ final class MessageBubbles {
         float timeY = bubble.timeInline() ? lineY - LINE_HEIGHT + 1 : lineY;
         Draw.text(g, time, timeX, timeY, timeColor, TextStyle.SMALL);
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
-                top + bubble.height() - ReactionChips.ROW + 1, textColor);
-        return new Drawn(bubble.message(), x, top, bubble.width(), bubble.height(), button, List.of(), chips);
+                bubbleTop + bubble.height() - ReactionChips.ROW + 1, textColor);
+        return new Drawn(bubble.message(), x, bubbleTop, bubble.width(), bubble.height(), button, List.of(), chips);
     }
 
-    private static Drawn drawImage(Gfx g, Bubble bubble, float x, float top, Stamp stamp, MessageRoute route, int textColor) {
+    private static String forwardLabel(PrivateMessage message) {
+        return "Переслано от " + message.forwardedFrom();
+    }
+
+    private static Drawn drawImage(Gfx g, Bubble bubble, float x, float top, float bubbleTop, Stamp stamp, MessageRoute route,
+                                   int textColor) {
         String time = switch (stamp) {
             case PENDING -> PENDING;
             case FAILED -> FAILED;
@@ -187,8 +209,8 @@ final class MessageBubbles {
         int timeColor = stamp == Stamp.FAILED ? DANGER : mine ? withAlpha(Theme.ACCENT_TEXT, 0.75f) : Theme.TEXT_DIM;
         List<RichBubble.ImageHit> images = RichBubble.draw(g, bubble.rich(), route, x, top, bubble.width(), time, textColor, timeColor);
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
-                top + bubble.height() - ReactionChips.ROW + 1, textColor);
-        return new Drawn(bubble.message(), x, top, bubble.width(), bubble.height(), null, images, chips);
+                bubbleTop + bubble.height() - ReactionChips.ROW + 1, textColor);
+        return new Drawn(bubble.message(), x, bubbleTop, bubble.width(), bubble.height(), null, images, chips);
     }
 
     private static CardButton drawCard(Gfx g, Bubble bubble, float x, float top, int textColor) {

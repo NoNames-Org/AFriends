@@ -18,10 +18,14 @@ public sealed interface ChatPayload {
     String IMAGE_FALLBACK = "[картинка — обнови BloodDesigner, чтобы увидеть]";
 
     // сообщение в ЛС; метки SMPHelper — тоже текст, их узнаёт карточка дополнения.
-    // id — по нему ставятся реакции; image — картинка или гифка вместо текста
-    record Text(String text, String id, MessageImage image) implements ChatPayload {
+    // id — по нему ставятся реакции; image — картинка или гифка; forwardedFrom — чьё сообщение переслали
+    record Text(String text, String id, MessageImage image, String forwardedFrom) implements ChatPayload {
         public Text(String text) {
-            this(text, null, null);
+            this(text, null, null, null);
+        }
+
+        public Text(String text, String id, MessageImage image) {
+            this(text, id, image, null);
         }
     }
 
@@ -49,6 +53,9 @@ public sealed interface ChatPayload {
                 }
                 if (text.image() != null) {
                     json.add("img", text.image().toJson());
+                }
+                if (text.forwardedFrom() != null) {
+                    json.addProperty("f", text.forwardedFrom());
                 }
             }
             case Reaction reaction -> {
@@ -96,11 +103,18 @@ public sealed interface ChatPayload {
             id = null;
         }
         MessageImage image = json.has("img") && json.get("img").isJsonObject() ? MessageImage.fromJson(json.getAsJsonObject("img")) : null;
+        String forwarded = json.has("f") ? forwardedName(json.get("f").getAsString()) : null;
         if (image != null) {
             // запасной текст для старых версий новой версии не нужен: вместо него картинка, остаётся подпись
             String caption = text.endsWith(IMAGE_FALLBACK) ? text.substring(0, text.length() - IMAGE_FALLBACK.length()).strip() : text;
-            return new Text(caption.length() > MAX_TEXT ? caption.substring(0, MAX_TEXT) : caption, id, image);
+            return new Text(caption.length() > MAX_TEXT ? caption.substring(0, MAX_TEXT) : caption, id, image, forwarded);
         }
-        return text.isBlank() || text.length() > MAX_TEXT ? null : new Text(text, id, null);
+        return text.isBlank() || text.length() > MAX_TEXT ? null : new Text(text, id, null, forwarded);
+    }
+
+    // подпись «Переслано от …»: ник или название чата, без переводов строк и не длиннее 32
+    private static String forwardedName(String value) {
+        String clean = value.replaceAll("[\\p{Cntrl}§]", "").strip();
+        return clean.isEmpty() ? null : clean.length() > 32 ? clean.substring(0, 32) : clean;
     }
 }
