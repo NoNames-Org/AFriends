@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.game;
 
 import dev.no.name.blooddesigner.compat.Compat;
+import dev.no.name.blooddesigner.core.GroupPoll;
 import dev.no.name.blooddesigner.core.MessageContent;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageReply;
@@ -78,6 +79,22 @@ final class IncomingChat implements InboxListener {
                         new PrivateMessage(false, text, time, id, images, null, null, null, reply, from.name()));
             }
         });
+    }
+
+    @Override
+    public void groupPoll(String group, LinkFriend from, String text, String id, List<String> options, MessageReply reply, long time) {
+        Minecraft.getInstance().execute(() -> {
+            if (!social.ignored().isIgnored(from.name())) {
+                deliver(PrivateMessages.groupKey(group), new PrivateMessage(false, text, time, id, List.of(), null, null, null, reply,
+                        from.name(), GroupPoll.fresh(options)));
+            }
+        });
+    }
+
+    // голос участника: опрос ищем во всех серверах, как реакцию. Голос того, кого игнорируешь, всё равно считается
+    @Override
+    public void groupVote(String group, LinkFriend from, String target, int choice, long time) {
+        Minecraft.getInstance().execute(() -> social.vote(PrivateMessages.groupKey(group), target, from.name(), choice));
     }
 
     @Override

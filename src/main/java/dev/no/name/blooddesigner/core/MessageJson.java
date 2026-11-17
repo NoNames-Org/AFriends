@@ -40,6 +40,9 @@ public final class MessageJson {
         if (message.author() != null) {
             item.addProperty("by", message.author());
         }
+        if (message.poll() != null) {
+            item.add("poll", message.poll().toJson());
+        }
         return item;
     }
 
@@ -67,6 +70,7 @@ public final class MessageJson {
                 item.get("time").getAsLong(), id, images, Reactions.valid(mine) ? mine : null, Reactions.valid(theirs) ? theirs : null,
                 item.has("fwd") ? item.get("fwd").getAsString() : null,
                 item.has("re") && item.get("re").isJsonObject() ? MessageReply.fromJson(item.getAsJsonObject("re")) : null,
-                item.has("by") ? item.get("by").getAsString() : null);
+                item.has("by") ? item.get("by").getAsString() : null,
+                item.has("poll") && item.get("poll").isJsonObject() ? GroupPoll.fromJson(item.getAsJsonObject("poll")) : null);
     }
 }

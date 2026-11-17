@@ -2,6 +2,7 @@ package dev.no.name.blooddesigner.net.announcements;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.no.name.blooddesigner.core.PollView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +11,7 @@ import java.util.List;
  * Опрос в объявлении: вопрос — текст объявления, варианты с числом голосов. mine — свой выбор,
  * -1 — ещё не голосовал. Пока не голосовал, проценты не показываются, как в Telegram
  */
-public record AnnouncementPoll(long announcement, List<Option> options, int total, int mine) {
+public record AnnouncementPoll(long announcement, List<Option> options, int total, int mine) implements PollView {
     public static final int MAX_OPTIONS = 10;
     private static final int MAX_OPTION = 80;
 
@@ -21,12 +22,14 @@ public record AnnouncementPoll(long announcement, List<Option> options, int tota
         options = List.copyOf(options);
     }
 
-    public boolean voted() {
-        return mine >= 0;
+    @Override
+    public List<String> optionTexts() {
+        return options.stream().map(Option::text).toList();
     }
 
-    public int share(int option) {
-        return total == 0 ? 0 : Math.round(options.get(option).votes() * 100f / total);
+    @Override
+    public int votes(int option) {
+        return options.get(option).votes();
     }
 
     public AnnouncementPoll withMine(int choice) {

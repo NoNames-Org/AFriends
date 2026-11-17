@@ -8,13 +8,19 @@ import java.util.List;
  * images — картинки и гифки; где они стоят в тексте, решают метки [img] (см. MessageContent), остальные — сверху.
  * reaction / partnerReaction — своя реакция и реакция собеседника. forwardedFrom — чьё это было сообщение,
  * если его переслали (null — не пересланное). reply — на какое сообщение это ответ (null — не ответ).
- * author — кто написал в групповом чате (null — личка или своё)
+ * author — кто написал в групповом чате (null — личка или своё). poll — опрос группы, вопрос — сам текст (null — не опрос)
  */
 public record PrivateMessage(boolean fromMe, String text, long time, String id, List<MessageImage> images,
-                             String reaction, String partnerReaction, String forwardedFrom, MessageReply reply, String author) {
+                             String reaction, String partnerReaction, String forwardedFrom, MessageReply reply, String author,
+                             GroupPoll poll) {
 
     public PrivateMessage {
         images = images == null ? List.of() : List.copyOf(images);
+    }
+
+    public PrivateMessage(boolean fromMe, String text, long time, String id, List<MessageImage> images,
+                          String reaction, String partnerReaction, String forwardedFrom, MessageReply reply, String author) {
+        this(fromMe, text, time, id, images, reaction, partnerReaction, forwardedFrom, reply, author, null);
     }
 
     public PrivateMessage(boolean fromMe, String text, long time, String id, List<MessageImage> images,
@@ -59,12 +65,16 @@ public record PrivateMessage(boolean fromMe, String text, long time, String id, 
 
     // заметке без id выдаётся свой: две заметки в одну миллисекунду (переслали пачкой) иначе не различить
     public PrivateMessage withId(String newId) {
-        return new PrivateMessage(fromMe, text, time, newId, images, reaction, partnerReaction, forwardedFrom, reply, author);
+        return new PrivateMessage(fromMe, text, time, newId, images, reaction, partnerReaction, forwardedFrom, reply, author, poll);
     }
 
     // mine — своя реакция или собеседника; null снимает
     public PrivateMessage withReaction(boolean mine, String value) {
-        return mine ? new PrivateMessage(fromMe, text, time, id, images, value, partnerReaction, forwardedFrom, reply, author)
-                : new PrivateMessage(fromMe, text, time, id, images, reaction, value, forwardedFrom, reply, author);
+        return mine ? new PrivateMessage(fromMe, text, time, id, images, value, partnerReaction, forwardedFrom, reply, author, poll)
+                : new PrivateMessage(fromMe, text, time, id, images, reaction, value, forwardedFrom, reply, author, poll);
+    }
+
+    public PrivateMessage withPoll(GroupPoll value) {
+        return new PrivateMessage(fromMe, text, time, id, images, reaction, partnerReaction, forwardedFrom, reply, author, value);
     }
 }

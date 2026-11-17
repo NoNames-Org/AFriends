@@ -105,6 +105,9 @@ public final class MessageContent {
     // подпись в списке чатов: текст, а если его нет — «Изображение» или «Гифка»
     public static String preview(PrivateMessage message) {
         String plain = plain(message.text()).replaceAll("\\s+", " ").strip();
+        if (message.poll() != null) {
+            return "Опрос: " + plain;
+        }
         if (!plain.isEmpty()) {
             return plain;
         }

@@ -6,13 +6,13 @@ import dev.no.name.blooddesigner.gui.render.Colors;
 import dev.no.name.blooddesigner.gui.render.Draw;
 import dev.no.name.blooddesigner.gui.render.icon.Icon;
 import dev.no.name.blooddesigner.gui.render.text.TextStyle;
-import dev.no.name.blooddesigner.net.announcements.AnnouncementPoll;
+import dev.no.name.blooddesigner.core.PollView;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Опрос внутри пузыря объявления. До голоса — варианты кнопками, после — полоски с процентами и галочка
+ * Опрос внутри пузыря: в объявлении или в группе. До голоса — варианты кнопками, после — полоски с процентами и галочка
  * у своего. Клик по другому варианту переголосовывает, по своему — отзывает голос
  */
 final class PollBlock {
@@ -22,7 +22,8 @@ final class PollBlock {
     private static final int FOOTER = 10;
     private static final float RADIUS = 3;
 
-    record Hit(AnnouncementPoll poll, int option, float x, float y, float width, float height) {
+    // message — сообщение с опросом группы (у опроса объявления null: он и так знает своё объявление)
+    record Hit(PollView poll, String message, int option, float x, float y, float width, float height) {
         boolean contains(double mouseX, double mouseY) {
             return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
         }
@@ -31,23 +32,24 @@ final class PollBlock {
     private PollBlock() {
     }
 
-    static float height(AnnouncementPoll poll) {
-        return poll.options().size() * (ROW + ROW_GAP) + FOOTER;
+    static float height(PollView poll) {
+        return poll.optionTexts().size() * (ROW + ROW_GAP) + FOOTER;
     }
 
-    static float contentWidth(AnnouncementPoll poll) {
+    static float contentWidth(PollView poll) {
         float widest = 0;
-        for (AnnouncementPoll.Option option : poll.options()) {
-            widest = Math.max(widest, Draw.width(option.text(), TextStyle.SMALL));
+        for (String option : poll.optionTexts()) {
+            widest = Math.max(widest, Draw.width(option, TextStyle.SMALL));
         }
         return Math.max(MIN_WIDTH, widest + 40);
     }
 
-    static List<Hit> draw(Gfx g, AnnouncementPoll poll, float x, float y, float width, int textColor) {
+    static List<Hit> draw(Gfx g, PollView poll, String message, float x, float y, float width, int textColor) {
         List<Hit> hits = new ArrayList<>();
         boolean voted = poll.voted();
-        for (int i = 0; i < poll.options().size(); i++) {
-            AnnouncementPoll.Option option = poll.options().get(i);
+        List<String> options = poll.optionTexts();
+        for (int i = 0; i < options.size(); i++) {
+            String option = options.get(i);
             float rowY = y + i * (ROW + ROW_GAP);
             boolean chosen = poll.mine() == i;
             Draw.roundedRect(g, x, rowY, width, ROW, RADIUS, Colors.fade(textColor, 0.07f));
@@ -64,17 +66,17 @@ final class PollBlock {
                     Draw.icon(g, Icon.CHECK, textX, rowY + 3, Theme.ICON_SMALL - 1, textColor);
                     textX += Theme.ICON_SMALL + 2;
                 }
-                Draw.text(g, Draw.trim(option.text(), (int) (x + width - 8 - shareWidth - textX), TextStyle.SMALL),
+                Draw.text(g, Draw.trim(option, (int) (x + width - 8 - shareWidth - textX), TextStyle.SMALL),
                         textX, rowY + 4, textColor, TextStyle.SMALL);
             } else {
                 Draw.icon(g, Icon.CIRCLE, textX, rowY + 3, Theme.ICON_SMALL - 1, Colors.fade(textColor, 0.6f));
                 textX += Theme.ICON_SMALL + 2;
-                Draw.text(g, Draw.trim(option.text(), (int) (x + width - 4 - textX), TextStyle.SMALL), textX, rowY + 4,
+                Draw.text(g, Draw.trim(option, (int) (x + width - 4 - textX), TextStyle.SMALL), textX, rowY + 4,
                         textColor, TextStyle.SMALL);
             }
-            hits.add(new Hit(poll, i, x, rowY, width, ROW));
+            hits.add(new Hit(poll, message, i, x, rowY, width, ROW));
         }
-        float footerY = y + poll.options().size() * (ROW + ROW_GAP) + 1;
+        float footerY = y + options.size() * (ROW + ROW_GAP) + 1;
         String footer = voted ? votes(poll.total()) : "Выбери вариант, чтобы увидеть итоги";
         Draw.text(g, footer, x, footerY, Colors.fade(textColor, 0.6f), TextStyle.SMALL);
         return hits;

@@ -151,8 +151,11 @@ public final class Inbox {
         }
         switch (payload) {
             // в группу пишет только её участник: это проверено выше
+            case ChatPayload.Text text when text.group() != null && text.poll() != null ->
+                    listener.groupPoll(text.group(), from, text.text(), text.id(), text.poll(), text.reply(), time);
             case ChatPayload.Text text when text.group() != null ->
                     listener.groupMessage(text.group(), from, text.text(), text.id(), text.image(), text.reply(), time);
+            case ChatPayload.Vote vote -> listener.groupVote(vote.group(), from, vote.target(), vote.choice(), time);
             case ChatPayload.Text text -> listener.message(from, text.text(), text.id(), text.image(), text.forwardedFrom(),
                     text.reply(), time);
             case ChatPayload.GroupName named -> listener.groupNamed(named.group(), from, named.name(), time);
@@ -175,6 +178,7 @@ public final class Inbox {
         return switch (payload) {
             case ChatPayload.Text text -> text.group();
             case ChatPayload.GroupName named -> named.group();
+            case ChatPayload.Vote vote -> vote.group();
             case null, default -> null;
         };
     }

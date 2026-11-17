@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import dev.no.name.blooddesigner.core.GroupPoll;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.Reactions;
@@ -26,8 +27,18 @@ public sealed interface ChatPayload {
     // сообщение в ЛС; метки SMPHelper — тоже текст, их узнаёт карточка дополнения.
     // id — по нему ставятся реакции; image — картинка или гифка; forwardedFrom — чьё сообщение переслали;
     // reply — на какое сообщение ответ (старые версии его не знают и покажут просто текст)
-    // group — id группового чата (null — личка). Старые версии поле g не знают и покажут сообщение в личке отправителя
-    record Text(String text, String id, MessageImage image, String forwardedFrom, MessageReply reply, String group) implements ChatPayload {
+    // group — id группового чата (null — личка). Старые версии поле g не знают и покажут сообщение в личке отправителя.
+    // poll — варианты опроса, вопрос — сам текст (null — не опрос). Старые версии покажут вопрос и варианты текстом
+    record Text(String text, String id, MessageImage image, String forwardedFrom, MessageReply reply, String group,
+                List<String> poll) implements ChatPayload {
+        public Text {
+            poll = poll == null ? null : List.copyOf(poll);
+        }
+
+        public Text(String text, String id, MessageImage image, String forwardedFrom, MessageReply reply, String group) {
+            this(text, id, image, forwardedFrom, reply, group, null);
+        }
+
         public Text(String text, String id, MessageImage image, String forwardedFrom, MessageReply reply) {
             this(text, id, image, forwardedFrom, reply, null);
         }
@@ -62,6 +73,11 @@ public sealed interface ChatPayload {
     record Reaction(String target, String reaction) implements ChatPayload {
     }
 
+    // голос в опросе группы: target — id сообщения с опросом, choice — номер варианта, -1 — голос отозван.
+    // Старые версии вид vote не знают и молча пропустят
+    record Vote(String group, String target, int choice) implements ChatPayload {
+    }
+
     Pattern GROUP_ID = Pattern.compile("[0-9a-f]{16}");
     int MAX_GROUP_NAME = 32;
 
@@ -82,8 +98,14 @@ public sealed interface ChatPayload {
         switch (this) {
             case Text text -> {
                 json.addProperty("k", "text");
-                json.addProperty("t", text.image() == null ? text.text()
+                json.addProperty("t", text.poll() != null ? text.text() + "\n" + pollFallback(text.poll())
+                        : text.image() == null ? text.text()
                         : text.text().isBlank() ? fallback(text.image()) : text.text() + "\n" + fallback(text.image()));
+                if (text.poll() != null) {
+                    JsonArray options = new JsonArray();
+                    text.poll().forEach(options::add);
+                    json.add("p", options);
+                }
                 if (text.id() != null) {
                     json.addProperty("id", text.id());
                 }
@@ -118,6 +140,14 @@ public sealed interface ChatPayload {
                     json.addProperty("r", reaction.reaction());
                 }
             }
+            case Vote vote -> {
+                json.addProperty("k", "vote");
+                json.addProperty("g", vote.group());
+                json.addProperty("to", vote.target());
+                if (vote.choice() >= 0) {
+                    json.addProperty("c", vote.choice());
+                }
+            }
             case GroupName group -> {
                 json.addProperty("k", "gname");
                 json.addProperty("g", group.group());
@@ -147,6 +177,13 @@ public sealed interface ChatPayload {
                             ? new Reaction(target, reaction) : null;
                 }
                 case "del" -> delete(json);
+                case "vote" -> {
+                    String group = json.get("g").getAsString();
+                    String target = json.get("to").getAsString();
+                    int choice = json.has("c") ? json.get("c").getAsInt() : -1;
+                    yield GROUP_ID.matcher(group).matches() && MESSAGE_ID.matcher(target).matches()
+                            && choice >= -1 && choice < GroupPoll.MAX_OPTIONS ? new Vote(group, target, choice) : null;
+                }
                 case "pin" -> {
                     String target = json.get("to").getAsString();
                     yield MESSAGE_ID.matcher(target).matches() ? new Pin(target, json.get("on").getAsBoolean()) : null;
@@ -192,6 +229,9 @@ public sealed interface ChatPayload {
         if (group != null && !GROUP_ID.matcher(group).matches()) {
             return null;
         }
+        if (json.has("p") && json.get("p").isJsonArray()) {
+            return poll(json, text, id, reply, group);
+        }
         if (image != null) {
             // запасной текст для старых версий новой версии не нужен: вместо него картинка, остаётся подпись
             String fallback = fallback(image);
@@ -199,6 +239,34 @@ public sealed interface ChatPayload {
             return new Text(caption.length() > MAX_TEXT ? caption.substring(0, MAX_TEXT) : caption, id, image, forwarded, reply, group);
         }
         return text.isBlank() || text.length() > MAX_TEXT ? null : new Text(text, id, null, forwarded, reply, group);
+    }
+
+    // опрос: только в группе и с id (по нему голосуют), варианты проверены. Запасной текст для старых версий отрезаем
+    private static Text poll(JsonObject json, String text, String id, MessageReply reply, String group) {
+        List<String> raw = new ArrayList<>();
+        for (JsonElement element : json.getAsJsonArray("p")) {
+            raw.add(element.getAsString());
+        }
+        List<String> options = GroupPoll.cleanOptions(raw);
+        if (options == null || group == null || id == null) {
+            return null;
+        }
+        String fallback = pollFallback(options);
+        String question = text.endsWith(fallback) ? text.substring(0, text.length() - fallback.length()).strip() : text.strip();
+        if (question.isEmpty()) {
+            return null;
+        }
+        return new Text(question.length() > GroupPoll.MAX_QUESTION ? question.substring(0, GroupPoll.MAX_QUESTION) : question,
+                id, null, null, reply, group, options);
+    }
+
+    // что увидит версия без опросов: варианты списком и просьба обновиться
+    static String pollFallback(List<String> options) {
+        StringBuilder text = new StringBuilder("Опрос:");
+        for (int i = 0; i < options.size(); i++) {
+            text.append("\n").append(i + 1).append(". ").append(options.get(i));
+        }
+        return text.append("\n[обнови BloodDesigner, чтобы проголосовать]").toString();
     }
 
     // что покажет старая версия вместо вложения

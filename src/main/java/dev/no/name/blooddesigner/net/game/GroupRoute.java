@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.game;
 
 import dev.no.name.blooddesigner.core.GroupChats;
+import dev.no.name.blooddesigner.core.GroupPoll;
 import dev.no.name.blooddesigner.core.MessageIds;
 import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.PrivateMessage;
@@ -67,6 +68,57 @@ final class GroupRoute implements GroupChats {
             }
         }));
         return Optional.empty();
+    }
+
+    @Override
+    public void createPoll(String chat, String question, List<String> options, Consumer<String> problem) {
+        String group = PrivateMessages.groupId(chat);
+        String text = question.replaceAll("[\\p{Cntrl}§]", " ").replaceAll("\\s+", " ").strip();
+        List<String> clean = GroupPoll.cleanOptions(options);
+        if (text.isEmpty() || text.length() > GroupPoll.MAX_QUESTION || clean == null) {
+            problem.accept("Нужен вопрос и от " + GroupPoll.MIN_OPTIONS + " до " + GroupPoll.MAX_OPTIONS + " разных вариантов");
+            return;
+        }
+        if (link.snapshot().connection() != Connection.ONLINE) {
+            problem.accept(LinkText.sendProblem("offline"));
+            return;
+        }
+        if (link.snapshot().group(group) == null) {
+            problem.accept("Ты больше не в этой группе");
+            return;
+        }
+        String id = MessageIds.next();
+        link.sendGroupPoll(group, text, id, clean).thenAccept(code -> onGame(() -> {
+            if ("ok".equals(code)) {
+                social.messages().add(chat, new PrivateMessage(true, text, System.currentTimeMillis(), id, List.of(), null, null,
+                        null, null, null, GroupPoll.fresh(clean)));
+            } else {
+                problem.accept(LinkText.sendProblem(code));
+            }
+        }));
+    }
+
+    // голос сразу виден у себя; не дошёл — возвращаем прежний и говорим почему
+    @Override
+    public void vote(String chat, String messageId, int choice, Consumer<String> problem) {
+        String group = PrivateMessages.groupId(chat);
+        PrivateMessage message = social.messages().find(chat, messageId);
+        if (message == null || message.poll() == null) {
+            return;
+        }
+        if (link.snapshot().connection() != Connection.ONLINE || link.snapshot().group(group) == null) {
+            problem.accept(link.snapshot().group(group) == null && link.snapshot().connection() == Connection.ONLINE
+                    ? "Ты больше не в этой группе" : "Голос не ушёл: нужна сеть друзей BloodDesigner");
+            return;
+        }
+        int previous = message.poll().mine();
+        social.vote(chat, messageId, null, choice);
+        link.sendGroupVote(group, messageId, choice).thenAccept(code -> onGame(() -> {
+            if (!"ok".equals(code)) {
+                social.vote(chat, messageId, null, previous);
+                problem.accept("Голос не ушёл: " + LinkText.sendProblem(code));
+            }
+        }));
     }
 
     String headerLine(String chat) {

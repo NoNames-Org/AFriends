@@ -66,6 +66,16 @@ public final class SocialData {
         return legacy != null && legacy.messages().react(partner, messageId, mine, reaction);
     }
 
+    // голос в опросе группы по сети: ищем во всех серверах, как реакцию. voter null — свой
+    public boolean vote(String chat, String messageId, String voter, int choice) {
+        for (PrivateMessages messages : allMessages()) {
+            if (messages.vote(chat, messageId, voter, choice)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // собеседник удалил сообщения у обоих: ищем во всех серверах, как реакцию
     public void removeEverywhere(String partner, Collection<String> messageIds) {
         allMessages().forEach(messages -> messages.remove(partner, messageIds));

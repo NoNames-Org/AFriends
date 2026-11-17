@@ -144,6 +144,7 @@ public class MessengerScreen extends ScreenBase {
     private final TextFieldWidget input;
     private final ChatMenu menu = new ChatMenu();
     private final GroupEditor groupEditor = new GroupEditor(new GroupHost());
+    private final PollComposer pollComposer = new PollComposer(this::sendPoll);
     private final VoiceStrip voiceStrip = new VoiceStrip(this::sendVoice, this::warn);
     // кнопки карточек дополнений, нарисованные в этом кадре
     private final List<MessageBubbles.CardButton> cardButtons = new ArrayList<>();
@@ -384,6 +385,7 @@ public class MessengerScreen extends ScreenBase {
         gifPicker.draw(g, canvasX, canvasY);
         forwardPicker.draw(g, canvasX, canvasY, this::chatName, this::drawEntryTile);
         groupEditor.draw(g, canvasX, canvasY);
+        pollComposer.draw(g, canvasX, canvasY);
         if (viewer.isOpen()) {
             g.nextStratum();
             viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
@@ -1102,7 +1104,7 @@ public class MessengerScreen extends ScreenBase {
     // окна группы — только при живой сети: без неё состав не поменять
     // поле названия группы забирало ввод текста и, закрываясь, выключило его: возвращаем полю сообщения
     private boolean afterEditor(boolean handled) {
-        if (!groupEditor.isOpen()) {
+        if (!groupEditor.isOpen() && !pollComposer.isOpen()) {
             input.refocus();
         }
         return handled;
@@ -1131,6 +1133,8 @@ public class MessengerScreen extends ScreenBase {
         })));
         items.add(new ChatMenu.Item(Icon.EDIT, "Переименовать", false, () -> openGroupEditor(() ->
                 groupEditor.openRename(chat, messages.displayName(chat), WIDTH, HEIGHT))));
+        items.add(new ChatMenu.Item(Icon.BAR_CHART, "Создать опрос", false, () -> openGroupEditor(() ->
+                pollComposer.open(chat, WIDTH, HEIGHT))));
         items.add(muteItem(chat));
         boolean pinned = messages.isPinned(chat);
         items.add(new ChatMenu.Item(Icon.PIN, pinned ? "Открепить чат" : "Закрепить чат", false, () -> messages.togglePin(chat)));
@@ -1208,6 +1212,9 @@ public class MessengerScreen extends ScreenBase {
         }
         if (groupEditor.isOpen()) {
             return afterEditor(groupEditor.click(x, y));
+        }
+        if (pollComposer.isOpen()) {
+            return afterEditor(pollComposer.click(x, y));
         }
         if (forwardPicker.isOpen()) {
             String target = forwardPicker.click(x, y);
@@ -1342,9 +1349,20 @@ public class MessengerScreen extends ScreenBase {
 
     // клик по варианту: другой — голос за него, свой — отозвать. Без сети голосовать нельзя
     private void vote(PollBlock.Hit option) {
-        AnnouncementPoll poll = option.poll();
-        int choice = poll.mine() == option.option() ? -1 : option.option();
+        int choice = option.poll().mine() == option.option() ? -1 : option.option();
         UiSounds.play(UiSound.CLICK);
+        if (option.message() != null) {
+            GroupChats groups = groups();
+            if (groups == null) {
+                warn("Голос не ушёл: нужна сеть друзей BloodDesigner");
+                return;
+            }
+            groups.vote(partner, option.message(), choice, this::warn);
+            return;
+        }
+        if (!(option.poll() instanceof AnnouncementPoll poll)) {
+            return;
+        }
         AnnouncementFeed.get().votes().vote(poll, choice, fresh -> minecraft.execute(() -> {
             if (fresh == null) {
                 warn("Голос не ушёл: нужна сеть друзей BloodDesigner");
@@ -1352,6 +1370,16 @@ public class MessengerScreen extends ScreenBase {
             }
             AnnouncementFeed.get().replacePoll(fresh);
         }));
+    }
+
+    // опрос из окна: уходит каждому участнику группы, у себя появится, когда дойдёт
+    private void sendPoll(String chat, PollComposer.Poll poll) {
+        GroupChats groups = groups();
+        if (groups == null) {
+            warn("Опросы работают через сеть друзей BloodDesigner — она сейчас не подключена");
+            return;
+        }
+        groups.createPoll(chat, poll.question(), poll.options(), this::warn);
     }
 
     // куда можно переслать: Избранное, BloodDesigner и переписки, кроме текущей
@@ -1599,6 +1627,9 @@ public class MessengerScreen extends ScreenBase {
         if (groupEditor.isOpen()) {
             return afterEditor(groupEditor.keyPressed(key));
         }
+        if (pollComposer.isOpen()) {
+            return afterEditor(pollComposer.keyPressed(key));
+        }
         if (voiceStrip.isRecording()) {
             if (key == InputConstants.KEY_ESCAPE) {
                 voiceStrip.cancel();
@@ -1645,6 +1676,9 @@ public class MessengerScreen extends ScreenBase {
         String text = event.codepointAsString();
         if (groupEditor.isOpen()) {
             return groupEditor.charTyped(text);
+        }
+        if (pollComposer.isOpen()) {
+            return pollComposer.charTyped(text);
         }
         if (voiceStrip.isRecording()) {
             return true;

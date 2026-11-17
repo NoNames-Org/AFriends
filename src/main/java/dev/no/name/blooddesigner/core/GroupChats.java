@@ -31,4 +31,10 @@ public interface GroupChats {
     void leave(String chat, Consumer<String> problem);
 
     void kick(String chat, String memberName, Consumer<String> problem);
+
+    // опрос в группу: вопрос и варианты (см. GroupPoll.cleanOptions)
+    void createPoll(String chat, String question, List<String> options, Consumer<String> problem);
+
+    // свой голос в опросе группы; choice -1 — отозвать
+    void vote(String chat, String messageId, int choice, Consumer<String> problem);
 }

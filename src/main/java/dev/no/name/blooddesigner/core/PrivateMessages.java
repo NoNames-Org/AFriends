@@ -107,6 +107,24 @@ public final class PrivateMessages {
         return false;
     }
 
+    // голос в опросе группы: voter — ник участника, null — свой; choice -1 — отозван. false — такого опроса здесь нет
+    public boolean vote(String chat, String messageId, String voter, int choice) {
+        List<PrivateMessage> messages = chats.get(key(chat));
+        if (messages == null || messageId == null) {
+            return false;
+        }
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            PrivateMessage message = messages.get(i);
+            if (messageId.equals(message.id()) && message.poll() != null) {
+                GroupPoll poll = voter == null ? message.poll().withMine(choice) : message.poll().withVote(voter, choice);
+                messages.set(i, message.withPoll(poll));
+                onChange.run();
+                return true;
+            }
+        }
+        return false;
+    }
+
     // сообщение по ключу (см. PrivateMessage.key); null — его здесь уже нет
     public PrivateMessage find(String partner, String messageKey) {
         List<PrivateMessage> chat = chats.get(key(partner));

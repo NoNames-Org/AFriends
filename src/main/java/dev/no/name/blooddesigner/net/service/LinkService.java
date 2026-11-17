@@ -238,6 +238,16 @@ public final class LinkService {
         return sendToGroup(group, new ChatPayload.Text(text, id, null, null, reply, group));
     }
 
+    // опрос в группу: вопрос — text, варианты — options; голосуют по id
+    public CompletableFuture<String> sendGroupPoll(String group, String text, String id, List<String> options) {
+        return sendToGroup(group, new ChatPayload.Text(text, id, null, null, null, group, options));
+    }
+
+    // свой голос в опросе группы всем участникам; choice -1 — отозвать
+    public CompletableFuture<String> sendGroupVote(String group, String target, int choice) {
+        return sendToGroup(group, new ChatPayload.Vote(group, target, choice));
+    }
+
     public CompletableFuture<String> sendGroupName(String group, String name) {
         return sendToGroup(group, new ChatPayload.GroupName(group, name));
     }

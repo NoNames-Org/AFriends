@@ -1,13 +1,13 @@
 package dev.no.name.blooddesigner.gui.friends;
 
 import dev.no.name.blooddesigner.net.announcements.AnnouncementFeed;
-import dev.no.name.blooddesigner.net.announcements.AnnouncementPoll;
 import dev.no.name.blooddesigner.gui.render.TextWrap;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.MessageCard;
 import dev.no.name.blooddesigner.core.MessageImage;
 import dev.no.name.blooddesigner.core.MessageReply;
 import dev.no.name.blooddesigner.core.MessageRoute;
+import dev.no.name.blooddesigner.core.PollView;
 import dev.no.name.blooddesigner.core.PrivateMessage;
 import dev.no.name.blooddesigner.gui.render.Colors;
 import dev.no.name.blooddesigner.gui.render.Draw;
@@ -48,9 +48,9 @@ final class MessageBubbles {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     // card — карточка дополнения вместо текста; rich — картинки с текстом по меткам [img]; chips — реакции под ним
-    // poll — опрос объявления под текстом (null — нет)
+    // poll — опрос объявления или группы под текстом (null — нет)
     record Bubble(PrivateMessage message, List<String> lines, float width, float height, boolean timeInline,
-                  MessageCard.Card card, RichBubble.Layout rich, List<ReactionChips.Chip> chips, AnnouncementPoll poll) {
+                  MessageCard.Card card, RichBubble.Layout rich, List<ReactionChips.Chip> chips, PollView poll) {
         Bubble(PrivateMessage message, List<String> lines, float width, float height, boolean timeInline, MessageCard.Card card) {
             this(message, lines, width, height, timeInline, card, null, List.of(), null);
         }
@@ -180,7 +180,7 @@ final class MessageBubbles {
             }
             float lastLine = Draw.width(lines.get(lines.size() - 1));
 
-            AnnouncementPoll poll = hidden ? null : AnnouncementFeed.get().poll(message);
+            PollView poll = hidden ? null : message.poll() != null ? message.poll() : AnnouncementFeed.get().poll(message);
             // под опросом время всегда отдельной строкой
             boolean inline = poll == null && lastLine + TIME_GAP + stampWidth <= maxText;
             float contentWidth = inline ? Math.max(widest, lastLine + TIME_GAP + stampWidth) : Math.max(widest, stampWidth);
@@ -255,7 +255,7 @@ final class MessageBubbles {
         }
         List<PollBlock.Hit> pollHits = List.of();
         if (bubble.poll() != null) {
-            pollHits = PollBlock.draw(g, bubble.poll(), x + PADDING_X, lineY + 2, bubble.width() - PADDING_X * 2, textColor);
+            pollHits = PollBlock.draw(g, bubble.poll(), bubble.message().poll() != null ? bubble.message().id() : null, x + PADDING_X, lineY + 2, bubble.width() - PADDING_X * 2, textColor);
             lineY += PollBlock.height(bubble.poll()) + 3;
         }
         String time = switch (stamp) {

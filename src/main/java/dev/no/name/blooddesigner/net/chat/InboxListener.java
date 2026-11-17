@@ -46,6 +46,15 @@ public interface InboxListener {
                               MessageReply reply, long time) {
     }
 
+    // опрос в групповом чате: вопрос — text, варианты — options
+    default void groupPoll(String group, LinkFriend from, String text, String id, List<String> options,
+                           MessageReply reply, long time) {
+    }
+
+    // участник from проголосовал в опросе группы (choice -1 — отозвал голос)
+    default void groupVote(String group, LinkFriend from, String target, int choice, long time) {
+    }
+
     // участник from назвал или переименовал группу
     default void groupNamed(String group, LinkFriend from, String name, long time) {
     }
