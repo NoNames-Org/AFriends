@@ -7,6 +7,7 @@ import dev.no.name.blooddesigner.core.modes.BloodstoneServer;
 import dev.no.name.blooddesigner.addon.Addons;
 import dev.no.name.blooddesigner.api.FriendAction;
 import dev.no.name.blooddesigner.compat.Compat;
+import dev.no.name.blooddesigner.compat.WidgetBase;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.core.IgnoreList;
 import dev.no.name.blooddesigner.core.PrivateMessages;
@@ -24,7 +25,10 @@ import dev.no.name.blooddesigner.net.game.NetworkGame;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -112,9 +116,32 @@ public final class FriendsUi {
                         && !friendsPanel.isMouseOver(event.x(), event.y())) {
                     friendsState.closeMenu();
                 }
+                // клик мимо панели гасит её поле: иначе оно и дальше забирает Backspace и стрелки у строки чата
+                if (!friendsPanel.isMouseOver(event.x(), event.y())) {
+                    friendsPanel.blur();
+                }
+                if (!partyPanel.isMouseOver(event.x(), event.y())) {
+                    partyPanel.blur();
+                }
                 return true;
             });
+            // клик по кнопке или панели без поля ввода не уводит ввод из строки чата
+            ScreenMouseEvents.afterMouseClick(screen).register((current, event, consumed) -> {
+                if (current.getFocused() instanceof WidgetBase widget && !widget.wantsTextInput()) {
+                    focusChatInput(current);
+                }
+                return consumed;
+            });
         });
+    }
+
+    private static void focusChatInput(Screen screen) {
+        for (GuiEventListener child : screen.children()) {
+            if (child instanceof EditBox input) {
+                screen.setFocused(input);
+                return;
+            }
+        }
     }
 
     private enum Tab { FRIENDS, PARTY }

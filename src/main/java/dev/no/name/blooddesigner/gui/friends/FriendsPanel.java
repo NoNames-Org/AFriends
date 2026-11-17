@@ -527,6 +527,11 @@ public class FriendsPanel extends WidgetBase {
         }
     }
 
+    @Override
+    public boolean wantsTextInput() {
+        return field.isFocused() || editingStatus && statusField.isFocused();
+    }
+
     public void blur() {
         field.blur();
         if (editingStatus) {

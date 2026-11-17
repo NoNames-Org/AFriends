@@ -429,6 +429,11 @@ public class PartyPanel extends WidgetBase {
         }
     }
 
+    @Override
+    public boolean wantsTextInput() {
+        return field.isFocused();
+    }
+
     public void blur() {
         field.blur();
     }
