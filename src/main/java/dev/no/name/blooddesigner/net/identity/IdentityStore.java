@@ -19,6 +19,11 @@ public final class IdentityStore {
         this.file = file;
     }
 
+    // ключи, если они уже есть; null — этот аккаунт ещё ни разу не заходил в сеть
+    public Identity loadExisting() throws IOException, GeneralSecurityException {
+        return Files.exists(file) ? loadOrCreate() : null;
+    }
+
     public Identity loadOrCreate() throws IOException, GeneralSecurityException {
         if (Files.exists(file)) {
             JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();

@@ -57,6 +57,16 @@ public final class FriendSync {
         }
     }
 
+    // игрок сменил аккаунт: отложенные заявки и сведённые списки прежнего аккаунта больше не нужны
+    public void reset() {
+        waiting.clear();
+        removedAt.clear();
+        answered.clear();
+        merged = null;
+        mergedScope = null;
+        removals.reset();
+    }
+
     private boolean removedByMe(String name) {
         return System.currentTimeMillis() - removedAt.getOrDefault(key(name), 0L) <= FORGET_MS;
     }

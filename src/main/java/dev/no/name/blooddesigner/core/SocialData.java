@@ -11,9 +11,16 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
+/**
+ * Друзья, игнор и переписки — свои у каждого аккаунта Minecraft и у каждого сервера. Ключ — «аккаунт|сервер».
+ * Данные версий без аккаунтов (ключ — просто сервер) достаются первому аккаунту, под которым зайдут после обновления.
+ * Сетевые события (реакции, голоса, удаления) ищут сообщения только среди серверов текущего аккаунта
+ */
 public final class SocialData {
     private static final String LEGACY_KEY = "$unassigned";
+    private static final char SEPARATOR = '|';
 
     public record Scope(FriendManager friends, IgnoreList ignored, PrivateMessages messages) {
         boolean isEmpty() {
@@ -21,27 +28,38 @@ public final class SocialData {
         }
     }
 
+    private final Supplier<String> account;
+    private final Supplier<String> server;
     private final Map<String, Scope> scopes = new LinkedHashMap<>();
+    // из версий без аккаунтов: сервер → данные; достанутся первому аккаунту
+    private final Map<String, Scope> unowned = new LinkedHashMap<>();
 
     private Scope legacy;
     private Runnable onMessagesChange = () -> { };
+
+    public SocialData() {
+        this(AccountScope::current, ServerScope::current);
+    }
+
+    // account и server — откуда брать текущий аккаунт и сервер (в тестах — свои)
+    public SocialData(Supplier<String> account, Supplier<String> server) {
+        this.account = account;
+        this.server = server;
+    }
+
     public void setOnMessagesChange(Runnable listener) {
         onMessagesChange = listener;
-        scopes.values().forEach(scope -> scope.messages().setOnChange(listener));
-        if (legacy != null) {
-            legacy.messages().setOnChange(listener);
-        }
+        everyScope().forEach(scope -> scope.messages().setOnChange(listener));
     }
 
     public void trimMessages() {
-        scopes.values().forEach(scope -> scope.messages().trimAll());
-        if (legacy != null) {
-            legacy.messages().trimAll();
-        }
+        everyScope().forEach(scope -> scope.messages().trimAll());
     }
 
     public Scope current() {
-        return scope(ServerScope.current());
+        String owner = account.get();
+        adopt(owner);
+        return scope(owner + SEPARATOR + server.get());
     }
 
     public FriendManager friends() {
@@ -56,19 +74,19 @@ public final class SocialData {
         return current().messages();
     }
 
-    // реакция по сети: сообщение с этим id ищем во всех серверах — реакция может прийти и из главного меню
+    // реакция по сети: сообщение с этим id ищем на всех серверах аккаунта — реакция может прийти и из главного меню
     public boolean react(String partner, String messageId, boolean mine, String reaction) {
-        for (Scope scope : scopes.values()) {
-            if (scope.messages().react(partner, messageId, mine, reaction)) {
+        for (PrivateMessages messages : accountMessages()) {
+            if (messages.react(partner, messageId, mine, reaction)) {
                 return true;
             }
         }
-        return legacy != null && legacy.messages().react(partner, messageId, mine, reaction);
+        return false;
     }
 
-    // голос в опросе группы по сети: ищем во всех серверах, как реакцию. voter null — свой
+    // голос в опросе группы по сети: ищем на всех серверах аккаунта, как реакцию. voter null — свой
     public boolean vote(String chat, String messageId, String voter, int choice) {
-        for (PrivateMessages messages : allMessages()) {
+        for (PrivateMessages messages : accountMessages()) {
             if (messages.vote(chat, messageId, voter, choice)) {
                 return true;
             }
@@ -76,41 +94,69 @@ public final class SocialData {
         return false;
     }
 
-    // собеседник удалил сообщения у обоих: ищем во всех серверах, как реакцию
+    // собеседник удалил сообщения у обоих: ищем на всех серверах аккаунта, как реакцию
     public void removeEverywhere(String partner, Collection<String> messageIds) {
-        allMessages().forEach(messages -> messages.remove(partner, messageIds));
+        accountMessages().forEach(messages -> messages.remove(partner, messageIds));
     }
 
     // собеседник закрепил или открепил сообщение у обоих
     public void pinEverywhere(String partner, String messageId, boolean pinned) {
-        allMessages().forEach(messages -> messages.pin(partner, messageId, pinned));
+        accountMessages().forEach(messages -> messages.pin(partner, messageId, pinned));
     }
 
-    private List<PrivateMessages> allMessages() {
-        List<PrivateMessages> all = new ArrayList<>();
-        scopes.values().forEach(scope -> all.add(scope.messages()));
-        if (legacy != null) {
-            all.add(legacy.messages());
-        }
-        return all;
-    }
-
-    // друг удалил нас в сети: на каждом сервере он больше не друг. true — где-то был
+    // друг удалил нас в сети: на каждом сервере этого аккаунта он больше не друг. true — где-то был
     public boolean removeFriendEverywhere(String name) {
         boolean removed = false;
-        for (Scope scope : scopes.values()) {
+        for (Scope scope : accountScopes()) {
             removed |= scope.friends().remove(name);
-        }
-        if (legacy != null) {
-            removed |= legacy.friends().remove(name);
         }
         return removed;
     }
 
     public void tick() {
-        if (!ServerScope.NONE.equals(ServerScope.current())) {
+        if (!ServerScope.NONE.equals(server.get())) {
             friends().tick();
         }
+    }
+
+    // сервера текущего аккаунта (и ещё не разобранные старые данные)
+    private List<Scope> accountScopes() {
+        String owner = account.get();
+        adopt(owner);
+        String prefix = owner + SEPARATOR;
+        List<Scope> list = new ArrayList<>();
+        scopes.forEach((key, scope) -> {
+            if (key.startsWith(prefix)) {
+                list.add(scope);
+            }
+        });
+        if (legacy != null) {
+            list.add(legacy);
+        }
+        return list;
+    }
+
+    private List<PrivateMessages> accountMessages() {
+        return accountScopes().stream().map(Scope::messages).toList();
+    }
+
+    private List<Scope> everyScope() {
+        List<Scope> all = new ArrayList<>(scopes.values());
+        all.addAll(unowned.values());
+        if (legacy != null) {
+            all.add(legacy);
+        }
+        return all;
+    }
+
+    // старые данные без аккаунта переходят первому аккаунту; конфиг сохранится с новыми ключами
+    private void adopt(String owner) {
+        if (unowned.isEmpty()) {
+            return;
+        }
+        unowned.forEach((serverKey, scope) -> scopes.putIfAbsent(owner + SEPARATOR + serverKey, scope));
+        unowned.clear();
+        onMessagesChange.run();
     }
 
     private Scope scope(String key) {
@@ -118,7 +164,8 @@ public final class SocialData {
         if (existing != null) {
             return existing;
         }
-        Scope created = legacy != null && !ServerScope.NONE.equals(key) ? legacy : newScope();
+        boolean menu = key.endsWith(SEPARATOR + ServerScope.NONE);
+        Scope created = legacy != null && !menu ? legacy : newScope();
         if (created == legacy) {
             legacy = null;
             onMessagesChange.run();
@@ -174,11 +221,15 @@ public final class SocialData {
     private JsonElement write(Function<Scope, JsonElement> writer) {
         JsonObject json = new JsonObject();
         scopes.forEach((key, scope) -> {
-            if (!ServerScope.NONE.equals(key) && !scope.isEmpty()) {
+            if (!key.endsWith(SEPARATOR + ServerScope.NONE) && !scope.isEmpty()) {
                 json.add(key, writer.apply(scope));
             }
         });
-
+        unowned.forEach((key, scope) -> {
+            if (!scope.isEmpty()) {
+                json.add(key, writer.apply(scope));
+            }
+        });
         if (legacy != null && !legacy.isEmpty()) {
             json.add(LEGACY_KEY, writer.apply(legacy));
         }
@@ -194,7 +245,15 @@ public final class SocialData {
             return;
         }
         json.getAsJsonObject().entrySet().forEach(entry -> {
-            Scope scope = LEGACY_KEY.equals(entry.getKey()) ? legacyScope() : scopes.computeIfAbsent(entry.getKey(), key -> newScope());
+            String key = entry.getKey();
+            Scope scope;
+            if (LEGACY_KEY.equals(key)) {
+                scope = legacyScope();
+            } else if (key.indexOf(SEPARATOR) >= 0) {
+                scope = scopes.computeIfAbsent(key, ignored -> newScope());
+            } else {
+                scope = unowned.computeIfAbsent(key, ignored -> newScope());
+            }
             reader.accept(scope, entry.getValue());
         });
     }

@@ -41,6 +41,11 @@ public final class FriendRemovals {
         }
     }
 
+    // сменился аккаунт: друзья прежнего не сравниваются с друзьями нового
+    public void reset() {
+        seen = null;
+    }
+
     private static boolean live(LinkSnapshot state) {
         return state.connection() == Connection.ONLINE && state.synced();
     }

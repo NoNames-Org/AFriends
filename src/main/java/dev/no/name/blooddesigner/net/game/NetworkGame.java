@@ -1,6 +1,7 @@
 package dev.no.name.blooddesigner.net.game;
 
 import dev.no.name.blooddesigner.BloodDesigner;
+import dev.no.name.blooddesigner.core.AccountScope;
 import dev.no.name.blooddesigner.core.FriendManager;
 import dev.no.name.blooddesigner.core.ServerScope;
 import dev.no.name.blooddesigner.core.SocialData;
@@ -36,6 +37,9 @@ public final class NetworkGame {
     private final Path lockFile;
     private FileLock lock;
     private long nextLockTry;
+    // у каждого аккаунта Minecraft свои ключи сети; account — под каким сейчас подключены
+    private final AccountFolders accounts;
+    private String account;
 
     // save — записать конфиг, когда друг сам удалил нас и список изменился
     public NetworkGame(SocialData social, LinkSettings settings, Runnable save) {
@@ -46,8 +50,13 @@ public final class NetworkGame {
         SharedLinkFolder.migrateQuietly(
                 FabricLoader.getInstance().getConfigDir().resolve(BloodDesigner.MOD_ID).resolve("link"), folder);
         this.lockFile = SharedLinkFolder.lockFile(root);
-        this.incoming = new IncomingChat(social, folder.resolve("parked.json"));
-        this.link = new LinkService(folder, GameAccount::current, incoming);
+        this.accounts = new AccountFolders(folder);
+        this.account = AccountScope.current();
+        Path own = accounts.folder(account, AccountScope.profileId());
+        this.incoming = new IncomingChat(social, own.resolve("parked.json"));
+        // картинки переписки — рядом с папкой сети, общие для всех аккаунтов
+        this.link = new LinkService(own, folder.resolveSibling("media"), GameAccount::current, incoming);
+        link.switchAccount(own, accounts.others(account));
         this.friends = new FriendSync(link, name -> {
             if (social.removeFriendEverywhere(name)) {
                 save.run();
@@ -70,6 +79,7 @@ public final class NetworkGame {
     }
 
     public void tick(Minecraft client) {
+        followAccount();
         boolean wanted = settings.enabled();
         if (wanted && lock == null && System.currentTimeMillis() >= nextLockTry) {
             lock = SharedLinkFolder.tryLock(lockFile);
@@ -103,6 +113,23 @@ public final class NetworkGame {
             friends.merge(social.friends(), scope);
             lookupArrivals();
         }
+    }
+
+    // игрок сменил аккаунт прямо в игре (In-Game Account Switcher и т. п.): сеть переподключается ключами
+    // нового аккаунта, друзья и переписки берутся его (см. SocialData), прежний аккаунт становится твинком
+    private void followAccount() {
+        String now = AccountScope.current();
+        if (now.equals(account)) {
+            return;
+        }
+        account = now;
+        Path own = accounts.folder(now, AccountScope.profileId());
+        incoming.useParked(own.resolve("parked.json"));
+        friends.reset();
+        lastProfile = null;
+        wasOnline = false;
+        tab.forget();
+        link.switchAccount(own, accounts.others(now));
     }
 
     // значки: только когда в табе кто-то новый или связь только что появилась, без опроса по таймеру

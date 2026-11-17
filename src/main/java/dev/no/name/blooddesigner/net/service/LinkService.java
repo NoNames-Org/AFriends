@@ -44,11 +44,14 @@ public final class LinkService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BloodDesigner.NAME);
     private static final long NAME_TAKEN_RETRY_MS = 600_000;
 
-    private final Path folder;
+    // папка ключей текущего аккаунта Minecraft; меняется, когда игрок сменил аккаунт прямо в игре
+    private Path folder;
+    // папки ключей других аккаунтов этого компьютера: из них подтверждаем твинков
+    private List<Path> siblings = List.of();
     private final Supplier<PlayerAccount> playerSource;
     private PlayerAccount player;
     private final InboxListener listener;
-    private final OfficialInbox official;
+    private OfficialInbox official;
     private final BlobClient blobs = new BlobClient();
     private final MediaCache media;
     private final BadgeDirectory badges = new BadgeDirectory();
@@ -59,13 +62,13 @@ public final class LinkService {
     private boolean wanted;
     private volatile LinkEndpoint endpoint;
 
-    public LinkService(Path folder, Supplier<PlayerAccount> player, InboxListener listener) {
+    // mediaFolder — кэш картинок переписки, общий для всех аккаунтов: он зашифрован и ничей
+    public LinkService(Path folder, Path mediaFolder, Supplier<PlayerAccount> player, InboxListener listener) {
         this.folder = folder;
         this.playerSource = player;
         this.listener = listener;
         this.official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
-        // картинки переписки лежат рядом с папкой сети: config/blooddesigner/media
-        this.media = new MediaCache(folder.resolveSibling("media"), blobs);
+        this.media = new MediaCache(mediaFolder, blobs);
         AnnouncementFeed.get().votes().setRequester(this::query);
     }
 
@@ -114,6 +117,34 @@ public final class LinkService {
             }
             badges.clear();
             snapshot = LinkSnapshot.initial();
+        });
+    }
+
+    /**
+     * Игрок сменил аккаунт Minecraft: отключаемся от сети старым аккаунтом и, если сеть была включена,
+     * подключаемся заново ключами нового. others — папки ключей других аккаунтов этого компьютера
+     */
+    public void switchAccount(Path next, List<Path> others) {
+        worker.execute(() -> {
+            siblings = List.copyOf(others);
+            if (next.equals(folder)) {
+                return;
+            }
+            boolean was = wanted;
+            wanted = false;
+            if (runtime != null) {
+                runtime.connection.stop();
+                runtime.sync.reset();
+                runtime.courier.clear();
+            }
+            runtime = null;
+            badges.clear();
+            snapshot = LinkSnapshot.initial();
+            folder = next;
+            official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
+            if (was) {
+                start();
+            }
         });
     }
 
@@ -440,7 +471,9 @@ public final class LinkService {
         public void ready(boolean registered) {
             // при каждом подключении: пока были не в сети, могли опубликовать новое
             AnnouncementFeed.get().refreshNow();
-            runtime.account.register().whenComplete((outcome, error) -> {
+            // сначала твинки: ник, занятый своим же твинком, тогда перейдёт к этому аккаунту, а не выйдет «занят»
+            AltLinks.report(runtime.connection, runtime.identity, siblings)
+                    .thenCompose(linked -> runtime.account.register()).whenComplete((outcome, error) -> {
                 if (error != null) {
                     LOGGER.debug("{}: регистрация не прошла ({})", BloodDesigner.NAME, Failures.codeOf(error));
                     return;

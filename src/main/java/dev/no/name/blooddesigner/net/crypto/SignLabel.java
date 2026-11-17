@@ -5,7 +5,9 @@ public enum SignLabel {
     AUTH("smphelper-link-auth-v1\n"),
     KEYCARD("smphelper-keycard-v1\n"),
     SIGNED_PREKEY("smphelper-spk-v1\n"),
-    PQ_PREKEY("smphelper-pqspk-v1\n");
+    PQ_PREKEY("smphelper-pqspk-v1\n"),
+    // другой аккаунт этого компьютера подтверждает, что он твинк текущего (подписывает его id)
+    ALT("smphelper-alt-v1\n");
 
     private final byte[] bytes;
 

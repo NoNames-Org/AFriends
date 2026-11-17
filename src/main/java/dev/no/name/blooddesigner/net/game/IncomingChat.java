@@ -24,7 +24,8 @@ final class IncomingChat implements InboxListener {
     private static final String UNREADABLE = "⚠ Сообщение не расшифровалось. Если повторится — сверьте отпечаток ключей";
 
     private final SocialData social;
-    private final ParkedMessages parked;
+    // отложенные до входа в мир — свои у каждого аккаунта, лежат в его папке ключей
+    private ParkedMessages parked;
 
     IncomingChat(SocialData social, Path parkedFile) {
         this.social = social;
@@ -114,6 +115,11 @@ final class IncomingChat implements InboxListener {
     @Override
     public void official(String text, List<MessageImage> images, long time) {
         Minecraft.getInstance().execute(() -> deliver(PrivateMessages.OFFICIAL, new PrivateMessage(false, text, time, null, images, null, null)));
+    }
+
+    // игрок сменил аккаунт: отложенное прежнего остаётся в его папке и дождётся его возвращения
+    void useParked(Path file) {
+        parked = new ParkedMessages(file);
     }
 
     // раз в тик: зашли в мир — отложенное раскладывается по перепискам

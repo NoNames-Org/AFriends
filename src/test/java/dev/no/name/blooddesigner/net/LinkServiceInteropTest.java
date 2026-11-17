@@ -44,7 +44,7 @@ class LinkServiceInteropTest {
 
         Player(String name, Path folder, ClientKind client) {
             this.name = name;
-            this.service = new LinkService(folder, () -> new PlayerAccount(name, client, challenge -> {
+            this.service = new LinkService(folder, folder.resolveSibling("media"), () -> new PlayerAccount(name, client, challenge -> {
                 throw new IllegalStateException("в тесте без Mojang");
             }), this);
         }
