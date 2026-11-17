@@ -31,6 +31,8 @@ public final class BattlePassNavigator {
     private static boolean wantStore;
     private static long deadline;
     private static int storeContainer = -1;
+    /** Раздел «Боевой пропуск» открыли мы из уровней БП: «назад» из него ведёт в уровни, а не в магазин. */
+    private static boolean shopFromLevels;
 
     private BattlePassNavigator() {
     }
@@ -70,6 +72,13 @@ public final class BattlePassNavigator {
         return true;
     }
 
+    /** Открылся ли раздел покупки БП из уровней БП (а не из магазина). Сбрасывается при чтении. */
+    public static boolean consumeShopFromLevels() {
+        boolean fromLevels = shopFromLevels;
+        shopFromLevels = false;
+        return fromLevels;
+    }
+
     private static void tick() {
         if (step == Step.IDLE) {
             return;
@@ -101,6 +110,7 @@ public final class BattlePassNavigator {
         AbstractContainerMenu menu = player.containerMenu;
         if (menu.containerId == storeContainer && !MenuText.stack(menu, ShopMenu.STORE_BATTLEPASS_SLOT).isEmpty()) {
             Compat.clickSlot(menu.containerId, ShopMenu.STORE_BATTLEPASS_SLOT);
+            shopFromLevels = true;
             step = Step.IDLE;
         }
     }

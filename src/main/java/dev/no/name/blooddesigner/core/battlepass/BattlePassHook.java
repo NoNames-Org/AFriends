@@ -58,7 +58,7 @@ public final class BattlePassHook {
             return current instanceof QuestsScreen ? null : new QuestsScreen();
         }
         if (ShopMenu.isBattlePassStore(title)) {
-            return current instanceof ShopScreen ? null : new ShopScreen();
+            return current instanceof ShopScreen ? null : new ShopScreen(BattlePassNavigator.consumeShopFromLevels());
         }
         return next;
     }

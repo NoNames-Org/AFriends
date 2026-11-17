@@ -33,8 +33,16 @@ public class ShopScreen extends MenuScreenBase {
     private static final Identifier BANNER = Identifier.fromNamespaceAndPath(BloodDesigner.MOD_ID,
             "textures/gui/shop_banner.png");
 
-    public ShopScreen() {
+    /** Пришли из уровней БП — «назад» ведёт к ним; пришли из магазина — обратно в магазин. */
+    private final boolean fromLevels;
+
+    public ShopScreen(boolean fromLevels) {
         super("Покупка Premium");
+        this.fromLevels = fromLevels;
+    }
+
+    private String backLabel() {
+        return fromLevels ? "К уровням" : "В магазин";
     }
 
     @Override
@@ -97,7 +105,7 @@ public class ShopScreen extends MenuScreenBase {
         MenuUi.display(g, "ПРЕМИУМ", left + PAD + 2, top + PAD + 2, 2.4f, MenuUi.GOLD);
         Draw.text(g, "Открой Premium-линию батл пасса", left + PAD + 3, top + 50, Colors.fade(Theme.TEXT, 0.8f));
         boolean backHovered = inside(mouseX, mouseY, backX(), buttonY(), BACK_WIDTH, MenuUi.BUTTON_HEIGHT);
-        MenuUi.button(g, backX(), buttonY(), BACK_WIDTH, Icon.ARROW_LEFT, "К уровням", ButtonStyle.LIGHT, true, backHovered);
+        MenuUi.button(g, backX(), buttonY(), BACK_WIDTH, Icon.ARROW_LEFT, backLabel(), ButtonStyle.LIGHT, true, backHovered);
         MenuUi.balance(g, backX() - 6, buttonY(), BloodBalance.current());
         boolean closeHovered = inside(mouseX, mouseY, closeX(), buttonY(), MenuUi.BUTTON_HEIGHT, MenuUi.BUTTON_HEIGHT);
         MenuUi.button(g, closeX(), buttonY(), MenuUi.BUTTON_HEIGHT, Icon.CLOSE, null, ButtonStyle.OUTLINE, true, closeHovered);
@@ -175,7 +183,12 @@ public class ShopScreen extends MenuScreenBase {
             return true;
         }
         if (inside(x, y, backX(), buttonY(), BACK_WIDTH, MenuUi.BUTTON_HEIGHT)) {
-            BattlePassNavigator.openBattlePass();
+            if (fromLevels) {
+                BattlePassNavigator.openBattlePass();
+            } else {
+                // серверная кнопка «Назад» раздела возвращает на главную магазина, её подхватит StoreScreen
+                clickSlot(ShopMenu.BACK_SLOT, false);
+            }
             return true;
         }
         List<StoreItem> products = view.products();
