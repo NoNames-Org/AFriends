@@ -1,17 +1,24 @@
 {
 	"schemaVersion": 1,
-	"id": "blooddesigner",
+	"id": "afriends",
 	"version": "${version}",
-	"name": "BloodDesigner",
-	"description": "Кнопка друзей в чате, список друзей, мессенджер ЛС и два способа узнать, кто в сети.",
-	"authors": ["Fell"],
+	"name": "AFriends",
+	"description": "Друзья на любом сервере, мессенджер со сквозным шифрованием и API для аддонов.",
+	"authors": ["Fell", "Aloiner"],
+	"contact": {
+		"homepage": "https://no-names.com/projects/AFriends",
+		"sources": "https://github.com/NoNames-Org/AFriends"
+	},
 	"license": "MIT",
-	"icon": "assets/blooddesigner/icon.png",
+	"icon": "assets/afriends/icon.png",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["dev.no.name.blooddesigner.BloodDesignerClient"]
+		"client": ["dev.no.name.afriends.AFriendsClient"]
 	},
-	"mixins": ["blooddesigner.mixins.json"],
+	"mixins": ["afriends.mixins.json"],
+	"breaks": {
+		"blooddesigner": "*"
+	},
 	"depends": {
 		"fabricloader": ">=0.20.1",
 		"minecraft": "${minecraft_dependency}",

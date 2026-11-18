@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "dev.no.name.afriends.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "GameRendererMixin",
+    "PlayerNameTagMixin",
+    "PlayerTabOverlayMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
