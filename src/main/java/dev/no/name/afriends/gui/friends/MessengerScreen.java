@@ -849,9 +849,10 @@ public class MessengerScreen extends ScreenBase {
 
     // общая рамка полосы ввода: внутри неё скрепка, поле и значки
     private void drawBar(Gfx g, int mouseX, int mouseY) {
-        int barY = HEIGHT - PAD - INPUT_HEIGHT;
+        // плашка растёт вверх вместе с многострочным полем; значки и «отправить» остаются внизу
+        int barY = HEIGHT - PAD - INPUT_HEIGHT - inputExtra;
         int border = input.isFocused() ? Theme.BORDER_SELECTED : Theme.BORDER;
-        Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, border);
+        Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT + inputExtra, Theme.RADIUS, Theme.CARD, border);
         // над полосой: сначала ответ, над ним прикреплённая картинка
         int replyY = barY - ReplyStrip.HEIGHT - 4;
         replyStrip.draw(g, BAR_X, replyY, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
