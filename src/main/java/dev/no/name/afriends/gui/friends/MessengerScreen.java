@@ -83,6 +83,8 @@ public class MessengerScreen extends ScreenBase {
     private static final int HEADER_HEIGHT = 40;
     private static final int HEADER_FACE = 24;
     private static final int INPUT_HEIGHT = 20;
+    // сколько строк поле ввода показывает, прежде чем перестать расти вверх
+    private static final int MAX_INPUT_LINES = 6;
     private static final int SEND_WIDTH = 26;
     // полоса ввода как в Telegram: скрепка слева, поле, значки справа; «отправить» — рядом
     private static final int BAR_X = CHAT_X + PAD;
@@ -150,6 +152,10 @@ public class MessengerScreen extends ScreenBase {
     private final ContainerWidget composer = new ContainerWidget();
     private final TextFieldWidget search = new TextFieldWidget(Icon.SEARCH, "Поиск").withMaxLength(16);
     private final TextFieldWidget input;
+    // многострочное поле растёт вверх: храним его столбец и насколько оно сейчас выше одной строки
+    private int inputX;
+    private int inputWidth;
+    private int inputExtra;
     private final ChatMenu menu = new ChatMenu();
     private final GroupEditor groupEditor = new GroupEditor(new GroupHost());
     private final PollComposer pollComposer = new PollComposer(this::sendPoll);
@@ -210,7 +216,7 @@ public class MessengerScreen extends ScreenBase {
                 new ProfileSettingsHost(context.route(), this::warn));
         this.profilePanel = new ProfilePanel(context.route(), messages, context.friends()::skinOf, new ProfileHost());
         AnnouncementFeed.get().refresh();
-        input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame();
+        input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame().withMultiline();
         int barY = HEIGHT - PAD - INPUT_HEIGHT;
         // скрепка — слева внутри полосы: выбранная картинка встаёт над полем и уйдёт вместе с текстом
         IconButtonWidget attach = new IconButtonWidget(Icon.IMAGE, () -> media.choose(this.partner, file -> {
@@ -237,7 +243,9 @@ public class MessengerScreen extends ScreenBase {
         IconButtonWidget mic = new IconButtonWidget(Icon.MIC, this::toggleVoice);
         mic.setBounds(iconsX + (actions.size() + 1) * BAR_ICON, barY, BAR_ICON, INPUT_HEIGHT);
         composer.addChild(mic);
-        input.setBounds(BAR_X + 2 + BAR_ICON + 2, barY, iconsX - (BAR_X + 2 + BAR_ICON + 2) - 2, INPUT_HEIGHT);
+        inputX = BAR_X + 2 + BAR_ICON + 2;
+        inputWidth = iconsX - inputX - 2;
+        input.setBounds(inputX, barY, inputWidth, INPUT_HEIGHT);
         search.setBounds(LIST_X + PAD, PAD, LIST_WIDTH - PAD * 2, FIELD_HEIGHT);
         ButtonWidget send = new ButtonWidget(Icon.SEND, this::send);
         send.setBounds(WIDTH - PAD - SEND_WIDTH, HEIGHT - PAD - INPUT_HEIGHT, SEND_WIDTH, INPUT_HEIGHT);
@@ -508,6 +516,7 @@ public class MessengerScreen extends ScreenBase {
 
         // пока окно открыто, объявления подтягиваются сами (запрос не чаще раза в 15 секунд)
         AnnouncementFeed.get().refresh();
+        updateComposerLayout();
         MessageBubbles.setReceipts(messages::receipt);
         MessageBubbles.setPrefixes(this::authorPrefix);
         drawRail(g, hoverX, canvasY);
@@ -716,7 +725,8 @@ public class MessengerScreen extends ScreenBase {
             return MessageContent.preview(last);
         }
         MessageCard.Card card = addons.card(entry, last.text(), last.fromMe());
-        String text = card == null ? MessageFormat.plain(last.text()) : card.title();
+        // многострочное сообщение в превью — одной строкой: переносы и лишние пробелы в один пробел
+        String text = card == null ? MessageFormat.plain(last.text()).replaceAll("\\s+", " ").strip() : card.title();
         return last.author() != null && !last.fromMe() ? last.author() + ": " + text : text;
     }
 
@@ -822,8 +832,19 @@ public class MessengerScreen extends ScreenBase {
         if (isReadOnly()) {
             return HEIGHT - PAD - INPUT_HEIGHT;
         }
-        return HEIGHT - PAD - INPUT_HEIGHT - (attachment.isStaged() ? AttachmentStrip.HEIGHT + 4 : 0)
+        return HEIGHT - PAD - INPUT_HEIGHT - inputExtra - (attachment.isStaged() ? AttachmentStrip.HEIGHT + 4 : 0)
                 - (replyStrip.isActive() ? ReplyStrip.HEIGHT + 4 : 0);
+    }
+
+    // поле ввода растёт вверх по числу строк (до MAX_INPUT_LINES), кнопки остаются внизу
+    private void updateComposerLayout() {
+        int lines = Math.min(MAX_INPUT_LINES, input.lineCount());
+        inputExtra = (lines - 1) * TextFieldWidget.lineHeight();
+        input.setBounds(inputX, HEIGHT - PAD - INPUT_HEIGHT - inputExtra, inputWidth, INPUT_HEIGHT + inputExtra);
+    }
+
+    private static boolean isShiftDown() {
+        return Compat.isKeyDown(InputConstants.KEY_LSHIFT) || Compat.isKeyDown(InputConstants.KEY_RSHIFT);
     }
 
     // общая рамка полосы ввода: внутри неё скрепка, поле и значки
@@ -1944,7 +1965,12 @@ public class MessengerScreen extends ScreenBase {
             return true;
         }
         if (enter && input.isFocused()) {
-            send();
+            // Shift+Enter — перенос строки, обычный Enter — отправка
+            if (isShiftDown()) {
+                input.appendNewline();
+            } else {
+                send();
+            }
             return true;
         }
         if (key != InputConstants.KEY_ESCAPE && (root.keyPressed(key) || !isAnnouncements() && composer.keyPressed(key))) {

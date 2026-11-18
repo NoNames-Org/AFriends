@@ -22,6 +22,8 @@ public class TextFieldWidget extends Widget {
     private final String placeholder;
     private final Animated focus = new Animated(0, Motion.NORMAL);
     private final Animated hover = new Animated(0, Motion.FAST);
+    private static final int LINE_HEIGHT = 10;
+
     private String text = "";
     private int maxLength = Integer.MAX_VALUE;
 
@@ -29,6 +31,8 @@ public class TextFieldWidget extends Widget {
     private boolean focused;
     // без рамки: поле живёт внутри общей полосы ввода (у переписки), рамку рисует она
     private boolean framed = true;
+    // многострочный ввод: Shift+Enter добавляет перенос, поле рисует строки сверху вниз
+    private boolean multiline;
 
     public TextFieldWidget(Icon icon, String placeholder) {
         this.icon = icon;
@@ -43,6 +47,40 @@ public class TextFieldWidget extends Widget {
     public TextFieldWidget withoutFrame() {
         this.framed = false;
         return this;
+    }
+
+    public TextFieldWidget withMultiline() {
+        this.multiline = true;
+        return this;
+    }
+
+    /** Shift+Enter: добавить перенос строки (в пределах лимита). */
+    public void appendNewline() {
+        if (!multiline) {
+            return;
+        }
+        if (allSelected) {
+            text = "";
+            allSelected = false;
+        }
+        if (text.length() < maxLength) {
+            text += "\n";
+        }
+    }
+
+    /** Число строк по переносам — чтобы владелец мог растянуть поле. */
+    public int lineCount() {
+        int lines = 1;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                lines++;
+            }
+        }
+        return lines;
+    }
+
+    public static int lineHeight() {
+        return LINE_HEIGHT;
     }
 
     public void setText(String value) {
@@ -70,6 +108,10 @@ public class TextFieldWidget extends Widget {
         }
 
         int textX = x + (framed ? PADDING : 0) + (icon != null ? Theme.ICON_SMALL + 3 : 0);
+        if (multiline) {
+            renderLines(g, textX, focusAmount);
+            return;
+        }
         int textY = y + (height - 8) / 2;
         String shown = Draw.trim(text, x + width - PADDING - textX - 2);
         if (text.isEmpty()) {
@@ -84,6 +126,30 @@ public class TextFieldWidget extends Widget {
         float caretX = textX + (text.isEmpty() ? 0 : Draw.width(shown) + 1);
         float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
         Draw.rect(g, caretX, y + 4, 0.75f, height - 8, Colors.fade(Theme.TEXT, caretAlpha));
+    }
+
+    // многострочная отрисовка: видимые строки сверху вниз, каретка в конце последней.
+    // строк больше, чем помещается, — показываем последние (где печатают)
+    private void renderLines(Gfx g, int textX, float focusAmount) {
+        int avail = x + width - PADDING - textX - 2;
+        if (text.isEmpty()) {
+            Draw.text(g, placeholder, textX, y + 5, Colors.fade(Theme.TEXT_FAINT, 1 - 0.5f * focusAmount));
+            float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
+            Draw.rect(g, textX, y + 4, 0.75f, 9, Colors.fade(Theme.TEXT, caretAlpha));
+            return;
+        }
+        String[] lines = text.split("\n", -1);
+        int maxVisible = Math.max(1, (height - 2) / LINE_HEIGHT);
+        int start = Math.max(0, lines.length - maxVisible);
+        int lineY = y + 4;
+        String lastShown = "";
+        for (int i = start; i < lines.length; i++) {
+            lastShown = Draw.trim(lines[i], avail);
+            Draw.text(g, lastShown, textX, lineY, Theme.TEXT);
+            lineY += LINE_HEIGHT;
+        }
+        float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
+        Draw.rect(g, textX + Draw.width(lastShown) + 1, lineY - LINE_HEIGHT, 0.75f, 9, Colors.fade(Theme.TEXT, caretAlpha));
     }
 
     @Override
