@@ -1,0 +1,42 @@
+{
+  "ui.click": {
+    "sounds": [
+      "afriends:ui/click"
+    ]
+  },
+  "ui.dropdown_open": {
+    "sounds": [
+      "afriends:ui/dropdown_open"
+    ]
+  },
+  "ui.dropdown_close": {
+    "sounds": [
+      "afriends:ui/dropdown_close"
+    ]
+  },
+  "ui.menu_open": {
+    "sounds": [
+      "afriends:ui/menu_open"
+    ]
+  },
+  "ui.type": {
+    "sounds": [
+      "afriends:ui/type"
+    ]
+  },
+  "ui.delete": {
+    "sounds": [
+      "afriends:ui/delete"
+    ]
+  },
+  "ui.select": {
+    "sounds": [
+      "afriends:ui/select"
+    ]
+  },
+  "ui.message": {
+    "sounds": [
+      "afriends:notify/message"
+    ]
+  }
+}

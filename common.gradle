@@ -1,6 +1,6 @@
 version = "${mod_version}+${minecraft_version}"
 group = 'dev.no.name'
-base.archivesName = 'blooddesigner'
+base.archivesName = 'afriends'
 
 sourceSets.main {
 	java.srcDirs += rootProject.file('src/main/java')
@@ -76,10 +76,10 @@ def linkUrl = providers.gradleProperty('link_url').orNull
 def linkKey = providers.gradleProperty('link_key').orNull
 loom.runs.configureEach {
 	if (linkUrl) {
-		vmArg "-Dblooddesigner.link.url=${linkUrl}"
+		vmArg "-Dafriends.link.url=${linkUrl}"
 	}
 	if (linkKey) {
-		vmArg "-Dblooddesigner.link.key=${linkKey}"
+		vmArg "-Dafriends.link.key=${linkKey}"
 	}
 }
 def devHome = providers.gradleProperty('dev_home').orNull
@@ -98,4 +98,18 @@ tasks.register('dist', Copy) {
 
 def remapJarOrJar() {
 	return tasks.findByName('remapJar') ?: tasks.named('jar')
+}
+
+// AFriends как зависимость для аддонов: ./gradlew publishToMavenLocal → dev.no.name:afriends:<версия>+<minecraft>
+apply plugin: 'maven-publish'
+java {
+	withSourcesJar()
+}
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifactId = 'afriends'
+			from components.java
+		}
+	}
 }

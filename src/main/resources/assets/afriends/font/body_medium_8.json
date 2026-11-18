@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "afriends:inter_latin_500.ttf",
+      "size": 7.0,
+      "oversample": 8.0,
+      "shift": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "ttf",
+      "file": "afriends:inter_cyrillic_500.ttf",
+      "size": 7.0,
+      "oversample": 8.0,
+      "shift": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/default"
+    }
+  ]
+}

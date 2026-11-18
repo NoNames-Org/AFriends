@@ -9,7 +9,7 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'blooddesigner'
+rootProject.name = 'afriends'
 
 ['1.21.11', '26.1', '26.3'].each { mc ->
 	include mc
