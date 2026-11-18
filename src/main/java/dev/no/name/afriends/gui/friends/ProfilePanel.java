@@ -52,6 +52,9 @@ final class ProfilePanel {
         void warn(String text);
 
         void info(String text);
+
+        // закрыть профиль и прокрутить переписку к сообщению (старое догружается)
+        void jumpTo(String messageKey);
     }
 
     private final MessageRoute route;
@@ -298,15 +301,22 @@ final class ProfilePanel {
                 }
             }
             case MEDIA -> {
-                MessageImage image = mediaTab.click(mouseX, mouseY, route);
-                if (image != null) {
-                    host.view(image);
+                ProfileMedia.Click click = mediaTab.click(mouseX, mouseY, route);
+                if (click != null && click.view() != null) {
+                    host.view(click.view());
                     UiSounds.play(UiSound.CLICK);
                 }
+                jumpIfAsked(click);
             }
-            case VOICE -> voiceTab.click(mouseX, mouseY, route);
+            case VOICE -> jumpIfAsked(voiceTab.click(mouseX, mouseY, route));
         }
         return true;
+    }
+
+    private void jumpIfAsked(ProfileMedia.Click click) {
+        if (click != null && click.jumpTo() != null) {
+            host.jumpTo(click.jumpTo());
+        }
     }
 
     private ProfileMedia activeMedia() {

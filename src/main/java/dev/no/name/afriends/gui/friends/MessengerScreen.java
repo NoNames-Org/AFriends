@@ -95,6 +95,10 @@ public class MessengerScreen extends ScreenBase {
     private static final int MAX_TEXT = 200;
     // сколько последних сообщений чата отмечаются прочитанными при открытии
     private static final int READ_WINDOW = 50;
+    // лента раскладывает не всю историю, а последние сообщения: столько сразу и столько ещё при прокрутке к верху
+    private static final int HISTORY_PAGE = 80;
+    // за сколько пикселей до верха подгружать следующую порцию
+    private static final int HISTORY_PRELOAD = 200;
     private static final int DANGER = 0xFFFF6B6B;
     private static final int NOTES_COLOR = 0xFF3D7BFF;
     private static final int ANNOUNCEMENTS_COLOR = 0xFFE0313F;
@@ -126,7 +130,7 @@ public class MessengerScreen extends ScreenBase {
     };
 
     public record Context(FriendManager friends, PrivateMessages messages, IgnoreList ignored,
-                          MessageRoute route, Runnable save, NotifySettings alerts, Runnable onHistoryChange) {
+                          MessageRoute route, Runnable save, NotifySettings alerts) {
     }
 
     private record Pending(String partner, String text, long sentAt, MessageReply reply) {
@@ -199,6 +203,8 @@ public class MessengerScreen extends ScreenBase {
     private int chatScroll;
     private int listScroll;
     private int shownCount;
+    // сколько последних сообщений чата лента раскладывает сейчас; растёт порциями при прокрутке вверх и переходе к старому
+    private int historyWindow = HISTORY_PAGE;
 
     private int pixelScale = 1;
     private float scale = 1;
@@ -212,7 +218,7 @@ public class MessengerScreen extends ScreenBase {
         this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
         this.forwarder = new Forwarder(context.route(), this::warn, this::warnInfo);
         this.actions = new MessageActions(context.route(), messages, media, this::warn, this::warnInfo, new ActionsHost());
-        this.settingsPanel = new MessengerSettingsPanel(context.alerts(), context.onHistoryChange(),
+        this.settingsPanel = new MessengerSettingsPanel(context.alerts(),
                 new ProfileSettingsHost(context.route(), this::warn));
         this.profilePanel = new ProfilePanel(context.route(), messages, context.friends()::skinOf, new ProfileHost());
         AnnouncementFeed.get().refresh();
@@ -301,6 +307,7 @@ public class MessengerScreen extends ScreenBase {
         appearAt.clear();
         chatScroll = 0;
         chatScrollView.snap(0);
+        historyWindow = HISTORY_PAGE;
         if (chat != null) {
             if (!ANNOUNCEMENTS.equals(chat)) {
                 messages.open(chat);
@@ -968,7 +975,13 @@ public class MessengerScreen extends ScreenBase {
         pending.removeIf(item -> !isFailed(item) && now - item.sentAt() > PENDING_TIMEOUT_MS);
         List<Pending> mine = pending.stream().filter(item -> item.partner().equalsIgnoreCase(partner)).toList();
 
-        List<PrivateMessage> shown = new ArrayList<>(chat);
+        // переход к сообщению старше загруженной части: сначала догружаем её, прокрутка — когда сообщение в ленте
+        if (jumpKey != null) {
+            revealForJump(chat, jumpKey);
+        }
+        int from = Math.max(0, chat.size() - historyWindow);
+        List<PrivateMessage> loaded = chat.subList(from, chat.size());
+        List<PrivateMessage> shown = new ArrayList<>(loaded);
         mine.forEach(item -> shown.add(new PrivateMessage(true, item.text(), item.sentAt(), null, List.of(), null, null, null,
                 item.reply())));
         if (shown.isEmpty()) {
@@ -980,7 +993,7 @@ public class MessengerScreen extends ScreenBase {
         // при выделении слева кружки: входящие сдвигаются вправо
         float left = CHAT_X + PAD + (selection.isActive() ? Selection.GUTTER : 0);
         float right = WIDTH - PAD;
-        List<Row> rows = buildRows(shown, right - left, chat.size(), partner);
+        List<Row> rows = buildRows(shown, right - left, loaded.size(), partner);
         cardButtons.clear();
         drawn.clear();
         float content = 0;
@@ -995,6 +1008,11 @@ public class MessengerScreen extends ScreenBase {
         if (jumpKey != null) {
             jump(rows, content, top, bottom, maxScroll);
         }
+        // докрутили почти до верха — следующая порция истории. Лента прижата к низу, поэтому старые сообщения
+        // добавляются сверху и видимое место не прыгает
+        if (from > 0 && chatScroll >= maxScroll - HISTORY_PRELOAD) {
+            historyWindow += HISTORY_PAGE;
+        }
 
         g.enableScissor(CHAT_X + 1, top, WIDTH - 1, bottom);
         float y = bottom - content + Math.round(chatScrollView.get());
@@ -1003,9 +1021,9 @@ public class MessengerScreen extends ScreenBase {
                 if (row.day() != null) {
                     drawDay(g, row.day(), y);
                 } else {
-                    boolean isPending = row.index() >= chat.size();
-                    Pending item = isPending ? mine.get(row.index() - chat.size()) : null;
-                    long start = isPending ? item.sentAt() : appearAt.getOrDefault(row.index(), 0L);
+                    boolean isPending = row.index() >= loaded.size();
+                    Pending item = isPending ? mine.get(row.index() - loaded.size()) : null;
+                    long start = isPending ? item.sentAt() : appearAt.getOrDefault(from + row.index(), 0L);
                     MessageBubbles.Stamp stamp = !isPending ? MessageBubbles.Stamp.TIME
                             : isFailed(item) ? MessageBubbles.Stamp.FAILED : MessageBubbles.Stamp.PENDING;
                     MessageBubbles.Drawn bubble = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now, context.route());
@@ -1055,7 +1073,17 @@ public class MessengerScreen extends ScreenBase {
             }
             offset += row.height();
         }
-        warnInfo("Сообщения уже нет: удалено или старше истории");
+        warnInfo("Сообщения уже нет: оно удалено");
+    }
+
+    // расширить загруженную часть так, чтобы сообщение key в неё попало (с запасом сверху)
+    private void revealForJump(List<PrivateMessage> chat, String key) {
+        for (int i = chat.size() - 1; i >= 0; i--) {
+            if (key.equals(chat.get(i).key())) {
+                historyWindow = Math.max(historyWindow, chat.size() - i + HISTORY_PAGE / 2);
+                return;
+            }
+        }
     }
 
     private static List<Row> buildRows(List<PrivateMessage> shown, float areaWidth, int firstPending, String partner) {
@@ -1118,6 +1146,10 @@ public class MessengerScreen extends ScreenBase {
             }
             appearAt.put(i, start);
         }
+        // новые сообщения не выталкивают из ленты старые, уже загруженные
+        if (chat.size() > shownCount) {
+            historyWindow += chat.size() - shownCount;
+        }
         if (chatScroll < SCROLL_STEP) {
             chatScroll = 0;
             chatScrollView.setTarget(0);
@@ -1149,7 +1181,8 @@ public class MessengerScreen extends ScreenBase {
             voiceStrip.finish();
             return;
         }
-        String text = input.getText().strip();
+        // больше трёх пустых строк подряд не уходит
+        String text = MessageFormat.limitBlankLines(input.getText()).strip();
         // прикреплённая картинка уходит вместе с текстом: картинка сверху, текст подписью
         if (attachment.isStaged()) {
             if (partner != null && !isReadOnly() && media.send(partner, attachment.file(), text, replyStrip.reply())) {
@@ -1414,6 +1447,12 @@ public class MessengerScreen extends ScreenBase {
         @Override
         public void info(String text) {
             warnInfo(text);
+        }
+
+        @Override
+        public void jumpTo(String messageKey) {
+            profilePanel.close();
+            jumpKey = messageKey;
         }
     }
 

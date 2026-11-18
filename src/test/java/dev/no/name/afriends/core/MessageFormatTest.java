@@ -222,4 +222,15 @@ class MessageFormatTest {
         assertTrue(span.has(STRIKE));
         assertEquals(false, span.has(ITALIC));
     }
+
+    @Test
+    @DisplayName("не больше трёх пустых строк подряд, остальной текст как был")
+    void limitsBlankLines() {
+        assertEquals("a\n\n\n\nb", MessageFormat.limitBlankLines("a\n\n\n\n\n\n\nb"));
+        assertEquals("a\n\n\n\nb", MessageFormat.limitBlankLines("a\n\n\n\nb"));
+        assertEquals("a\n \n\n\t\nb\n\nc", MessageFormat.limitBlankLines("a\n \n\n\t\n  \nb\n\nc"));
+        assertEquals("one line", MessageFormat.limitBlankLines("one line"));
+        assertEquals("", MessageFormat.limitBlankLines(null));
+        assertEquals(5, MessageFormat.parse("x\n\n\n\n\n\n\n\ny").size());
+    }
 }

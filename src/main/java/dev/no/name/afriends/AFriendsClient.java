@@ -69,10 +69,7 @@ public class AFriendsClient implements ClientModInitializer {
         new FriendCommands(socialData, configStore::save).register();
         new ChatFilter(socialData).register();
 
-        new FriendsUi(socialData, theme, linkSettings, notifySettings, soundSettings, network, configStore::save, () -> {
-            socialData.trimMessages();
-            themeChangedAt = System.currentTimeMillis();
-        }).register();
+        new FriendsUi(socialData, theme, linkSettings, notifySettings, soundSettings, network, configStore::save).register();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             socialData.tick();

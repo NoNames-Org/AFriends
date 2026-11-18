@@ -26,7 +26,9 @@ public final class MessageNotifier {
     }
 
     public void incoming(String chat) {
-        if (PrivateMessages.NOTES.equals(chat) || !settings.shouldRing(chat) || Minecraft.getInstance().player == null
+        boolean ring = settings.shouldRing(chat);
+        boolean toast = settings.shouldToast(chat);
+        if (PrivateMessages.NOTES.equals(chat) || !ring && !toast || Minecraft.getInstance().player == null
                 && ServerScope.NONE.equals(ServerScope.current())) {
             return;
         }
@@ -35,7 +37,12 @@ public final class MessageNotifier {
             return;
         }
         lastRing = now;
-        UiSounds.play(UiSound.MESSAGE);
-        onAlert.accept(chat);
+        if (ring) {
+            UiSounds.play(UiSound.MESSAGE);
+        }
+        // «Уведомления» в настройках мессенджера выключают карточку, звук живёт своим выключателем
+        if (toast) {
+            onAlert.accept(chat);
+        }
     }
 }

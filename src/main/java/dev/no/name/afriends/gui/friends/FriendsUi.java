@@ -49,13 +49,12 @@ public final class FriendsUi {
     private final SoundSettings sound;
     private final NetworkGame network;
     private final Runnable save;
-    private final Runnable onHistoryChange;
     private final FriendsState friendsState = new FriendsState();
     // состояние панели аддона живёт дольше окна чата: открытая панель остаётся открытой в следующий раз
     private final Map<RailPanel, PanelState> addonStates = new IdentityHashMap<>();
 
     public FriendsUi(SocialData social, ThemeSettings theme, LinkSettings linkSettings, NotifySettings notify,
-                     SoundSettings sound, NetworkGame network, Runnable save, Runnable onHistoryChange) {
+                     SoundSettings sound, NetworkGame network, Runnable save) {
         this.social = social;
         this.theme = theme;
         this.linkSettings = linkSettings;
@@ -63,7 +62,6 @@ public final class FriendsUi {
         this.sound = sound;
         this.network = network;
         this.save = save;
-        this.onHistoryChange = onHistoryChange;
     }
 
     /** Панель аддона, открытая в этом окне чата. */
@@ -81,7 +79,7 @@ public final class FriendsUi {
     private void attach(Screen screen, int width, int height) {
         SocialData.Scope scope = social.current();
         MessengerScreen.Context context = new MessengerScreen.Context(scope.friends(), scope.messages(),
-                scope.ignored(), network.direct(), save, notify, onHistoryChange);
+                scope.ignored(), network.direct(), save, notify);
 
         int railX = width - MARGIN - HubRail.WIDTH;
         int top = MARGIN;

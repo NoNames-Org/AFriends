@@ -9,15 +9,18 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Звук входящих сообщений: общий выключатель и чаты без звука, как «Выключить уведомления» в Telegram.
+ * Звук и всплывающие уведомления входящих сообщений: общие выключатели и чаты без звука, как «Выключить уведомления» в Telegram.
  * Чат — ник друга или служебный ключ ($blooddesigner, группа). Хранится в config.json, общий для всех серверов
  */
 public final class NotifySettings {
     private static final String SOUND = "sound";
     private static final String MUTED = "muted";
     private static final String READ_RECEIPTS = "readReceipts";
+    private static final String TOASTS = "toasts";
 
     private boolean sound = true;
+    // всплывающие карточки о новых сообщениях в правом верхнем углу
+    private boolean toasts = true;
     // отправлять ли собеседникам «прочитано»; «доставлено» уходит всегда
     private boolean readReceipts = true;
     private final Set<String> muted = new TreeSet<>();
@@ -33,6 +36,15 @@ public final class NotifySettings {
 
     public void toggleSound() {
         sound = !sound;
+        onChange.run();
+    }
+
+    public boolean toastsEnabled() {
+        return toasts;
+    }
+
+    public void toggleToasts() {
+        toasts = !toasts;
         onChange.run();
     }
 
@@ -61,9 +73,15 @@ public final class NotifySettings {
         return sound && !isMuted(chat);
     }
 
+    // показывать ли всплывающее уведомление о новом сообщении в этом чате
+    public boolean shouldToast(String chat) {
+        return toasts && !isMuted(chat);
+    }
+
     public JsonElement toJson() {
         JsonObject json = new JsonObject();
         json.addProperty(SOUND, sound);
+        json.addProperty(TOASTS, toasts);
         json.addProperty(READ_RECEIPTS, readReceipts);
         JsonArray list = new JsonArray();
         muted.forEach(list::add);
@@ -74,6 +92,7 @@ public final class NotifySettings {
     public void fromJson(JsonElement json) {
         muted.clear();
         sound = true;
+        toasts = true;
         readReceipts = true;
         if (!json.isJsonObject()) {
             return;
@@ -81,6 +100,9 @@ public final class NotifySettings {
         JsonObject object = json.getAsJsonObject();
         if (object.has(SOUND) && object.get(SOUND).isJsonPrimitive()) {
             sound = object.get(SOUND).getAsBoolean();
+        }
+        if (object.has(TOASTS) && object.get(TOASTS).isJsonPrimitive()) {
+            toasts = object.get(TOASTS).getAsBoolean();
         }
         if (object.has(READ_RECEIPTS) && object.get(READ_RECEIPTS).isJsonPrimitive()) {
             readReceipts = object.get(READ_RECEIPTS).getAsBoolean();

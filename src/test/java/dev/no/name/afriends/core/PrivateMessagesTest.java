@@ -102,4 +102,18 @@ class PrivateMessagesTest {
         loaded.toggleArchived(PrivateMessages.OFFICIAL);
         assertFalse(loaded.isArchived(PrivateMessages.OFFICIAL));
     }
+
+    @Test
+    @DisplayName("история не обрезается: хранится и сохраняется вся переписка")
+    void keepsWholeHistory() {
+        PrivateMessages messages = new PrivateMessages();
+        for (int i = 0; i < 3000; i++) {
+            messages.add("Bob", new PrivateMessage(false, "m" + i, i));
+        }
+        assertEquals(3000, messages.chat("Bob").size());
+        PrivateMessages loaded = new PrivateMessages();
+        loaded.fromJson(messages.toJson());
+        assertEquals(3000, loaded.chat("Bob").size());
+        assertEquals("m0", loaded.chat("Bob").get(0).text());
+    }
 }

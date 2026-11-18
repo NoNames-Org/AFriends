@@ -24,7 +24,6 @@ public final class ConfigStore {
     private static final String FRIENDS = "friends";
     private static final String IGNORED = "ignored";
     private static final String THEME = "theme";
-    private static final String MESSAGE_LIMIT = "messageLimit";
     private static final String NETWORK = "network";
     private static final String NOTIFY = "notify";
     private static final String SOUND = "sound";
@@ -75,9 +74,6 @@ public final class ConfigStore {
             if (json.has(NETWORK)) {
                 network.fromJson(json.get(NETWORK));
             }
-            if (json.has(MESSAGE_LIMIT) && json.get(MESSAGE_LIMIT).isJsonPrimitive()) {
-                MessageHistory.set(json.get(MESSAGE_LIMIT).getAsInt());
-            }
         } catch (IOException | RuntimeException e) {
             LOGGER.error("Не удалось прочитать конфиг {}", file, e);
         }
@@ -88,7 +84,6 @@ public final class ConfigStore {
         json.add(FRIENDS, social.friendsJson());
         json.add(IGNORED, social.ignoredJson());
         json.add(THEME, theme.toJson());
-        json.addProperty(MESSAGE_LIMIT, MessageHistory.limit());
         json.add(NETWORK, network.toJson());
         json.add(NOTIFY, notify.toJson());
         json.add(SOUND, sound.toJson());

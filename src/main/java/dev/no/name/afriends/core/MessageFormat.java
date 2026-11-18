@@ -16,6 +16,9 @@ public final class MessageFormat {
     public static final int STRIKE = 8;
     public static final int CODE = 16;
 
+    /** Сколько пустых строк подряд остаётся в сообщении. */
+    public static final int MAX_BLANK_LINES = 3;
+
     private static final String ESCAPABLE = "\\*_~`#>";
 
     public enum Kind { NORMAL, HEADING, SUBHEADING, QUOTE }
@@ -42,10 +45,31 @@ public final class MessageFormat {
 
     public static List<Line> parse(String text) {
         List<Line> lines = new ArrayList<>();
-        for (String line : (text == null ? "" : text).split("\n", -1)) {
+        for (String line : limitBlankLines(text).split("\n", -1)) {
             lines.add(line(line));
         }
         return List.copyOf(lines);
+    }
+
+    /**
+     * Не больше {@link #MAX_BLANK_LINES} пустых строк подряд, лишние выкидываются. Применяется при отправке
+     * и при показе: сообщения старых клиентов с простынёй переносов тоже не растягивают переписку
+     */
+    public static String limitBlankLines(String text) {
+        if (text == null || text.indexOf('\n') < 0) {
+            return text == null ? "" : text;
+        }
+        StringBuilder out = new StringBuilder();
+        int blank = 0;
+        for (String line : text.split("\n", -1)) {
+            blank = line.isBlank() ? blank + 1 : 0;
+            if (blank > MAX_BLANK_LINES) {
+                continue;
+            }
+            out.append(line).append('\n');
+        }
+        out.setLength(out.length() - 1);
+        return out.toString();
     }
 
     // текст без разметки: для превью в списке чатов и уведомлений

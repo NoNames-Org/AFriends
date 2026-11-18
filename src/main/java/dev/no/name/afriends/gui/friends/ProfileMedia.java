@@ -22,7 +22,8 @@ import java.util.function.Function;
 
 /**
  * Вкладка «Медиа» или «Голосовые» в профиле: картинки чата сеткой (новые сверху, клик — открыть крупно)
- * или список голосовых с автором и датой (клик — играть). Поле сверху ищет по подписи, у голосовых — по автору и дате
+ * или список голосовых с автором и датой (клик — играть). Кнопка-стрелка при наведении — к этому сообщению в переписке
+ * (старое догружается). Поле сверху ищет по подписи, у голосовых — по автору и дате
  */
 final class ProfileMedia {
     private static final int FIELD = 16;
@@ -30,14 +31,23 @@ final class ProfileMedia {
     private static final int GAP = 3;
     private static final int VOICE_ROW = 30;
     private static final int SCROLL_STEP = 16;
+    private static final int GOTO = 12;
 
     enum Kind { MEDIA, VOICE }
 
-    private record Item(MessageImage image, String text, String author, String date) {
+    private record Item(MessageImage image, String messageKey, String text, String author, String date) {
     }
 
-    // где что нарисовано в этом кадре: клик по картинке или голосовому
-    private record Hit(MessageImage image, float x, float y, float width, float height) {
+    // где что нарисовано в этом кадре: клик по картинке или голосовому; goto — кнопка «к сообщению», если видна
+    private record Hit(MessageImage image, String messageKey, float x, float y, float width, float height,
+                       float gotoX, float gotoY) {
+        boolean onGoto(double mouseX, double mouseY) {
+            return gotoX >= 0 && PanelKit.inside(mouseX, mouseY, gotoX, gotoY, GOTO, GOTO);
+        }
+    }
+
+    /** Что сделать после клика: открыть картинку крупно или перейти к сообщению. */
+    record Click(MessageImage view, String jumpTo) {
     }
 
     private final Kind kind;
@@ -83,7 +93,7 @@ final class ProfileMedia {
             PrivateMessage message = chat.get(i);
             for (MessageImage image : message.images()) {
                 if (image.voice() == (kind == Kind.VOICE)) {
-                    found.add(new Item(image, MessageFormat.plain(message.text()), author.apply(message), PanelKit.stamp(message.time())));
+                    found.add(new Item(image, message.key(), MessageFormat.plain(message.text()), author.apply(message), PanelKit.stamp(message.time())));
                 }
             }
         }
@@ -162,10 +172,14 @@ final class ProfileMedia {
         float h = ratio >= 1 ? cell / ratio : cell;
         ImageBubble.draw(g, image, route, Math.round(cellX + (cell - w) / 2), Math.round(cellY + (cell - h) / 2),
                 Math.round(w), Math.round(h), now);
+        float gotoX = -1;
+        float gotoY = cellY + 3;
         if (PanelKit.inside(mouseX, mouseY, cellX, cellY, cell, cell) && mouseY >= top && mouseY < bottom) {
             Draw.border(g, cellX, cellY, cell, cell, Theme.RADIUS, Theme.BORDER_SELECTED);
+            gotoX = cellX + cell - GOTO - 3;
+            drawGoto(g, gotoX, gotoY, mouseX, mouseY);
         }
-        hits.add(new Hit(image, cellX, cellY, cell, cell));
+        hits.add(new Hit(image, item.messageKey(), cellX, cellY, cell, cell, gotoX, gotoY));
     }
 
     private void drawVoice(Gfx g, MessageRoute route, Item item, int index, float top, float bottom, int mouseX, int mouseY) {
@@ -173,7 +187,8 @@ final class ProfileMedia {
         if (rowY + VOICE_ROW < top || rowY > bottom) {
             return;
         }
-        if (PanelKit.inside(mouseX, mouseY, x, rowY, width, VOICE_ROW) && mouseY >= top && mouseY < bottom) {
+        boolean hovered = PanelKit.inside(mouseX, mouseY, x, rowY, width, VOICE_ROW) && mouseY >= top && mouseY < bottom;
+        if (hovered) {
             Draw.roundedRect(g, x, rowY, width, VOICE_ROW - 2, Theme.RADIUS, Theme.CARD_HOVER);
         }
         VoiceBlock.draw(g, item.image(), route, x + 4, rowY + 3, Theme.TEXT);
@@ -181,11 +196,24 @@ final class ProfileMedia {
         int textWidth = (int) (x + width - 4 - textX);
         Draw.text(g, Draw.trim(item.author(), textWidth), textX, rowY + 5, Theme.TEXT, TextStyle.BODY_MEDIUM);
         Draw.text(g, Draw.trim(item.date(), textWidth, TextStyle.SMALL), textX, rowY + 16, Theme.TEXT_DIM, TextStyle.SMALL);
-        hits.add(new Hit(item.image(), x, rowY, width, VOICE_ROW - 2));
+        float gotoX = -1;
+        float gotoY = rowY + (VOICE_ROW - 2 - GOTO) / 2f;
+        if (hovered) {
+            gotoX = x + width - GOTO - 4;
+            drawGoto(g, gotoX, gotoY, mouseX, mouseY);
+        }
+        hits.add(new Hit(item.image(), item.messageKey(), x, rowY, width, VOICE_ROW - 2, gotoX, gotoY));
     }
 
-    // картинка, по которой кликнули (её открыть крупно); голосовое играет само. null — мимо
-    MessageImage click(double mouseX, double mouseY, MessageRoute route) {
+    // кнопка «к сообщению» в углу картинки или справа у голосового
+    private static void drawGoto(Gfx g, float x, float y, int mouseX, int mouseY) {
+        boolean over = PanelKit.inside(mouseX, mouseY, x, y, GOTO, GOTO);
+        Draw.box(g, x, y, GOTO, GOTO, Theme.RADIUS, over ? Theme.CARD_HOVER : Theme.CARD, over ? Theme.BORDER_SELECTED : Theme.BORDER);
+        Draw.icon(g, Icon.ARROW_UP_RIGHT, x + 2, y + 2, GOTO - 4, over ? Theme.TEXT : Theme.TEXT_SOFT);
+    }
+
+    // картинка, по которой кликнули (её открыть крупно), или переход к сообщению; голосовое играет само. null — мимо
+    Click click(double mouseX, double mouseY, MessageRoute route) {
         if (search.mouseClicked(mouseX, mouseY, Widget.LEFT_BUTTON)) {
             return null;
         }
@@ -196,12 +224,16 @@ final class ProfileMedia {
             if (!PanelKit.inside(mouseX, mouseY, hit.x(), hit.y(), hit.width(), hit.height())) {
                 continue;
             }
+            if (hit.onGoto(mouseX, mouseY) && hit.messageKey() != null) {
+                UiSounds.play(UiSound.CLICK);
+                return new Click(null, hit.messageKey());
+            }
             if (kind == Kind.VOICE) {
                 VoiceClips.toggle(hit.image(), route);
                 UiSounds.play(UiSound.CLICK);
                 return null;
             }
-            return hit.image();
+            return new Click(hit.image(), null);
         }
         return null;
     }

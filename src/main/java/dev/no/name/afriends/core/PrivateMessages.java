@@ -106,7 +106,6 @@ public final class PrivateMessages {
         names.put(key(partner), partner);
         List<PrivateMessage> chat = chats.computeIfAbsent(key(partner), name -> new ArrayList<>());
         chat.add(message);
-        trim(chat);
         if (!message.fromMe() && archived.contains(key(partner)) && !staysArchived.test(partner)) {
             archived.remove(key(partner));
         }
@@ -229,7 +228,6 @@ public final class PrivateMessages {
     public void addNote(PrivateMessage note) {
         List<PrivateMessage> notes = chats.computeIfAbsent(NOTES, name -> new ArrayList<>());
         notes.add(note.id() == null ? note.withId(MessageIds.next()) : note);
-        trim(notes);
         onChange.run();
     }
 
@@ -414,18 +412,6 @@ public final class PrivateMessages {
         onChange.run();
     }
 
-    public void trimAll() {
-        chats.values().forEach(PrivateMessages::trim);
-        onChange.run();
-    }
-
-    private static void trim(List<PrivateMessage> chat) {
-        int extra = chat.size() - MessageHistory.limit();
-        if (extra > 0) {
-            chat.subList(0, extra).clear();
-        }
-    }
-
     public void markAllRead() {
         unread.clear();
     }
@@ -506,8 +492,7 @@ public final class PrivateMessages {
         chats.forEach((key, messages) -> {
             String partner = isReserved(key) ? key : displayName(key);
             JsonArray array = new JsonArray();
-            int from = Math.max(0, messages.size() - MessageHistory.limit());
-            for (PrivateMessage message : messages.subList(from, messages.size())) {
+            for (PrivateMessage message : messages) {
                 array.add(MessageJson.write(message));
             }
             json.add(partner, array);
@@ -576,7 +561,6 @@ public final class PrivateMessages {
                 for (JsonElement element : entry.getValue().getAsJsonArray()) {
                     messages.add(MessageJson.read(element.getAsJsonObject()));
                 }
-                trim(messages);
                 String partner = entry.getKey();
                 if (NOTES.equals(partner)) {
                     // заметки старых версий без id: выдаём, чтобы закреп, ответ и удаление их различали

@@ -143,8 +143,14 @@ public class TextFieldWidget extends Widget {
         int start = Math.max(0, lines.length - maxVisible);
         int lineY = y + 4;
         String lastShown = "";
+        boolean selected = allSelected && focused;
         for (int i = start; i < lines.length; i++) {
             lastShown = Draw.trim(lines[i], avail);
+            // Ctrl+A: подсветка под каждой видимой строкой, у пустой — узкая полоска, чтобы было видно, что она тоже выделена
+            if (selected) {
+                Draw.roundedRect(g, textX - 1, lineY - 1, Math.max(3, Draw.width(lastShown) + 2), LINE_HEIGHT, 1.5f,
+                        Colors.fade(Theme.ACCENT, 0.35f));
+            }
             Draw.text(g, lastShown, textX, lineY, Theme.TEXT);
             lineY += LINE_HEIGHT;
         }

@@ -2,18 +2,16 @@ package dev.no.name.afriends.gui.friends;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.no.name.afriends.compat.Gfx;
-import dev.no.name.afriends.core.MessageHistory;
 import dev.no.name.afriends.core.NotifySettings;
 import dev.no.name.afriends.gui.Theme;
 import dev.no.name.afriends.gui.render.Draw;
-import dev.no.name.afriends.gui.render.icon.Icon;
 import dev.no.name.afriends.gui.render.text.TextStyle;
 import dev.no.name.afriends.gui.settings.ToggleList;
 import dev.no.name.afriends.gui.sound.UiSound;
 import dev.no.name.afriends.gui.sound.UiSounds;
 
 /**
- * Настройки мессенджера поверх переписки (шестерёнка внизу слева): звук, отметки о прочтении, сколько хранить
+ * Настройки мессенджера поверх переписки (шестерёнка внизу слева): звук, всплывающие уведомления, отметки о прочтении
  * и кто может писать. Последнее живёт на сервере сети — без сети оно недоступно.
  */
 final class MessengerSettingsPanel {
@@ -22,7 +20,6 @@ final class MessengerSettingsPanel {
     private static final int TITLE = 16;
     private static final int ROW = 26;
     private static final int SWITCH_WIDTH = 22;
-    private static final int STEP_BUTTON = 14;
 
     /** Что хранится на сервере сети; available false — сеть не подключена. */
     interface Host {
@@ -33,19 +30,17 @@ final class MessengerSettingsPanel {
         void setDmFromEveryone(boolean everyone);
     }
 
-    private enum Row { SOUND, RECEIPTS, HISTORY, DM }
+    private enum Row { SOUND, TOASTS, RECEIPTS, DM }
 
     private final NotifySettings notify;
-    private final Runnable onHistoryChange;
     private final Host host;
     private boolean open;
     private float x;
     private float y;
     private float height;
 
-    MessengerSettingsPanel(NotifySettings notify, Runnable onHistoryChange, Host host) {
+    MessengerSettingsPanel(NotifySettings notify, Host host) {
         this.notify = notify;
-        this.onHistoryChange = onHistoryChange;
         this.host = host;
     }
 
@@ -77,9 +72,9 @@ final class MessengerSettingsPanel {
         Draw.text(g, "Настройки мессенджера", x + PAD, y + PAD, Theme.TEXT, TextStyle.BODY_MEDIUM);
         float textWidth = WIDTH - PAD * 2 - SWITCH_WIDTH - 8;
         drawToggle(g, Row.SOUND, "Звук сообщений", "У отдельного чата — в его меню", notify.soundEnabled(), textWidth);
+        drawToggle(g, Row.TOASTS, "Уведомления", "Карточка о новом сообщении в углу экрана", notify.toastsEnabled(), textWidth);
         drawToggle(g, Row.RECEIPTS, "Отметки о прочтении", "Выключишь — собеседники не увидят «прочитано»",
                 notify.readReceipts(), textWidth);
-        drawHistory(g, textWidth);
         boolean network = host.available();
         drawToggle(g, Row.DM, "Писать мне могут все", network ? "Выключено — только друзья" : "Нужна сеть AFriends",
                 network && host.dmFromEveryone(), textWidth);
@@ -90,29 +85,6 @@ final class MessengerSettingsPanel {
         Draw.text(g, Draw.trim(title, (int) textWidth), x + PAD, rowY, Theme.TEXT);
         Draw.text(g, Draw.trim(hint, (int) textWidth), x + PAD, rowY + 11, Theme.TEXT_DIM, TextStyle.SMALL);
         ToggleList.drawSwitch(g, x + WIDTH - PAD - SWITCH_WIDTH, rowY + 4, on);
-    }
-
-    private void drawHistory(Gfx g, float textWidth) {
-        float rowY = rowY(Row.HISTORY);
-        Draw.text(g, "Хранить в каждом чате", x + PAD, rowY, Theme.TEXT);
-        Draw.text(g, Draw.trim("От " + MessageHistory.MIN + " до " + MessageHistory.MAX + " сообщений", (int) textWidth),
-                x + PAD, rowY + 11, Theme.TEXT_DIM, TextStyle.SMALL);
-        String value = String.valueOf(MessageHistory.limit());
-        float valueWidth = valueWidth();
-        float plusX = x + WIDTH - PAD - STEP_BUTTON;
-        float minusX = plusX - valueWidth - 6 - STEP_BUTTON;
-        drawStep(g, Icon.MINUS, minusX, rowY + 2);
-        Draw.text(g, value, minusX + STEP_BUTTON + 3 + (valueWidth - Draw.width(value)) / 2, rowY + 5, Theme.TEXT);
-        drawStep(g, Icon.PLUS, plusX, rowY + 2);
-    }
-
-    private static float valueWidth() {
-        return Math.max(Draw.width(String.valueOf(MessageHistory.limit())), Draw.width("0000"));
-    }
-
-    private static void drawStep(Gfx g, Icon icon, float x, float y) {
-        Draw.box(g, x, y, STEP_BUTTON, STEP_BUTTON, Theme.RADIUS, Theme.CARD, Theme.BORDER);
-        Draw.icon(g, icon, x + 3, y + 3, STEP_BUTTON - 6, Theme.TEXT_SOFT);
     }
 
     /** true — клик внутри окна (обработан); клик мимо закрывает окно. */
@@ -131,7 +103,7 @@ final class MessengerSettingsPanel {
         switch (row) {
             case SOUND -> notify.toggleSound();
             case RECEIPTS -> notify.toggleReadReceipts();
-            case HISTORY -> clickHistory(mouseX);
+            case TOASTS -> notify.toggleToasts();
             case DM -> {
                 if (host.available()) {
                     host.setDmFromEveryone(!host.dmFromEveryone());
@@ -140,21 +112,6 @@ final class MessengerSettingsPanel {
         }
         UiSounds.play(UiSound.CLICK);
         return true;
-    }
-
-    private void clickHistory(double mouseX) {
-        float plusX = x + WIDTH - PAD - STEP_BUTTON;
-        float minusX = plusX - valueWidth() - 6 - STEP_BUTTON;
-        int step = 0;
-        if (mouseX >= plusX && mouseX < plusX + STEP_BUTTON) {
-            step = MessageHistory.STEP;
-        } else if (mouseX >= minusX && mouseX < minusX + STEP_BUTTON) {
-            step = -MessageHistory.STEP;
-        }
-        if (step != 0) {
-            MessageHistory.set(MessageHistory.limit() + step);
-            onHistoryChange.run();
-        }
     }
 
     private Row rowAt(double mouseY) {

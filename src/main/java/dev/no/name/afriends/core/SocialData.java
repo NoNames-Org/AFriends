@@ -59,10 +59,6 @@ public final class SocialData {
         everyScope().forEach(scope -> scope.messages().setStaysArchived(rule));
     }
 
-    public void trimMessages() {
-        everyScope().forEach(scope -> scope.messages().trimAll());
-    }
-
     public Scope current() {
         String owner = account.get();
         adopt(owner);
