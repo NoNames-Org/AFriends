@@ -1,15 +1,23 @@
 package dev.no.name.afriends.gui.notify;
 
+import dev.no.name.afriends.compat.Gfx;
+import dev.no.name.afriends.gui.Theme;
+import dev.no.name.afriends.gui.animation.Easing;
+import dev.no.name.afriends.gui.render.Colors;
+import dev.no.name.afriends.gui.render.Draw;
+import dev.no.name.afriends.gui.render.icon.Icon;
+import dev.no.name.afriends.gui.render.text.TextStyle;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
 /**
- * Всплывающие уведомления в правом верхнем углу о новых сообщениях — как тосты Minecraft, но свои,
- * чтобы одинаково рисоваться на всех версиях через {@link ToastDraw}. Появляются со сдвигом справа,
- * держатся несколько секунд и плавно гаснут. Один чат занимает одну карточку: повторное сообщение
- * из того же чата обновляет её, а не плодит стопку. Регистрируется слой HUD в compat каждой версии
+ * Всплывающие уведомления в правом верхнем углу о новых сообщениях. Рисуются нашим рендером ({@link Draw}: шейдерные
+ * панели, свой шрифт, значки) в координатах интерфейса, как панель {@code HubRail}. Появляются со сдвигом справа,
+ * держатся несколько секунд и плавно гаснут. Один чат занимает одну карточку: повторное сообщение из того же чата
+ * обновляет её, а не плодит стопку. Слой HUD регистрирует compat каждой версии и отдаёт сюда {@link Gfx}
  */
 public final class MessageToasts {
     private static final MessageToasts INSTANCE = new MessageToasts();
@@ -17,16 +25,14 @@ public final class MessageToasts {
     private static final int MAX = 3;
     private static final long HOLD_MS = 5000;
     private static final long FADE_MS = 400;
-    private static final long SLIDE_MS = 220;
-    private static final int WIDTH = 172;
+    private static final long SLIDE_MS = 260;
+    private static final int WIDTH = 150;
+    private static final int HEIGHT = 32;
     private static final int MARGIN = 6;
-    private static final int GAP = 6;
-    private static final int PAD = 9;
-    private static final int LINE = 10;
-    private static final int ACCENT = 0x5B8DEF;
-    private static final int BG = 0x1C1C1E;
-    private static final int TITLE = 0xFFFFFF;
-    private static final int SUBTITLE = 0xB3B3B8;
+    private static final int GAP = 5;
+    private static final int PAD = 7;
+    private static final int BADGE = 18;
+    private static final int ICON = 10;
     private static final String SUBTITLE_TEXT = "Новое сообщение";
 
     private final Deque<Card> cards = new ArrayDeque<>();
@@ -52,57 +58,49 @@ public final class MessageToasts {
         }
     }
 
-    /** Вызывается каждый кадр слоем HUD текущей версии. */
-    public synchronized void render(ToastDraw draw, long now) {
+    /** Вызывается каждый кадр слоем HUD текущей версии; screenWidth и guiScale — интерфейса игры. */
+    public synchronized void render(Gfx g, int screenWidth, int guiScale, long now) {
         if (cards.isEmpty()) {
             return;
         }
         cards.removeIf(card -> now - card.shownAt() > HOLD_MS + FADE_MS);
         List<Card> snapshot = new ArrayList<>(cards);
-        int height = PAD * 2 + LINE * 2 + 2;
-        int y = MARGIN;
+        Draw.setPixelScale(guiScale);
+        float y = MARGIN;
         for (Card card : snapshot) {
             long age = now - card.shownAt();
-            float appear = clamp01(age / (float) SLIDE_MS);
+            float appear = Easing.outCubic(clamp01(age / (float) SLIDE_MS));
             float fade = age > HOLD_MS ? clamp01(1f - (age - HOLD_MS) / (float) FADE_MS) : 1f;
             float alpha = Math.min(appear, fade);
-            if (alpha <= 0f) {
-                continue;
+            if (alpha > 0f) {
+                float x = screenWidth - WIDTH - MARGIN;
+                Draw.pushAlpha(alpha);
+                Draw.pushOffset(g, (1f - appear) * (WIDTH + MARGIN), 0);
+                drawCard(g, card, x, y);
+                Draw.popOffset(g);
+                Draw.popAlpha();
             }
-            int slide = Math.round((1f - appear) * (WIDTH + MARGIN));
-            int x = draw.screenWidth() - WIDTH - MARGIN + slide;
-            int a = Math.round(alpha * 255f);
-            draw.box(x, y, WIDTH, height, argb((int) (a * 0.9f), BG));
-            draw.box(x, y, 3, height, argb(a, ACCENT));
-            int textX = x + PAD;
-            int inner = WIDTH - PAD * 2;
-            draw.line(trim(draw, card.title(), inner), textX, y + PAD, argb(a, TITLE));
-            draw.line(trim(draw, card.subtitle(), inner), textX, y + PAD + LINE + 2, argb(a, SUBTITLE));
-            y += height + GAP;
+            // гаснущая карточка уступает место плавно, а не скачком
+            y += (HEIGHT + GAP) * fade;
         }
     }
 
-    private static int argb(int alpha, int rgb) {
-        return (Math.max(0, Math.min(255, alpha)) << 24) | (rgb & 0xFFFFFF);
+    // карточка как панели мессенджера: тень, градиент, рамка, значок в плашке, заголовок и подпись
+    private static void drawCard(Gfx g, Card card, float x, float y) {
+        Draw.shadow(g, x, y + 2, WIDTH, HEIGHT, Theme.PANEL_RADIUS, 10, Colors.fade(Theme.SHADOW, 0.6f));
+        Draw.gradient(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.PANEL_TOP, Theme.PANEL_BOTTOM);
+        Draw.border(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.BORDER);
+        float badgeX = x + PAD;
+        float badgeY = y + (HEIGHT - BADGE) / 2f;
+        Draw.box(g, badgeX, badgeY, BADGE, BADGE, Theme.RADIUS, Theme.ACCENT, Theme.ACCENT);
+        Draw.icon(g, Icon.MESSAGE, badgeX + (BADGE - ICON) / 2f, badgeY + (BADGE - ICON) / 2f, ICON, Theme.ACCENT_TEXT);
+        float textX = badgeX + BADGE + 7;
+        int textWidth = (int) (x + WIDTH - PAD - textX);
+        Draw.text(g, Draw.trim(card.title(), textWidth, TextStyle.BODY_MEDIUM), textX, y + 7, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(card.subtitle(), textWidth, TextStyle.SMALL), textX, y + 18, Theme.TEXT_SOFT, TextStyle.SMALL);
     }
 
     private static float clamp01(float value) {
         return Math.max(0f, Math.min(1f, value));
-    }
-
-    private static String trim(ToastDraw draw, String text, int maxWidth) {
-        if (draw.textWidth(text) <= maxWidth) {
-            return text;
-        }
-        String ellipsis = "…";
-        int limit = maxWidth - draw.textWidth(ellipsis);
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            if (draw.textWidth(out.toString() + text.charAt(i)) > limit) {
-                break;
-            }
-            out.append(text.charAt(i));
-        }
-        return out + ellipsis;
     }
 }
