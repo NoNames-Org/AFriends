@@ -1,6 +1,7 @@
 package dev.no.name.afriends.gui.media;
 
 import dev.no.name.afriends.AFriends;
+import dev.no.name.afriends.core.voice.MicrophoneSelection;
 import dev.no.name.afriends.core.voice.VoiceClip;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.openal.AL10;
@@ -38,8 +39,13 @@ public final class VoiceRecorder {
         if (device != 0) {
             return true;
         }
+        String chosen = MicrophoneSelection.name();
         try {
-            device = ALC11.alcCaptureOpenDevice((CharSequence) null, VoiceClip.SAMPLE_RATE, AL10.AL_FORMAT_MONO16, DEVICE_BUFFER);
+            device = ALC11.alcCaptureOpenDevice((CharSequence) chosen, VoiceClip.SAMPLE_RATE, AL10.AL_FORMAT_MONO16, DEVICE_BUFFER);
+            if (device == 0 && chosen != null) {
+                // выбранного устройства нет (отключили) — пробуем микрофон по умолчанию
+                device = ALC11.alcCaptureOpenDevice((CharSequence) null, VoiceClip.SAMPLE_RATE, AL10.AL_FORMAT_MONO16, DEVICE_BUFFER);
+            }
         } catch (RuntimeException | UnsatisfiedLinkError e) {
             LOGGER.warn("{}: микрофон не открылся", AFriends.NAME, e);
             device = 0;

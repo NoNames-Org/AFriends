@@ -15,6 +15,7 @@ public final class Compat {
 
     public static void init() {
         MenuPipelines.init();
+        Hud.init();
     }
 
     public static void setScreen(Screen screen) {
@@ -71,6 +72,17 @@ public final class Compat {
     // строка в чат только для себя: сервер её не видит
     public static void localMessage(net.minecraft.network.chat.Component message) {
         Minecraft.getInstance().gui.getChat().addClientSystemMessage(message);
+    }
+
+    // общая громкость Minecraft 0..1 — настройки звука AFriends дают её изменить, не выходя из игры
+    public static float masterVolume() {
+        return Minecraft.getInstance().options.getSoundSourceVolume(net.minecraft.sounds.SoundSource.MASTER);
+    }
+
+    public static void setMasterVolume(double value) {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(value);
+        minecraft.options.save();
     }
 
     // окно системы «выбрать файл»: TinyFileDialogs блокирует поток, поэтому на своём; ответ — на потоке игры, null — отмена

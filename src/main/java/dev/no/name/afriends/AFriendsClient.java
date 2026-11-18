@@ -13,6 +13,7 @@ import dev.no.name.afriends.core.NotifySettings;
 import dev.no.name.afriends.core.SocialData;
 import dev.no.name.afriends.core.SoundSettings;
 import dev.no.name.afriends.gui.friends.FriendsUi;
+import dev.no.name.afriends.gui.notify.MessageToasts;
 import dev.no.name.afriends.gui.sound.MessageNotifier;
 import dev.no.name.afriends.gui.sound.UiSounds;
 import dev.no.name.afriends.gui.theme.ThemeSettings;
@@ -56,7 +57,8 @@ public class AFriendsClient implements ClientModInitializer {
         soundSettings.setOnChange(configStore::save);
         linkSettings.setOnChange(configStore::save);
         notifySettings.setOnChange(configStore::save);
-        MessageNotifier notifier = new MessageNotifier(notifySettings);
+        MessageNotifier notifier = new MessageNotifier(notifySettings,
+                chat -> MessageToasts.get().push(socialData.messages().displayName(chat)));
         IncomingAlerts.setListener(notifier::incoming);
         // сеть друзей и ЛС: свой сервер, сквозное шифрование
         NetworkGame network = new NetworkGame(socialData, linkSettings, configStore::save);

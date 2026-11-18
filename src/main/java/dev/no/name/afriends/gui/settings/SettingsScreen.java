@@ -135,7 +135,8 @@ public class SettingsScreen extends ScreenBase {
         List<Section> result = new ArrayList<>(List.of(
                 Section.builtIn("Оформление", "Тема панели и меню", Icon.BRUSH, Kind.THEME),
                 Section.builtIn("Сеть", "Друзья на любом сервере и защищённые ЛС", Icon.GLOBE, Kind.NETWORK),
-                Section.of(SoundCategory.create(sound))));
+                Section.of(SoundCategory.create(sound)),
+                Section.of(new AboutCategory())));
         Addons.get().settingsCategories().forEach(category -> result.add(Section.of(category)));
         return List.copyOf(result);
     }

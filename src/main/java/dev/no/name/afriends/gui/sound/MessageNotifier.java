@@ -5,18 +5,24 @@ import dev.no.name.afriends.core.PrivateMessages;
 import dev.no.name.afriends.core.ServerScope;
 import net.minecraft.client.Minecraft;
 
+import java.util.function.Consumer;
+
 /**
- * Звук входящего сообщения. Не чаще раза в полторы секунды: при входе в мир отложенные сообщения
- * раскладываются пачкой, и звенеть на каждое — шум. Заметки и свои сообщения сюда не попадают
+ * Звук и всплывающее уведомление о входящем сообщении. Не чаще раза в полторы секунды: при входе
+ * в мир отложенные сообщения раскладываются пачкой, и звенеть на каждое — шум. Заметки и свои
+ * сообщения сюда не попадают. {@code onAlert} получает ключ чата, когда все проверки пройдены:
+ * клиент по нему достаёт заголовок и показывает тост в правом верхнем углу
  */
 public final class MessageNotifier {
     private static final long MIN_GAP_MS = 1500;
 
     private final NotifySettings settings;
+    private final Consumer<String> onAlert;
     private long lastRing;
 
-    public MessageNotifier(NotifySettings settings) {
+    public MessageNotifier(NotifySettings settings, Consumer<String> onAlert) {
         this.settings = settings;
+        this.onAlert = onAlert;
     }
 
     public void incoming(String chat) {
@@ -30,5 +36,6 @@ public final class MessageNotifier {
         }
         lastRing = now;
         UiSounds.play(UiSound.MESSAGE);
+        onAlert.accept(chat);
     }
 }
