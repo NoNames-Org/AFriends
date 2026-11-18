@@ -62,7 +62,7 @@ final class LinkSync {
         LocalProfile old = profile;
         profile = value;
         if (old == null || !value.presence().sameAs(old.presence()) || value.visible() != old.visible()
-                || value.accent() != old.accent()) {
+                || value.accent() != old.accent() || !java.util.Objects.equals(value.playing(), old.playing())) {
             request();
         }
     }
@@ -107,6 +107,7 @@ final class LinkSync {
         if (current != null) {
             data.addProperty("accent", current.accent());
             data.addProperty("visible", current.visible());
+            data.addProperty("playing", current.playing());
             data.add("presence", blobs(before, current.presence(), sending));
         }
         calls.request("sync", data).whenComplete((json, error) -> {

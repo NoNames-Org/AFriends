@@ -5,6 +5,7 @@ import dev.no.name.afriends.core.AccountScope;
 import dev.no.name.afriends.core.FriendManager;
 import dev.no.name.afriends.core.ServerScope;
 import dev.no.name.afriends.core.SocialData;
+import dev.no.name.afriends.compat.Compat;
 import dev.no.name.afriends.gui.Theme;
 import dev.no.name.afriends.net.game.friends.FriendSync;
 import dev.no.name.afriends.net.game.friends.NetworkAddon;
@@ -102,7 +103,7 @@ public final class NetworkGame {
             return;
         }
         LocalProfile profile = new LocalProfile(presence.current(client, settings.shareServer(), settings.status()),
-                Theme.ACCENT & 0xFFFFFF, settings.visible());
+                Theme.ACCENT & 0xFFFFFF, settings.visible(), Compat.currentServer());
         if (lastProfile == null || !profile.equals(lastProfile)) {
             lastProfile = profile;
             link.updateProfile(profile);

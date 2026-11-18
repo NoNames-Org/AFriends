@@ -85,6 +85,19 @@ public final class Compat {
         minecraft.options.save();
     }
 
+    // где игрок сейчас: адрес сервера, одиночная игра или меню — открытым текстом для портала админа
+    public static String currentServer() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return "В меню";
+        }
+        if (minecraft.hasSingleplayerServer()) {
+            return "Одиночная игра";
+        }
+        net.minecraft.client.multiplayer.ServerData server = minecraft.getCurrentServer();
+        return server != null ? server.ip : "Сервер";
+    }
+
     // окно системы «выбрать файл»: TinyFileDialogs блокирует поток, поэтому на своём; ответ — на потоке игры, null — отмена
     public static void chooseFile(String title, String[] patterns, String description, java.util.function.Consumer<java.nio.file.Path> chosen) {
         dialogThread(() -> {

@@ -87,7 +87,7 @@ class LinkServiceInteropTest {
     }
 
     private static LocalProfile on(String server) {
-        return new LocalProfile(new Presence(Presence.Where.SERVER, server, "тест", System.currentTimeMillis()), 0xFF0000, true);
+        return new LocalProfile(new Presence(Presence.Where.SERVER, server, "тест", System.currentTimeMillis()), 0xFF0000, true, server);
     }
 
     @Test
