@@ -1,6 +1,6 @@
 package dev.no.name.afriends.gui.friends;
 
-import dev.no.name.afriends.addon.Addons;
+import dev.no.name.afriends.addon.AddonRegistry;
 import dev.no.name.afriends.api.FriendStatus;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.gui.Theme;
@@ -15,8 +15,8 @@ final class OnlineDot {
     }
 
     // в сети ли игрок по данным дополнения; нет данных — считаем, что не в сети
-    static boolean isOnline(String name) {
-        FriendStatus.Status status = Addons.get().status(name);
+    static boolean isOnline(AddonRegistry addons, String name) {
+        FriendStatus.Status status = addons.status(name);
         return status != null && status.online();
     }
 

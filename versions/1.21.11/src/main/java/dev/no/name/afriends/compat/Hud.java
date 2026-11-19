@@ -10,10 +10,10 @@ public final class Hud {
     private Hud() {
     }
 
-    public static void init() {
+    public static void init(MessageToasts toasts) {
         HudRenderCallback.EVENT.register((graphics, tick) -> {
             Window window = Minecraft.getInstance().getWindow();
-            MessageToasts.get().render(new Gfx(graphics), window.getGuiScaledWidth(), window.getGuiScale(),
+            toasts.render(new Gfx(graphics), window.getGuiScaledWidth(), window.getGuiScale(),
                     System.currentTimeMillis());
         });
     }

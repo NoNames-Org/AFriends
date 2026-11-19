@@ -1,6 +1,5 @@
 package dev.no.name.afriends.net.game;
 
-import dev.no.name.afriends.core.MessageImage;
 import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.PrivateMessage;
 import dev.no.name.afriends.core.PrivateMessages;

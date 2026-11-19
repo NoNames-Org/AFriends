@@ -21,6 +21,12 @@ public final class AboutCategory implements SettingsCategory {
     private static final int BUTTON_WIDTH = 92;
     private static final int BUTTON_HEIGHT = 20;
 
+    private final VersionCheck check;
+
+    public AboutCategory(VersionCheck check) {
+        this.check = check;
+    }
+
     @Override
     public String title() {
         return "О моде";
@@ -38,7 +44,6 @@ public final class AboutCategory implements SettingsCategory {
 
     @Override
     public void draw(Gfx g, int x, int top, int width, int mouseX, int mouseY) {
-        VersionCheck check = VersionCheck.get();
         check.refresh();
 
         Draw.text(g, "Текущая версия", x, top, Theme.TEXT_SOFT);
@@ -71,7 +76,7 @@ public final class AboutCategory implements SettingsCategory {
 
     @Override
     public boolean click(double mouseX, double mouseY, int x, int top, int width) {
-        if (!VersionCheck.get().outdated()) {
+        if (!check.outdated()) {
             return false;
         }
         if (inside((int) mouseX, (int) mouseY, buttonRect(x, top, width))) {

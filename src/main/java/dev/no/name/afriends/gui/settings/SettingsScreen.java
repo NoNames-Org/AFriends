@@ -1,9 +1,10 @@
 package dev.no.name.afriends.gui.settings;
 
+import dev.no.name.afriends.addon.AddonRegistry;
+import dev.no.name.afriends.net.update.VersionCheck;
 import java.util.List;
 import java.util.ArrayList;
 import dev.no.name.afriends.api.SettingsCategory;
-import dev.no.name.afriends.addon.Addons;
 import dev.no.name.afriends.core.SoundSettings;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.afriends.compat.Compat;
@@ -69,8 +70,7 @@ public class SettingsScreen extends ScreenBase {
             return new Section(title, subtitle, icon, kind, null);
         }
 
-        static Section of(SettingsCategory category) {
-            Addons addons = Addons.get();
+        static Section of(AddonRegistry addons, SettingsCategory category) {
             return new Section(addons.guard("settingsCategory", category::title, ""),
                     addons.guard("settingsCategory", category::subtitle, ""),
                     addons.guard("settingsCategory", category::icon, Icon.SETTINGS), Kind.CATEGORY, category);
@@ -82,6 +82,8 @@ public class SettingsScreen extends ScreenBase {
     private final Screen parent;
     private final ThemeSettings theme;
     private final NetworkSection network;
+    private final AddonRegistry addons;
+    private final VersionCheck versions;
     private final List<Section> sections;
     private final ButtonWidget close = new ButtonWidget(Icon.CLOSE, this::onClose);
     private final Animated windowOpen = new Animated(0, Motion.SLOW);
@@ -98,9 +100,12 @@ public class SettingsScreen extends ScreenBase {
     private int left;
     private int top;
 
-    public SettingsScreen(Screen parent, ThemeSettings theme, LinkSettings linkSettings, SoundSettings sound, LinkService link) {
+    public SettingsScreen(Screen parent, ThemeSettings theme, LinkSettings linkSettings, SoundSettings sound, LinkService link,
+                          AddonRegistry addons, VersionCheck versions) {
         super(Component.literal("Настройки"));
         this.parent = parent;
+        this.addons = addons;
+        this.versions = versions;
         this.theme = theme;
         this.network = new NetworkSection(linkSettings, link);
         this.sections = sections(sound);
@@ -131,13 +136,13 @@ public class SettingsScreen extends ScreenBase {
     }
 
     // встроенные разделы, «Звук», затем категории аддонов
-    private static List<Section> sections(SoundSettings sound) {
+    private List<Section> sections(SoundSettings sound) {
         List<Section> result = new ArrayList<>(List.of(
                 Section.builtIn("Оформление", "Тема панели и меню", Icon.BRUSH, Kind.THEME),
                 Section.builtIn("Сеть", "Друзья на любом сервере и защищённые ЛС", Icon.GLOBE, Kind.NETWORK),
-                Section.of(SoundCategory.create(sound)),
-                Section.of(new AboutCategory())));
-        Addons.get().settingsCategories().forEach(category -> result.add(Section.of(category)));
+                Section.of(addons, SoundCategory.create(sound)),
+                Section.of(addons, new AboutCategory(versions))));
+        addons.settingsCategories().forEach(category -> result.add(Section.of(addons, category)));
         return List.copyOf(result);
     }
 
@@ -230,7 +235,7 @@ public class SettingsScreen extends ScreenBase {
         switch (section.kind()) {
             case THEME -> drawTheme(g, x, y);
             case NETWORK -> network.draw(g, innerX(), bodyTop() + 26, innerWidth(), x, y);
-            case CATEGORY -> Addons.get().run("settingsCategory",
+            case CATEGORY -> addons.run("settingsCategory",
                     () -> section.category().draw(g, innerX(), bodyTop() + 28, innerWidth(), x, y));
         }
         Draw.popOffset(g);
@@ -358,7 +363,7 @@ public class SettingsScreen extends ScreenBase {
             return network.click(x, y, innerX(), bodyTop() + 26, innerWidth());
         }
         if (section.kind() == Kind.CATEGORY) {
-            return Addons.get().guard("settingsCategory",
+            return addons.guard("settingsCategory",
                     () -> section.category().click(x, y, innerX(), bodyTop() + 28, innerWidth()), false);
         }
         return clickTile(x, y) || startDrag(x, y);

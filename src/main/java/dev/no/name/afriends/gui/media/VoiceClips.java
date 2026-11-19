@@ -15,10 +15,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * не на потоке игры. Пока не готово — пузырь рисует ровную волну
  */
 public final class VoiceClips {
-    private static final Map<String, VoiceClip> LOADED = new ConcurrentHashMap<>();
-    private static final Map<String, Boolean> LOADING = new ConcurrentHashMap<>();
+    private final Map<String, VoiceClip> loaded = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> loading = new ConcurrentHashMap<>();
+    private final VoicePlayer player;
 
-    private VoiceClips() {
+    public VoiceClips(VoicePlayer player) {
+        this.player = player;
+    }
+
+    public VoicePlayer player() {
+        return player;
     }
 
     public static String key(MessageImage voice) {
@@ -26,9 +32,9 @@ public final class VoiceClips {
     }
 
     // готовая запись или null (тогда загрузка уже идёт)
-    public static VoiceClip get(MessageImage voice, MessageRoute route) {
-        VoiceClip clip = LOADED.get(key(voice));
-        if (clip == null && LOADING.putIfAbsent(key(voice), true) == null) {
+    public VoiceClip get(MessageImage voice, MessageRoute route) {
+        VoiceClip clip = loaded.get(key(voice));
+        if (clip == null && loading.putIfAbsent(key(voice), true) == null) {
             route.imageFile(voice)
                     .thenApplyAsync(path -> {
                         try {
@@ -39,17 +45,16 @@ public final class VoiceClips {
                     })
                     .whenComplete((decoded, error) -> {
                         if (decoded != null) {
-                            LOADED.put(key(voice), decoded);
+                            loaded.put(key(voice), decoded);
                         }
-                        LOADING.remove(key(voice));
+                        loading.remove(key(voice));
                     });
         }
         return clip;
     }
 
     // ▶ — играть, а если уже играет эта — остановить
-    public static void toggle(MessageImage voice, MessageRoute route) {
-        VoicePlayer player = VoicePlayer.get();
+    public void toggle(MessageImage voice, MessageRoute route) {
         if (key(voice).equals(player.playing())) {
             player.stop();
             return;
@@ -61,7 +66,7 @@ public final class VoiceClips {
         }
         // ещё качается: сыграем, как только раскодируется
         CompletableFuture.runAsync(() -> {
-            for (int i = 0; i < 100 && !LOADED.containsKey(key(voice)); i++) {
+            for (int i = 0; i < 100 && !loaded.containsKey(key(voice)); i++) {
                 try {
                     Thread.sleep(50);
                 } catch (InterruptedException e) {
@@ -69,7 +74,7 @@ public final class VoiceClips {
                     return;
                 }
             }
-            VoiceClip ready = LOADED.get(key(voice));
+            VoiceClip ready = loaded.get(key(voice));
             if (ready != null) {
                 Minecraft.getInstance().execute(() -> player.play(key(voice), ready));
             }

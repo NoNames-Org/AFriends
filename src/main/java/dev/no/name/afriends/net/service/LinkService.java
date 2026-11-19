@@ -54,6 +54,7 @@ public final class LinkService {
     private OfficialInbox official;
     private final BlobClient blobs = new BlobClient();
     private final MediaCache media;
+    private final AnnouncementFeed announcements;
     private final BadgeDirectory badges = new BadgeDirectory();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, " link"));
     private final ExecutorService io = Executors.newCachedThreadPool(runnable -> daemon(runnable, " link io"));
@@ -64,12 +65,19 @@ public final class LinkService {
 
     // mediaFolder — кэш картинок переписки, общий для всех аккаунтов: он зашифрован и ничей
     public LinkService(Path folder, Path mediaFolder, Supplier<PlayerAccount> player, InboxListener listener) {
+        this(folder, mediaFolder, player, listener, new AnnouncementFeed());
+    }
+
+    // announcements — лента объявлений: голоса в опросах идут через сеть, событие сервера обновляет ленту
+    public LinkService(Path folder, Path mediaFolder, Supplier<PlayerAccount> player, InboxListener listener,
+                       AnnouncementFeed announcements) {
         this.folder = folder;
         this.playerSource = player;
         this.listener = listener;
         this.official = new OfficialInbox(folder.resolve("official-last.txt"), listener);
         this.media = new MediaCache(mediaFolder, blobs);
-        AnnouncementFeed.get().votes().setRequester(this::query);
+        this.announcements = announcements;
+        announcements.votes().setRequester(this::query);
     }
 
     public LinkSnapshot snapshot() {
@@ -555,7 +563,7 @@ public final class LinkService {
         @Override
         public void ready(boolean registered) {
             // при каждом подключении: пока были не в сети, могли опубликовать новое
-            AnnouncementFeed.get().refreshNow();
+            announcements.refreshNow();
             // сначала твинки: ник, занятый своим же твинком, тогда перейдёт к этому аккаунту, а не выйдет «занят»
             AltLinks.report(runtime.connection, runtime.identity, siblings)
                     .thenCompose(linked -> runtime.account.register()).whenComplete((outcome, error) -> {
@@ -589,7 +597,7 @@ public final class LinkService {
                         System.currentTimeMillis());
                 case "kicked" -> runtime.connection.kicked();
                 // админ опубликовал или удалил объявление на портале
-                case "announcements" -> AnnouncementFeed.get().refreshNow();
+                case "announcements" -> announcements.refreshNow();
                 // админ написал этому игроку с портала
                 case "official" -> official.fetch(runtime.connection);
                 default -> { }

@@ -18,18 +18,13 @@ import java.nio.ShortBuffer;
  */
 public final class VoicePlayer {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
-    private static final VoicePlayer INSTANCE = new VoicePlayer();
 
     private int source;
     private int buffer;
     private String playing;
     private float duration;
 
-    private VoicePlayer() {
-    }
-
-    public static VoicePlayer get() {
-        return INSTANCE;
+    public VoicePlayer() {
     }
 
     // что сейчас играет (ключ вложения) или null

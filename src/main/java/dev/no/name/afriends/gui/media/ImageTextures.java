@@ -26,7 +26,6 @@ import java.util.function.Supplier;
  */
 public final class ImageTextures {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
-    private static final ImageTextures INSTANCE = new ImageTextures();
     private static final int LIMIT = 40;
 
     public enum State { LOADING, READY, FAILED }
@@ -63,11 +62,7 @@ public final class ImageTextures {
     // порядок доступа: первыми выгружаются давно не показанные
     private final Map<String, Entry> entries = new LinkedHashMap<>(16, 0.75f, true);
 
-    private ImageTextures() {
-    }
-
-    public static ImageTextures get() {
-        return INSTANCE;
+    public ImageTextures() {
     }
 
     // зовётся с потока игры при каждом кадре отрисовки
@@ -84,6 +79,15 @@ public final class ImageTextures {
     }
 
     // файл с диска, ещё не отправленный: превью над полем ввода и избранные гифки
+    /** Картинка из файла; gif определяется по расширению. */
+    public Entry file(Path file) {
+        return file(file, isGif(file));
+    }
+
+    public static boolean isGif(Path file) {
+        return file.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".gif");
+    }
+
     public Entry file(Path file, boolean animated) {
         String key = "file-" + Integer.toHexString(file.toAbsolutePath().toString().hashCode());
         return load(key, animated, ImageFrames.MAX_SIDE, () -> CompletableFuture.completedFuture(file));

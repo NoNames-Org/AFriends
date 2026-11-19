@@ -20,11 +20,13 @@ import java.util.function.Consumer;
  */
 final class MediaActions {
     private final MessageRoute route;
+    private final GifFavorites favorites;
     private final Consumer<String> warn;
     private final Consumer<String> info;
 
-    MediaActions(MessageRoute route, Consumer<String> warn, Consumer<String> info) {
+    MediaActions(MessageRoute route, GifFavorites favorites, Consumer<String> warn, Consumer<String> info) {
         this.route = route;
+        this.favorites = favorites;
         this.warn = warn;
         this.info = info;
     }
@@ -94,9 +96,12 @@ final class MediaActions {
                         : "Не получилось скопировать")));
     }
 
+    boolean isFavorite(MessageImage image) {
+        return favorites.contains(image.sha256());
+    }
+
     // гифка из переписки — в избранное или обратно
     void toggleFavorite(MessageImage image) {
-        GifFavorites favorites = GifFavorites.get();
         if (favorites.contains(image.sha256())) {
             favorites.remove(image.sha256());
             info.accept("Гифка убрана из избранного");

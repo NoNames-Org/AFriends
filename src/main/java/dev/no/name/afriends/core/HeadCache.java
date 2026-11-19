@@ -32,7 +32,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-public final class HeadCache {
+public final class HeadCache implements SkinMemory {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String TEXTURES = "textures";
@@ -40,29 +40,30 @@ public final class HeadCache {
     private static final int MAX_PROFILES = 512;
     private static final long SAVE_DELAY_MS = 5000;
 
-    private static HeadCache instance = new HeadCache();
-
     public record Profile(UUID id, String name, String textures, String signature) {
     }
 
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
     private final Map<String, PlayerSkin> loaded = new HashMap<>();
     private final Set<String> requested = new HashSet<>();
-    private Path file;
+    private final Path file;
     private boolean dirty;
     private long changedAt;
 
-    public static HeadCache get() {
-        return instance;
+    /** Кеш только в памяти, без файла (тесты). */
+    public HeadCache() {
+        this(null);
     }
 
-    public static void init() {
-        HeadCache cache = new HeadCache();
-        cache.file = FabricLoader.getInstance().getConfigDir().resolve(AFriends.MOD_ID).resolve("heads.json");
-        cache.load();
-        instance = cache;
+    public HeadCache(Path file) {
+        this.file = file;
     }
 
+    public static Path defaultFile() {
+        return FabricLoader.getInstance().getConfigDir().resolve(AFriends.MOD_ID).resolve("heads.json");
+    }
+
+    @Override
     public void remember(PlayerInfo info) {
         GameProfile profile = info.getProfile();
         Property textures = profile.properties().get(TEXTURES).stream().findFirst().orElse(null);
@@ -92,6 +93,7 @@ public final class HeadCache {
         return profiles.get(key(name));
     }
 
+    @Override
     public PlayerSkin skin(String name) {
         String key = key(name);
         PlayerSkin skin = loaded.get(key);
@@ -141,7 +143,7 @@ public final class HeadCache {
         }
     }
 
-    private void load() {
+    public void load() {
         if (file == null || !Files.exists(file)) {
             return;
         }

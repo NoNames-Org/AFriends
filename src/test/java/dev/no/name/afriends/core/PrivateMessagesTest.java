@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -87,7 +88,8 @@ class PrivateMessagesTest {
         assertFalse(messages.isPinned("Bob"), "в архиве закрепа нет");
         assertEquals(1, messages.archivedUnread());
 
-        PrivateMessages loaded = new PrivateMessages();
+        AtomicBoolean bobMuted = new AtomicBoolean();
+        PrivateMessages loaded = new PrivateMessages(MessageEvents.NONE, chat -> bobMuted.get() && chat.equalsIgnoreCase("bob"));
         loaded.fromJson(messages.toJson());
         assertTrue(loaded.isArchived("BOB"));
 
@@ -95,7 +97,7 @@ class PrivateMessagesTest {
         assertFalse(loaded.isArchived("Bob"), "новое сообщение возвращает чат из архива");
 
         loaded.toggleArchived("Bob");
-        loaded.setStaysArchived(chat -> chat.equalsIgnoreCase("bob"));
+        bobMuted.set(true);
         loaded.add("Bob", new PrivateMessage(false, "ещё", 4));
         assertTrue(loaded.isArchived("Bob"), "заглушённый остаётся в архиве");
 

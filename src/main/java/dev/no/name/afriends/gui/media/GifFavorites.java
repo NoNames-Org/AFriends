@@ -24,7 +24,6 @@ import java.util.regex.Pattern;
  */
 public final class GifFavorites {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
-    private static final GifFavorites INSTANCE = new GifFavorites();
     private static final int LIMIT = 200;
     private static final Pattern SHA = Pattern.compile("[0-9a-f]{64}");
 
@@ -35,14 +34,10 @@ public final class GifFavorites {
     private final Path listFile;
     private List<String> shas;
 
-    private GifFavorites() {
+    public GifFavorites() {
         Path root = FabricLoader.getInstance().getConfigDir().resolve(AFriends.MOD_ID);
         dir = root.resolve("favorites");
         listFile = root.resolve("gif-favorites.json");
-    }
-
-    public static GifFavorites get() {
-        return INSTANCE;
     }
 
     public List<Gif> all() {

@@ -1,12 +1,11 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageFormat;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.PrivateMessage;
 import dev.no.name.afriends.gui.Theme;
-import dev.no.name.afriends.gui.media.VoiceClips;
 import dev.no.name.afriends.gui.render.Draw;
 import dev.no.name.afriends.gui.render.icon.Icon;
 import dev.no.name.afriends.gui.render.text.TextStyle;
@@ -133,7 +132,7 @@ final class ProfileMedia {
         return rows * (cell() + GAP);
     }
 
-    void draw(Gfx g, MessageRoute route, int mouseX, int mouseY) {
+    void draw(Gfx g, ChatMedia media, int mouseX, int mouseY) {
         search.render(g, mouseX, mouseY);
         hits.clear();
         List<Item> shown = shown();
@@ -150,15 +149,15 @@ final class ProfileMedia {
         long now = System.currentTimeMillis();
         for (int i = 0; i < shown.size(); i++) {
             if (kind == Kind.MEDIA) {
-                drawCell(g, route, shown.get(i), i, top, bottom, now, mouseX, mouseY);
+                drawCell(g, media, shown.get(i), i, top, bottom, now, mouseX, mouseY);
             } else {
-                drawVoice(g, route, shown.get(i), i, top, bottom, mouseX, mouseY);
+                drawVoice(g, media, shown.get(i), i, top, bottom, mouseX, mouseY);
             }
         }
         g.disableScissor();
     }
 
-    private void drawCell(Gfx g, MessageRoute route, Item item, int index, float top, float bottom, long now, int mouseX, int mouseY) {
+    private void drawCell(Gfx g, ChatMedia media, Item item, int index, float top, float bottom, long now, int mouseX, int mouseY) {
         float cell = cell();
         float cellX = x + (index % COLUMNS) * (cell + GAP);
         float cellY = top + (index / COLUMNS) * (cell + GAP) - scroll;
@@ -170,7 +169,7 @@ final class ProfileMedia {
         float ratio = Math.max(1, image.width()) / (float) Math.max(1, image.height());
         float w = ratio >= 1 ? cell : cell * ratio;
         float h = ratio >= 1 ? cell / ratio : cell;
-        ImageBubble.draw(g, image, route, Math.round(cellX + (cell - w) / 2), Math.round(cellY + (cell - h) / 2),
+        ImageBubble.draw(g, image, media, Math.round(cellX + (cell - w) / 2), Math.round(cellY + (cell - h) / 2),
                 Math.round(w), Math.round(h), now);
         float gotoX = -1;
         float gotoY = cellY + 3;
@@ -182,7 +181,7 @@ final class ProfileMedia {
         hits.add(new Hit(image, item.messageKey(), cellX, cellY, cell, cell, gotoX, gotoY));
     }
 
-    private void drawVoice(Gfx g, MessageRoute route, Item item, int index, float top, float bottom, int mouseX, int mouseY) {
+    private void drawVoice(Gfx g, ChatMedia media, Item item, int index, float top, float bottom, int mouseX, int mouseY) {
         float rowY = top + index * VOICE_ROW - scroll;
         if (rowY + VOICE_ROW < top || rowY > bottom) {
             return;
@@ -191,7 +190,7 @@ final class ProfileMedia {
         if (hovered) {
             Draw.roundedRect(g, x, rowY, width, VOICE_ROW - 2, Theme.RADIUS, Theme.CARD_HOVER);
         }
-        VoiceBlock.draw(g, item.image(), route, x + 4, rowY + 3, Theme.TEXT);
+        VoiceBlock.draw(g, item.image(), media, x + 4, rowY + 3, Theme.TEXT);
         float textX = x + 4 + VoiceBlock.WIDTH + 8;
         int textWidth = (int) (x + width - 4 - textX);
         Draw.text(g, Draw.trim(item.author(), textWidth), textX, rowY + 5, Theme.TEXT, TextStyle.BODY_MEDIUM);
@@ -213,7 +212,7 @@ final class ProfileMedia {
     }
 
     // картинка, по которой кликнули (её открыть крупно), или переход к сообщению; голосовое играет само. null — мимо
-    Click click(double mouseX, double mouseY, MessageRoute route) {
+    Click click(double mouseX, double mouseY, ChatMedia media) {
         if (search.mouseClicked(mouseX, mouseY, Widget.LEFT_BUTTON)) {
             return null;
         }
@@ -229,7 +228,7 @@ final class ProfileMedia {
                 return new Click(null, hit.messageKey());
             }
             if (kind == Kind.VOICE) {
-                VoiceClips.toggle(hit.image(), route);
+                media.toggleVoice(hit.image());
                 UiSounds.play(UiSound.CLICK);
                 return null;
             }

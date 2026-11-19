@@ -12,10 +12,10 @@ public final class Hud {
     private Hud() {
     }
 
-    public static void init() {
+    public static void init(MessageToasts toasts) {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(AFriends.MOD_ID, "toasts"), (extractor, delta) -> {
             Window window = Minecraft.getInstance().getWindow();
-            MessageToasts.get().render(new Gfx(extractor), window.getGuiScaledWidth(), window.getGuiScale(),
+            toasts.render(new Gfx(extractor), window.getGuiScaledWidth(), window.getGuiScale(),
                     System.currentTimeMillis());
         });
     }

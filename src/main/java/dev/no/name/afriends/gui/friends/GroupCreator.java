@@ -1,5 +1,6 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.GroupChats;
@@ -47,6 +48,7 @@ final class GroupCreator {
     // done получает ключ новой группы и её название
     private final BiConsumer<String, String> done;
     private final Consumer<String> warn;
+    private final ChatMedia chatMedia;
     private GroupChats groups;
     private List<String> friends = List.of();
     private Path photo;
@@ -58,7 +60,8 @@ final class GroupCreator {
     private int areaWidth;
     private int areaHeight;
 
-    GroupCreator(BiConsumer<String, String> done, Consumer<String> warn) {
+    GroupCreator(ChatMedia chatMedia, BiConsumer<String, String> done, Consumer<String> warn) {
+        this.chatMedia = chatMedia;
         this.done = done;
         this.warn = warn;
     }
@@ -161,7 +164,7 @@ final class GroupCreator {
         float photoX = photoX();
         float photoY = photoY();
         boolean hover = PanelKit.inside(mouseX, mouseY, photoX, photoY, PHOTO, PHOTO);
-        if (photo != null && PanelKit.filePreview(g, photo, photoX, photoY, PHOTO)) {
+        if (photo != null && PanelKit.filePreview(g, chatMedia, photo, photoX, photoY, PHOTO)) {
             return;
         }
         Draw.roundedRect(g, photoX, photoY, PHOTO, PHOTO, PHOTO / 2f, hover ? PanelKit.GROUP_COLOR : Theme.TILE_ON);

@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -35,28 +36,41 @@ public final class SocialData {
     private final Map<String, Scope> unowned = new LinkedHashMap<>();
 
     private Scope legacy;
-    private Runnable onMessagesChange = () -> { };
-    private Predicate<String> staysArchived = chat -> false;
+    private final SkinMemory skins;
+    // какие чаты не возвращаются из архива новым сообщением (заглушённые)
+    private final Predicate<String> staysArchived;
+    private final List<MessageEvents> listeners = new CopyOnWriteArrayList<>();
+    // общий для всех scope: переписка любого аккаунта и сервера сообщает подписчикам SocialData
+    private final MessageEvents events = new MessageEvents() {
+        @Override
+        public void changed() {
+            listeners.forEach(MessageEvents::changed);
+        }
 
-    public SocialData() {
-        this(AccountScope::current, ServerScope::current);
+        @Override
+        public void incoming(String chat) {
+            listeners.forEach(listener -> listener.incoming(chat));
+        }
+    };
+
+    public SocialData(SkinMemory skins, Predicate<String> staysArchived) {
+        this(AccountScope::current, ServerScope::current, skins, staysArchived);
     }
 
     // account и server — откуда брать текущий аккаунт и сервер (в тестах — свои)
     public SocialData(Supplier<String> account, Supplier<String> server) {
+        this(account, server, SkinMemory.NONE, chat -> false);
+    }
+
+    public SocialData(Supplier<String> account, Supplier<String> server, SkinMemory skins, Predicate<String> staysArchived) {
         this.account = account;
         this.server = server;
+        this.skins = skins;
+        this.staysArchived = staysArchived;
     }
 
-    public void setOnMessagesChange(Runnable listener) {
-        onMessagesChange = listener;
-        everyScope().forEach(scope -> scope.messages().setOnChange(listener));
-    }
-
-    // какие чаты не возвращаются из архива новым сообщением (заглушённые)
-    public void setStaysArchived(Predicate<String> rule) {
-        staysArchived = rule;
-        everyScope().forEach(scope -> scope.messages().setStaysArchived(rule));
+    public void addListener(MessageEvents listener) {
+        listeners.add(listener);
     }
 
     public Scope current() {
@@ -169,7 +183,7 @@ public final class SocialData {
         }
         unowned.forEach((serverKey, scope) -> scopes.putIfAbsent(owner + SEPARATOR + serverKey, scope));
         unowned.clear();
-        onMessagesChange.run();
+        events.changed();
     }
 
     private Scope scope(String key) {
@@ -181,17 +195,14 @@ public final class SocialData {
         Scope created = legacy != null && !menu ? legacy : newScope();
         if (created == legacy) {
             legacy = null;
-            onMessagesChange.run();
+            events.changed();
         }
         scopes.put(key, created);
         return created;
     }
 
     private Scope newScope() {
-        Scope scope = new Scope(new FriendManager(), new IgnoreList(), new PrivateMessages());
-        scope.messages().setOnChange(onMessagesChange);
-        scope.messages().setStaysArchived(staysArchived);
-        return scope;
+        return new Scope(new FriendManager(skins), new IgnoreList(), new PrivateMessages(events, staysArchived));
     }
 
     private Scope legacyScope() {

@@ -1,11 +1,11 @@
 package dev.no.name.afriends.net.game;
 
+import dev.no.name.afriends.addon.SendPolicy;
 import dev.no.name.afriends.net.model.LinkGroup;
 import dev.no.name.afriends.core.voice.VoiceClip;
 import dev.no.name.afriends.core.ProfileRoute;
 import dev.no.name.afriends.core.FriendManager;
 import dev.no.name.afriends.core.GroupChats;
-import dev.no.name.afriends.addon.Addons;
 import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.MessageImage;
 import dev.no.name.afriends.core.MessageReply;
@@ -43,10 +43,13 @@ public final class DirectMessages implements MessageRoute {
     private final GroupRoute groups;
     private final NetworkProfile profile;
     private final ReceiptSender receipts;
+    // аддоны могут запретить /msg (например, на сервере с антиспамом)
+    private final SendPolicy sendPolicy;
 
-    DirectMessages(SocialData social, LinkService link) {
+    DirectMessages(SocialData social, LinkService link, SendPolicy sendPolicy) {
         this.social = social;
         this.link = link;
+        this.sendPolicy = sendPolicy;
         this.official = new OfficialRoute(social, link);
         this.notes = new NotesRoute(social, link.media());
         this.groups = new GroupRoute(social, link);
@@ -151,7 +154,7 @@ public final class DirectMessages implements MessageRoute {
         // через /msg сервера пометку не передать — она строкой в начале; переводы строк /msg не держит
         String shown = forwardedFrom == null ? text : MessageRoute.forwardedPrefix(forwardedFrom).replace("\n", " ") + text;
         String command = "msg " + partner + " " + shown.replace('\n', ' ');
-        Optional<String> problem = Addons.get().sendProblem(partner, command);
+        Optional<String> problem = sendPolicy.sendProblem(partner, command);
         if (problem.isEmpty()) {
             connection.sendCommand(command);
         }

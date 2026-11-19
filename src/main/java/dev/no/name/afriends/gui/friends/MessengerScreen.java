@@ -1,20 +1,19 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.addon.AddonRegistry;
+import dev.no.name.afriends.gui.media.ChatMedia;
+import dev.no.name.afriends.gui.UiServices;
 import dev.no.name.afriends.core.MessageContent;
 import dev.no.name.afriends.core.MessageFormat;
 import dev.no.name.afriends.core.voice.VoiceClip;
-import dev.no.name.afriends.gui.media.GifFavorites;
-import dev.no.name.afriends.gui.media.VoiceClips;
 import dev.no.name.afriends.core.GroupChats;
 import dev.no.name.afriends.core.GroupPermissions;
-import dev.no.name.afriends.gui.media.VoicePlayer;
 import dev.no.name.afriends.net.announcements.AnnouncementPoll;
 import dev.no.name.afriends.core.NotifySettings;
 import dev.no.name.afriends.gui.widget.ConfirmBox;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import dev.no.name.afriends.net.announcements.AnnouncementFeed;
-import dev.no.name.afriends.addon.Addons;
 import dev.no.name.afriends.api.ComposeAction;
 import dev.no.name.afriends.api.FriendAction;
 import dev.no.name.afriends.api.MessageCard;
@@ -130,7 +129,7 @@ public class MessengerScreen extends ScreenBase {
     };
 
     public record Context(FriendManager friends, PrivateMessages messages, IgnoreList ignored,
-                          MessageRoute route, Runnable save, NotifySettings alerts) {
+                          MessageRoute route, Runnable save, NotifySettings alerts, UiServices ui) {
     }
 
     private record Pending(String partner, String text, long sentAt, MessageReply reply) {
@@ -149,6 +148,11 @@ public class MessengerScreen extends ScreenBase {
 
     private final Context context;
     private final PrivateMessages messages;
+    private final UiServices ui;
+    private final AddonRegistry addons;
+    private final AnnouncementFeed announcements;
+    private final ChatMedia chatMedia;
+    private final BubbleContext bubbleContext;
     private final List<Pending> pending = new ArrayList<>();
 
     private final Map<Integer, Long> appearAt = new HashMap<>();
@@ -163,7 +167,7 @@ public class MessengerScreen extends ScreenBase {
     private final ChatMenu menu = new ChatMenu();
     private final GroupEditor groupEditor = new GroupEditor(new GroupHost());
     private final PollComposer pollComposer = new PollComposer(this::sendPoll);
-    private final GroupCreator groupCreator = new GroupCreator(this::groupCreated, this::warn);
+    private final GroupCreator groupCreator;
     private final ProfilePanel profilePanel;
     private final MessengerSettingsPanel settingsPanel;
     private final VoiceStrip voiceStrip = new VoiceStrip(this::sendVoice, this::warn);
@@ -186,8 +190,8 @@ public class MessengerScreen extends ScreenBase {
     private long highlightAt;
     private final ImageViewer viewer = new ImageViewer();
     private final MediaActions media;
-    private final AttachmentStrip attachment = new AttachmentStrip();
-    private final GifPicker gifPicker = new GifPicker();
+    private final AttachmentStrip attachment;
+    private final GifPicker gifPicker;
     private final ForwardPicker forwardPicker = new ForwardPicker();
     private final Forwarder forwarder;
     // почему сообщение не ушло: подпись над полем ввода
@@ -215,13 +219,21 @@ public class MessengerScreen extends ScreenBase {
         super(Component.literal("Сообщения"));
         this.context = context;
         this.messages = context.messages();
-        this.media = new MediaActions(context.route(), this::warn, this::warnInfo);
+        this.ui = context.ui();
+        this.addons = ui.addons();
+        this.announcements = ui.announcements();
+        this.chatMedia = ui.media(context.route());
+        this.bubbleContext = new BubbleContext(chatMedia, addons, announcements, messages::receipt, this::authorPrefix);
+        this.groupCreator = new GroupCreator(chatMedia, this::groupCreated, this::warn);
+        this.attachment = new AttachmentStrip(ui.images());
+        this.gifPicker = new GifPicker(ui.gifs(), ui.images());
+        this.media = new MediaActions(context.route(), ui.gifs(), this::warn, this::warnInfo);
         this.forwarder = new Forwarder(context.route(), this::warn, this::warnInfo);
         this.actions = new MessageActions(context.route(), messages, media, this::warn, this::warnInfo, new ActionsHost());
         this.settingsPanel = new MessengerSettingsPanel(context.alerts(),
                 new ProfileSettingsHost(context.route(), this::warn));
-        this.profilePanel = new ProfilePanel(context.route(), messages, context.friends()::skinOf, new ProfileHost());
-        AnnouncementFeed.get().refresh();
+        this.profilePanel = new ProfilePanel(context.route(), chatMedia, messages, context.friends()::skinOf, new ProfileHost());
+        announcements.refresh();
         input = new TextFieldWidget(null, "Написать сообщение…").withMaxLength(MAX_TEXT).withoutFrame().withMultiline();
         int barY = HEIGHT - PAD - INPUT_HEIGHT;
         // скрепка — слева внутри полосы: выбранная картинка встаёт над полем и уйдёт вместе с текстом
@@ -232,7 +244,7 @@ public class MessengerScreen extends ScreenBase {
         attach.setBounds(BAR_X + 2, barY, BAR_ICON, INPUT_HEIGHT);
         composer.addChild(attach);
         // справа внутри полосы: кнопки дополнений и избранные гифки
-        List<ComposeAction> actions = Addons.get().composeActions();
+        List<ComposeAction> actions = addons.composeActions();
         int icons = actions.size() + 2;
         int iconsX = BAR_X + BAR_WIDTH - 2 - icons * BAR_ICON;
         for (int i = 0; i < actions.size(); i++) {
@@ -346,8 +358,8 @@ public class MessengerScreen extends ScreenBase {
         return ANNOUNCEMENTS.equals(entry) ? announcementList().getLast() : messages.last(entry);
     }
 
-    private static List<PrivateMessage> announcementList() {
-        List<PrivateMessage> loaded = AnnouncementFeed.get().messages();
+    private List<PrivateMessage> announcementList() {
+        List<PrivateMessage> loaded = announcements.messages();
         return loaded.isEmpty() ? ANNOUNCEMENTS_EMPTY : loaded;
     }
 
@@ -522,10 +534,8 @@ public class MessengerScreen extends ScreenBase {
         Draw.rect(g, CHAT_X, 1, 1, HEIGHT - 2, Theme.BORDER);
 
         // пока окно открыто, объявления подтягиваются сами (запрос не чаще раза в 15 секунд)
-        AnnouncementFeed.get().refresh();
+        announcements.refresh();
         updateComposerLayout();
-        MessageBubbles.setReceipts(messages::receipt);
-        MessageBubbles.setPrefixes(this::authorPrefix);
         drawRail(g, hoverX, canvasY);
         drawList(g, hoverX, canvasY);
         drawChat(g);
@@ -551,7 +561,7 @@ public class MessengerScreen extends ScreenBase {
         profilePanel.draw(g, canvasX, canvasY);
         if (viewer.isOpen()) {
             g.nextStratum();
-            viewer.draw(g, context.route(), WIDTH, HEIGHT, canvasX, canvasY);
+            viewer.draw(g, chatMedia, WIDTH, HEIGHT, canvasX, canvasY);
         }
         if (confirmBox.isOpen()) {
             g.nextStratum();
@@ -723,8 +733,7 @@ public class MessengerScreen extends ScreenBase {
     }
 
     // текст в списке чатов: скрыт для стримера, у карточки дополнения — её заголовок
-    private static String previewText(String entry, PrivateMessage last) {
-        Addons addons = Addons.get();
+    private String previewText(String entry, PrivateMessage last) {
         if (addons.hideMessages()) {
             return "Скрыто";
         }
@@ -755,7 +764,7 @@ public class MessengerScreen extends ScreenBase {
             drawGroupTile(g, entry, x, y, size);
         } else {
             drawFace(g, context.friends().skinOf(entry), (int) x, (int) y, size);
-            if (OnlineDot.isOnline(entry)) {
+            if (OnlineDot.isOnline(addons, entry)) {
                 OnlineDot.draw(g, x, y, size);
             }
         }
@@ -763,7 +772,7 @@ public class MessengerScreen extends ScreenBase {
 
     // аватарка группы, а пока её нет — синий кружок со значком
     private void drawGroupTile(Gfx g, String chat, float x, float y, int size) {
-        PanelKit.groupTile(g, messages.avatar(chat), context.route(), x, y, size);
+        PanelKit.groupTile(g, messages.avatar(chat), chatMedia, x, y, size);
     }
 
     private static void drawOfficialTile(Gfx g, float x, float y, int size) {
@@ -949,7 +958,7 @@ public class MessengerScreen extends ScreenBase {
             status = network != null ? network : "Групповой чат";
         } else {
             drawFace(g, context.friends().skinOf(partner), faceX, faceY, HEADER_FACE);
-            if (OnlineDot.isOnline(partner)) {
+            if (OnlineDot.isOnline(addons, partner)) {
                 OnlineDot.draw(g, faceX, faceY, HEADER_FACE);
             }
             title = messages.displayName(partner);
@@ -993,7 +1002,7 @@ public class MessengerScreen extends ScreenBase {
         // при выделении слева кружки: входящие сдвигаются вправо
         float left = CHAT_X + PAD + (selection.isActive() ? Selection.GUTTER : 0);
         float right = WIDTH - PAD;
-        List<Row> rows = buildRows(shown, right - left, loaded.size(), partner);
+        List<Row> rows = buildRows(bubbleContext, shown, right - left, loaded.size(), partner);
         cardButtons.clear();
         drawn.clear();
         float content = 0;
@@ -1026,7 +1035,7 @@ public class MessengerScreen extends ScreenBase {
                     long start = isPending ? item.sentAt() : appearAt.getOrDefault(from + row.index(), 0L);
                     MessageBubbles.Stamp stamp = !isPending ? MessageBubbles.Stamp.TIME
                             : isFailed(item) ? MessageBubbles.Stamp.FAILED : MessageBubbles.Stamp.PENDING;
-                    MessageBubbles.Drawn bubble = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now, context.route());
+                    MessageBubbles.Drawn bubble = drawAnimated(g, row.bubble(), left, right, y, start, stamp, now, bubbleContext);
                     if (bubble.card() != null && y >= top && y + row.height() <= bottom) {
                         cardButtons.add(bubble.card());
                     }
@@ -1086,8 +1095,8 @@ public class MessengerScreen extends ScreenBase {
         }
     }
 
-    private static List<Row> buildRows(List<PrivateMessage> shown, float areaWidth, int firstPending, String partner) {
-        List<MessageBubbles.Bubble> bubbles = MessageBubbles.layout(shown, areaWidth, firstPending, partner);
+    private static List<Row> buildRows(BubbleContext ctx, List<PrivateMessage> shown, float areaWidth, int firstPending, String partner) {
+        List<MessageBubbles.Bubble> bubbles = MessageBubbles.layout(ctx, shown, areaWidth, firstPending, partner);
         List<Row> rows = new ArrayList<>();
         LocalDate previous = null;
         for (int i = 0; i < bubbles.size(); i++) {
@@ -1159,7 +1168,7 @@ public class MessengerScreen extends ScreenBase {
 
     private static MessageBubbles.Drawn drawAnimated(Gfx g, MessageBubbles.Bubble bubble, float left, float right,
                                                      float y, long start, MessageBubbles.Stamp stamp, long now,
-                                                     MessageRoute route) {
+                                                     BubbleContext ctx) {
         float progress = start == 0 ? 1 : Math.min(1, (now - start) / (float) APPEAR_MS);
         float eased = Easing.outCubic(progress);
         float alpha = eased * (stamp == MessageBubbles.Stamp.TIME ? 1 : PENDING_ALPHA);
@@ -1170,7 +1179,7 @@ public class MessengerScreen extends ScreenBase {
         float slideX = bubble.message().fromMe() ? (1 - eased) * SLIDE_X : 0;
         Draw.pushAlpha(alpha);
         Draw.pushOffset(g, slideX, (1 - eased) * SLIDE_Y);
-        MessageBubbles.Drawn drawnBubble = MessageBubbles.draw(g, bubble, left, right, y, stamp, route);
+        MessageBubbles.Drawn drawnBubble = MessageBubbles.draw(g, bubble, left, right, y, stamp, ctx);
         Draw.popOffset(g);
         Draw.popAlpha();
         return drawnBubble;
@@ -1228,7 +1237,6 @@ public class MessengerScreen extends ScreenBase {
         if (partner == null) {
             return;
         }
-        Addons addons = Addons.get();
         List<ChatMenu.Item> items = new ArrayList<>();
         for (ComposeAction.Option option : addons.guard("composeAction", () -> action.options(partner), List.<ComposeAction.Option>of())) {
             items.add(new ChatMenu.Item(option.icon(), option.label(), false, () -> sendText(option.text())));
@@ -1280,9 +1288,9 @@ public class MessengerScreen extends ScreenBase {
                 friend, () -> {
                     if (friend) {
                         friends.remove(name);
-                        Addons.get().removed(name);
+                        addons.removed(name);
                     } else if (friends.add(name) == FriendManager.AddResult.ADDED) {
-                        Addons.get().added(name, this::warnInfo);
+                        addons.added(name, this::warnInfo);
                     }
                     context.save().run();
                 }));
@@ -1312,8 +1320,7 @@ public class MessengerScreen extends ScreenBase {
     }
 
     // пункты аддонов из меню друга — и в меню переписки с ним (например, «Позвать в пати»)
-    private static void addonItems(String name, List<ChatMenu.Item> items) {
-        Addons addons = Addons.get();
+    private void addonItems(String name, List<ChatMenu.Item> items) {
         for (FriendAction action : addons.actions()) {
             if (addons.guard("friendAction", () -> action.visible().test(name), false)) {
                 items.add(new ChatMenu.Item(addons.guard("friendAction", action::icon, Icon.CUBE),
@@ -1648,7 +1655,7 @@ public class MessengerScreen extends ScreenBase {
                 return true;
             }
             if (bubble.voice() != null && bubble.voice().contains(x, y)) {
-                VoiceClips.toggle(bubble.voice().voice(), context.route());
+                chatMedia.toggleVoice(bubble.voice().voice());
                 UiSounds.play(UiSound.CLICK);
                 return true;
             }
@@ -1695,12 +1702,12 @@ public class MessengerScreen extends ScreenBase {
         if (!(option.poll() instanceof AnnouncementPoll poll)) {
             return;
         }
-        AnnouncementFeed.get().votes().vote(poll, choice, fresh -> minecraft.execute(() -> {
+        announcements.votes().vote(poll, choice, fresh -> minecraft.execute(() -> {
             if (fresh == null) {
                 warn("Голос не ушёл: нужна сеть друзей AFriends");
                 return;
             }
-            AnnouncementFeed.get().replacePoll(fresh);
+            announcements.replacePoll(fresh);
         }));
     }
 
@@ -1840,7 +1847,7 @@ public class MessengerScreen extends ScreenBase {
                 }
             }
             case GifPicker.Remove remove -> {
-                GifFavorites.get().remove(remove.gif().sha256());
+                ui.gifs().remove(remove.gif().sha256());
                 warnInfo("Гифка убрана из избранного");
             }
             case GifPicker.Inside inside -> { }
@@ -1873,7 +1880,7 @@ public class MessengerScreen extends ScreenBase {
     private boolean clickCard(double x, double y) {
         for (MessageBubbles.CardButton button : cardButtons) {
             if (button.contains(x, y)) {
-                Addons.get().run("messageCard", button.card().action());
+                addons.run("messageCard", button.card().action());
                 UiSounds.play(UiSound.SELECT);
                 return true;
             }
@@ -2054,7 +2061,7 @@ public class MessengerScreen extends ScreenBase {
     @Override
     public void removed() {
         voiceStrip.cancel();
-        VoicePlayer.get().stop();
+        chatMedia.player().stop();
         messages.setDraft(partner, input.getText());
         messages.close();
         MenuBlur.cancel();

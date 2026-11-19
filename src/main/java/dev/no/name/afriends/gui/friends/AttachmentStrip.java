@@ -21,10 +21,15 @@ final class AttachmentStrip {
     static final int HEIGHT = 26;
     private static final int THUMB = 22;
 
+    private final ImageTextures images;
     private Path file;
     private long size;
     private float closeX;
     private float closeY;
+
+    AttachmentStrip(ImageTextures images) {
+        this.images = images;
+    }
 
     boolean isStaged() {
         return file != null;
@@ -52,8 +57,8 @@ final class AttachmentStrip {
             return;
         }
         Draw.box(g, x, y, width, HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
-        boolean animated = file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gif");
-        ImageTextures.Entry entry = ImageTextures.get().file(file, animated);
+        boolean animated = ImageTextures.isGif(file);
+        ImageTextures.Entry entry = images.file(file, animated);
         Identifier texture = entry.state() == ImageTextures.State.READY ? entry.texture(System.currentTimeMillis()) : null;
         float thumbX = x + 2;
         float thumbY = y + 2;

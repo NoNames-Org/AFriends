@@ -4,7 +4,6 @@ import dev.no.name.afriends.gui.render.FormattedText;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageContent;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.PrivateMessage;
 import dev.no.name.afriends.gui.render.Draw;
 import dev.no.name.afriends.gui.render.text.TextStyle;
@@ -76,7 +75,7 @@ final class RichBubble {
     }
 
     // рисует части и возвращает, где картинки
-    static List<ImageHit> draw(Gfx g, Layout layout, MessageRoute route, float x, float top, float width,
+    static List<ImageHit> draw(Gfx g, Layout layout, BubbleContext ctx, float x, float top, float width,
                                String time, int textColor, int timeColor, PrivateMessage ticksFor) {
         List<ImageHit> hits = new ArrayList<>();
         float y = top;
@@ -87,12 +86,12 @@ final class RichBubble {
             y += i == 0 ? edge(part) : PART_GAP;
             if (part.block() instanceof MessageContent.Image image) {
                 float imageX = x + (width - part.width()) / 2;
-                ImageBubble.draw(g, image.image(), route, imageX, y, part.width(), part.height(), now);
+                ImageBubble.draw(g, image.image(), ctx.media(), imageX, y, part.width(), part.height(), now);
                 hits.add(new ImageHit(image.image(), imageX, y, part.width(), part.height()));
                 if (i == parts.size() - 1) {
                     ImageBubble.drawTime(g, time, imageX + part.width(), y + part.height());
                     if (ticksFor != null) {
-                        MessageBubbles.drawTicks(g, ticksFor, imageX + part.width() - 6, y + part.height() - 10.5f, 0xFFFFFFFF);
+                        MessageBubbles.drawTicks(g, ctx, ticksFor, imageX + part.width() - 6, y + part.height() - 10.5f, 0xFFFFFFFF);
                     }
                 }
             } else {
@@ -102,7 +101,7 @@ final class RichBubble {
                     float timeY = layout.timeInline() ? FormattedText.timeY(part.lines(), lineY) : lineY;
                     Draw.text(g, time, timeX, timeY, timeColor, TextStyle.SMALL);
                     if (ticksFor != null) {
-                        MessageBubbles.drawTicks(g, ticksFor, x + width - PADDING_X, timeY, timeColor);
+                        MessageBubbles.drawTicks(g, ctx, ticksFor, x + width - PADDING_X, timeY, timeColor);
                     }
                 }
             }

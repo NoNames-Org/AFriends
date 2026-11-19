@@ -30,7 +30,16 @@ public final class FriendManager {
     private final List<Friend> friends = new ArrayList<>();
 
     private final Map<String, PlayerSkin> skins = new HashMap<>();
+    private final SkinMemory memory;
     private int tickCounter;
+
+    public FriendManager() {
+        this(SkinMemory.NONE);
+    }
+
+    public FriendManager(SkinMemory memory) {
+        this.memory = memory;
+    }
 
     public AddResult add(String name) {
         if (!NAME.matcher(name).matches()) {
@@ -67,7 +76,7 @@ public final class FriendManager {
 
     public PlayerSkin skinOf(String name) {
         PlayerSkin skin = skins.get(key(name));
-        return skin != null ? skin : HeadCache.get().skin(name);
+        return skin != null ? skin : memory.skin(name);
     }
 
     public List<Friend> sorted() {
@@ -94,8 +103,7 @@ public final class FriendManager {
         }
         for (PlayerInfo info : connection.getOnlinePlayers()) {
             skins.put(key(info.getProfile().name()), info.getSkin());
-
-            HeadCache.get().remember(info);
+            memory.remember(info);
         }
     }
 

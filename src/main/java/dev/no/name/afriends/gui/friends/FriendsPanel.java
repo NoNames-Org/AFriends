@@ -1,7 +1,7 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.addon.AddonRegistry;
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.no.name.afriends.addon.Addons;
 import dev.no.name.afriends.api.FriendStatus;
 import dev.no.name.afriends.api.ProfileStatus;
 import dev.no.name.afriends.compat.Gfx;
@@ -56,6 +56,7 @@ public class FriendsPanel extends WidgetBase {
     private final IgnoreList ignored;
     private final FriendsState state;
     private final Runnable save;
+    private final AddonRegistry addons;
     private final int panelWidth;
     private final TextFieldWidget field = new TextFieldWidget(Icon.SEARCH, "Ник игрока").withMaxLength(NAME_LENGTH);
     // свой статус от дополнения: поле появляется по клику на строку под ником в шапке
@@ -72,7 +73,7 @@ public class FriendsPanel extends WidgetBase {
     private long noticeAt;
 
     public FriendsPanel(int x, int y, int width, int height, FriendManager friends, PrivateMessages messages,
-                        IgnoreList ignored, FriendsState state, Runnable save) {
+                        IgnoreList ignored, FriendsState state, Runnable save, AddonRegistry addons) {
         super(x, y, width, height, Component.literal("Список друзей"));
         this.panelWidth = width;
         this.friends = friends;
@@ -80,6 +81,7 @@ public class FriendsPanel extends WidgetBase {
         this.ignored = ignored;
         this.state = state;
         this.save = save;
+        this.addons = addons;
     }
 
     @Override
@@ -118,7 +120,7 @@ public class FriendsPanel extends WidgetBase {
         String name = self == null ? "—" : self.getGameProfile().name();
         Draw.text(g, Draw.trim(name, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 13, Theme.TEXT,
                 TextStyle.BODY_MEDIUM);
-        ProfileStatus profile = Addons.get().profile();
+        ProfileStatus profile = addons.profile();
         if (profile == null) {
             editingStatus = false;
             Draw.text(g, "Твой профиль", textX, getY() + 25, Theme.TEXT_DIM, TextStyle.SMALL);
@@ -126,7 +128,7 @@ public class FriendsPanel extends WidgetBase {
             statusField.setBounds((int) textX - 2, getY() + 21, (int) (getX() + panelWidth - PADDING - textX + 2), 14);
             statusField.render(g, -1000, -1000);
         } else {
-            String status = Addons.get().guard("profileStatus", profile::get, "");
+            String status = addons.guard("profileStatus", profile::get, "");
             String shown = status.isEmpty() ? "Нажми, чтобы задать статус" : "«" + status + "»";
             Draw.text(g, Draw.trim(shown, (int) (getX() + panelWidth - PADDING - textX), TextStyle.SMALL), textX, getY() + 25,
                     status.isEmpty() ? Theme.TEXT_FAINT : Theme.TEXT_DIM, TextStyle.SMALL);
@@ -179,7 +181,7 @@ public class FriendsPanel extends WidgetBase {
                 field.setText("");
                 notify(name + " добавлен в друзья", SUCCESS);
                 UiSounds.play(UiSound.SELECT);
-                Addons.get().added(name, text -> notify(text, SUCCESS));
+                addons.added(name, text -> notify(text, SUCCESS));
             }
             case ALREADY -> notify(name + " уже в друзьях", Theme.TEXT_SOFT);
             case SELF -> notify("Себя добавить нельзя", Theme.DANGER);
@@ -202,14 +204,14 @@ public class FriendsPanel extends WidgetBase {
     }
 
     // заявки от дополнений, по поиску
-    private List<Addons.Request> requests() {
+    private List<AddonRegistry.Request> requests() {
         String query = field.getText().strip().toLowerCase(Locale.ROOT);
-        return Addons.get().requests().stream()
+        return addons.requests().stream()
                 .filter(request -> query.isEmpty() || request.name().toLowerCase(Locale.ROOT).contains(query)).toList();
     }
 
-    private static boolean online(Friend friend) {
-        return OnlineDot.isOnline(friend.name());
+    private boolean online(Friend friend) {
+        return OnlineDot.isOnline(addons, friend.name());
     }
 
     private int listTop() {
@@ -221,7 +223,7 @@ public class FriendsPanel extends WidgetBase {
     }
 
     private void drawList(Gfx g, int mouseX, int mouseY) {
-        List<Addons.Request> requests = requests();
+        List<AddonRegistry.Request> requests = requests();
         List<Friend> list = visible();
         int top = listTop();
         int bottom = listBottom();
@@ -248,7 +250,7 @@ public class FriendsPanel extends WidgetBase {
     }
 
     // заявка в друзья: ник, подпись дополнения, «принять» и «отклонить»
-    private void drawRequest(Gfx g, Addons.Request request, int rowY, int mouseX, int mouseY) {
+    private void drawRequest(Gfx g, AddonRegistry.Request request, int rowY, int mouseX, int mouseY) {
         int rowX = getX() + 4;
         int rowWidth = panelWidth - 8;
         Draw.box(g, rowX, rowY + 1, rowWidth, ROW_HEIGHT - 2, Theme.RADIUS, Theme.CARD_SELECTED, Theme.BORDER_HOVER);
@@ -298,7 +300,7 @@ public class FriendsPanel extends WidgetBase {
         int textWidth = (int) (getX() + panelWidth - PADDING - textX - badgeWidth - (badgeWidth > 0 ? 4 : 0));
         boolean isIgnored = ignored.isIgnored(friend.name());
         // что про друга говорит дополнение: онлайн, строка под ником, подпись после ника
-        FriendStatus.Status status = Addons.get().status(friend.name());
+        FriendStatus.Status status = addons.status(friend.name());
         boolean online = status != null && status.online();
         if (online) {
             OnlineDot.draw(g, faceX, faceY, FACE);
@@ -388,7 +390,7 @@ public class FriendsPanel extends WidgetBase {
         if (mouseY < listTop()) {
             return;
         }
-        List<Addons.Request> requests = requests();
+        List<AddonRegistry.Request> requests = requests();
         List<Friend> list = visible();
         int index = (int) Math.floor((mouseY - listTop() + Math.round(scrollView.get())) / ROW_HEIGHT);
         if (index >= 0 && index < requests.size()) {
@@ -411,14 +413,14 @@ public class FriendsPanel extends WidgetBase {
     }
 
     // ✓ или ✕ в строке заявки
-    private void clickRequest(Addons.Request request, double mouseX) {
+    private void clickRequest(AddonRegistry.Request request, double mouseX) {
         boolean accept = mouseX >= acceptX() && mouseX < acceptX() + REQUEST_BUTTON;
         boolean decline = mouseX >= declineX() && mouseX < declineX() + REQUEST_BUTTON;
         if (!accept && !decline) {
             return;
         }
         UiSounds.play(accept ? UiSound.SELECT : UiSound.CLICK);
-        Addons.get().run("friendRequests", () -> request.owner().respond(request.name(), accept));
+        addons.run("friendRequests", () -> request.owner().respond(request.name(), accept));
         if (accept && friends.add(request.name()) == FriendManager.AddResult.ADDED) {
             save.run();
             notify(request.name() + " добавлен в друзья", SUCCESS);
@@ -427,7 +429,7 @@ public class FriendsPanel extends WidgetBase {
 
     // клик по строке статуса в шапке: начать правку
     private boolean clickStatus(double mouseX, double mouseY) {
-        ProfileStatus profile = Addons.get().profile();
+        ProfileStatus profile = addons.profile();
         boolean onLine = mouseY >= getY() + 20 && mouseY < getY() + HEADER_HEIGHT - 4
                 && mouseX >= getX() + PADDING + OWN_FACE + 6;
         if (profile == null || !onLine) {
@@ -438,7 +440,7 @@ public class FriendsPanel extends WidgetBase {
         }
         if (!editingStatus) {
             editingStatus = true;
-            statusField.setText(Addons.get().guard("profileStatus", profile::get, ""));
+            statusField.setText(addons.guard("profileStatus", profile::get, ""));
             UiSounds.play(UiSound.CLICK);
         }
         field.blur();
@@ -447,10 +449,10 @@ public class FriendsPanel extends WidgetBase {
     }
 
     private void finishStatus(boolean apply) {
-        ProfileStatus profile = Addons.get().profile();
+        ProfileStatus profile = addons.profile();
         if (apply && profile != null) {
             String status = statusField.getText().strip();
-            Addons.get().run("profileStatus", () -> profile.set(status));
+            addons.run("profileStatus", () -> profile.set(status));
             UiSounds.play(UiSound.SELECT);
         }
         editingStatus = false;

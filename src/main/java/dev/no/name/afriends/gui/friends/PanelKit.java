@@ -1,8 +1,8 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.gui.Theme;
 import dev.no.name.afriends.gui.media.ImageTextures;
 import dev.no.name.afriends.gui.render.Draw;
@@ -102,9 +102,9 @@ final class PanelKit {
     }
 
     // аватарка группы, а пока её нет или она грузится — синий кружок со значком
-    static void groupTile(Gfx g, MessageImage avatar, MessageRoute route, float x, float y, int size) {
+    static void groupTile(Gfx g, MessageImage avatar, ChatMedia media, float x, float y, int size) {
         if (avatar != null) {
-            ImageTextures.Entry entry = ImageTextures.get().entry(avatar, route);
+            ImageTextures.Entry entry = media.image(avatar);
             if (texture(g, entry, x, y, size)) {
                 return;
             }
@@ -115,9 +115,8 @@ final class PanelKit {
     }
 
     // картинка из файла (выбранное фото новой группы); false — ещё не загрузилась
-    static boolean filePreview(Gfx g, Path file, float x, float y, int size) {
-        boolean animated = file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gif");
-        return texture(g, ImageTextures.get().file(file, animated), x, y, size);
+    static boolean filePreview(Gfx g, ChatMedia media, Path file, float x, float y, int size) {
+        return texture(g, media.file(file), x, y, size);
     }
 
     // текстура в квадрат по большей стороне, без искажения

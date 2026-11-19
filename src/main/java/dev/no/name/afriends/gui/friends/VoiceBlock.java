@@ -1,15 +1,14 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.voice.VoiceClip;
 import dev.no.name.afriends.gui.render.Colors;
 import dev.no.name.afriends.gui.render.Draw;
 import dev.no.name.afriends.gui.render.icon.Icon;
 import dev.no.name.afriends.gui.render.text.TextStyle;
 import dev.no.name.afriends.gui.media.VoiceClips;
-import dev.no.name.afriends.gui.media.VoicePlayer;
 
 /**
  * Голосовое в пузыре: кнопка ▶/❚❚, волна по громкости (проигранная часть ярче) и длительность.
@@ -30,11 +29,11 @@ final class VoiceBlock {
     private VoiceBlock() {
     }
 
-    static Hit draw(Gfx g, MessageImage voice, MessageRoute route, float x, float y, int textColor) {
-        VoiceClip clip = VoiceClips.get(voice, route);
+    static Hit draw(Gfx g, MessageImage voice, ChatMedia media, float x, float y, int textColor) {
+        VoiceClip clip = media.voice(voice);
         String key = VoiceClips.key(voice);
-        boolean playing = key.equals(VoicePlayer.get().playing());
-        float progress = VoicePlayer.get().progress(key);
+        boolean playing = key.equals(media.player().playing());
+        float progress = media.player().progress(key);
 
         Draw.roundedRect(g, x, y, BUTTON, BUTTON, BUTTON / 2f, Colors.fade(textColor, 0.18f));
         Draw.icon(g, playing ? Icon.PAUSE : Icon.PLAY, x + 4, y + 4, BUTTON - 8, textColor);

@@ -1,5 +1,6 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.GroupChats;
@@ -58,6 +59,7 @@ final class ProfilePanel {
     }
 
     private final MessageRoute route;
+    private final ChatMedia chatMedia;
     private final PrivateMessages messages;
     private final Function<String, PlayerSkin> skins;
     private final Host host;
@@ -78,8 +80,10 @@ final class ProfilePanel {
     private float tabsY;
     private float contentY;
 
-    ProfilePanel(MessageRoute route, PrivateMessages messages, Function<String, PlayerSkin> skins, Host host) {
+    ProfilePanel(MessageRoute route, ChatMedia chatMedia, PrivateMessages messages, Function<String, PlayerSkin> skins,
+                 Host host) {
         this.route = route;
+        this.chatMedia = chatMedia;
         this.messages = messages;
         this.skins = skins;
         this.host = host;
@@ -192,11 +196,11 @@ final class ProfilePanel {
             }
             case MEDIA -> {
                 mediaTab.load(messages.chat(chat), this::authorOf);
-                mediaTab.draw(g, route, hoverX, mouseY);
+                mediaTab.draw(g, chatMedia, hoverX, mouseY);
             }
             case VOICE -> {
                 voiceTab.load(messages.chat(chat), this::authorOf);
-                voiceTab.draw(g, route, hoverX, mouseY);
+                voiceTab.draw(g, chatMedia, hoverX, mouseY);
             }
         }
         memberEditor.draw(g, mouseX, mouseY);
@@ -215,7 +219,7 @@ final class ProfilePanel {
         String title = messages.displayName(chat);
         String status;
         if (group) {
-            PanelKit.groupTile(g, messages.avatar(chat), route, avatarX, avatarY, AVATAR);
+            PanelKit.groupTile(g, messages.avatar(chat), chatMedia, avatarX, avatarY, AVATAR);
             GroupChats groups = groups();
             int count = groups == null ? 0 : groups.members(chat).size() + 1;
             status = count > 0 ? count + " " + members(count) : "Групповой чат";
@@ -301,14 +305,14 @@ final class ProfilePanel {
                 }
             }
             case MEDIA -> {
-                ProfileMedia.Click click = mediaTab.click(mouseX, mouseY, route);
+                ProfileMedia.Click click = mediaTab.click(mouseX, mouseY, chatMedia);
                 if (click != null && click.view() != null) {
                     host.view(click.view());
                     UiSounds.play(UiSound.CLICK);
                 }
                 jumpIfAsked(click);
             }
-            case VOICE -> jumpIfAsked(voiceTab.click(mouseX, mouseY, route));
+            case VOICE -> jumpIfAsked(voiceTab.click(mouseX, mouseY, chatMedia));
         }
         return true;
     }

@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net;
 
+import dev.no.name.afriends.net.crypto.DhKey;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.no.name.afriends.net.crypto.Bytes;

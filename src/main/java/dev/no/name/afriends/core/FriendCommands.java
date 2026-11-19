@@ -1,6 +1,5 @@
 package dev.no.name.afriends.core;
 
-import dev.no.name.afriends.addon.Addons;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -21,10 +20,12 @@ public final class FriendCommands {
 
     private final SocialData social;
     private final Runnable save;
+    private final FriendEvents events;
 
-    public FriendCommands(SocialData social, Runnable save) {
+    public FriendCommands(SocialData social, Runnable save, FriendEvents events) {
         this.social = social;
         this.save = save;
+        this.events = events;
     }
 
     public void register() {
@@ -50,7 +51,7 @@ public final class FriendCommands {
             case ADDED -> {
                 save.run();
                 reply(context, name + " добавлен в друзья", ChatFormatting.GREEN);
-                Addons.get().added(name, notice -> reply(context, notice, ChatFormatting.GRAY));
+                events.added(name, notice -> reply(context, notice, ChatFormatting.GRAY));
                 return 1;
             }
             case ALREADY -> reply(context, name + " уже в друзьях", ChatFormatting.YELLOW);
@@ -67,7 +68,7 @@ public final class FriendCommands {
             return 0;
         }
         save.run();
-        Addons.get().removed(name);
+        events.removed(name);
         reply(context, name + " удалён из друзей", ChatFormatting.GREEN);
         return 1;
     }

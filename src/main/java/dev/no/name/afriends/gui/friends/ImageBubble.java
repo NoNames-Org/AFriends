@@ -1,8 +1,8 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.gui.Theme;
 import dev.no.name.afriends.gui.media.ImageTextures;
 import dev.no.name.afriends.gui.render.Draw;
@@ -28,8 +28,8 @@ final class ImageBubble {
         return new float[] {Math.round(w), Math.round(h)};
     }
 
-    static void draw(Gfx g, MessageImage image, MessageRoute route, float x, float y, float width, float height, long now) {
-        ImageTextures.Entry entry = ImageTextures.get().entry(image, route);
+    static void draw(Gfx g, MessageImage image, ChatMedia media, float x, float y, float width, float height, long now) {
+        ImageTextures.Entry entry = media.image(image);
         Identifier texture = entry.state() == ImageTextures.State.READY ? entry.texture(now) : null;
         if (texture != null) {
             g.image(texture, Math.round(x), Math.round(y), Math.round(width), Math.round(height), entry.width(), entry.height());

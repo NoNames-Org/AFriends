@@ -20,7 +20,6 @@ import java.util.List;
  * обновляет её, а не плодит стопку. Слой HUD регистрирует compat каждой версии и отдаёт сюда {@link Gfx}
  */
 public final class MessageToasts {
-    private static final MessageToasts INSTANCE = new MessageToasts();
 
     private static final int MAX = 3;
     private static final long HOLD_MS = 5000;
@@ -37,11 +36,7 @@ public final class MessageToasts {
 
     private final Deque<Card> cards = new ArrayDeque<>();
 
-    private MessageToasts() {
-    }
-
-    public static MessageToasts get() {
-        return INSTANCE;
+    public MessageToasts() {
     }
 
     private record Card(String title, String subtitle, long shownAt) {

@@ -1,8 +1,8 @@
 package dev.no.name.afriends.gui.friends;
 
+import dev.no.name.afriends.gui.media.ChatMedia;
 import dev.no.name.afriends.compat.Gfx;
 import dev.no.name.afriends.core.MessageImage;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.gui.Theme;
 import dev.no.name.afriends.gui.media.ImageTextures;
 import dev.no.name.afriends.gui.render.Draw;
@@ -37,15 +37,15 @@ final class ImageViewer {
         image = null;
     }
 
-    void draw(Gfx g, MessageRoute route, int width, int height, int mouseX, int mouseY) {
+    void draw(Gfx g, ChatMedia media, int width, int height, int mouseX, int mouseY) {
         if (image == null) {
             return;
         }
         Draw.roundedRect(g, 0, 0, width, height, Theme.PANEL_RADIUS, 0xE6050608);
         // пока крупная версия собирается, показываем маленькую из чата, чтобы не мигала «Загрузка…»
-        ImageTextures.Entry entry = ImageTextures.get().full(image, route);
+        ImageTextures.Entry entry = media.fullImage(image);
         if (entry.state() != ImageTextures.State.READY) {
-            ImageTextures.Entry preview = ImageTextures.get().entry(image, route);
+            ImageTextures.Entry preview = media.image(image);
             if (preview.state() == ImageTextures.State.READY || entry.state() == ImageTextures.State.FAILED) {
                 entry = preview;
             }

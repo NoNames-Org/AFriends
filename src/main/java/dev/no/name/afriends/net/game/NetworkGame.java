@@ -1,5 +1,7 @@
 package dev.no.name.afriends.net.game;
 
+import dev.no.name.afriends.net.announcements.AnnouncementFeed;
+import dev.no.name.afriends.addon.SendPolicy;
 import dev.no.name.afriends.AFriends;
 import dev.no.name.afriends.core.AccountScope;
 import dev.no.name.afriends.core.FriendManager;
@@ -28,6 +30,7 @@ public final class NetworkGame {
     private final FriendSync friends;
     private final IncomingChat incoming;
     private final DirectMessages direct;
+    private final BadgeText badges;
     private final PresenceSource presence = new PresenceSource();
     private LocalProfile lastProfile;
     private final TabWatcher tab = new TabWatcher();
@@ -43,7 +46,8 @@ public final class NetworkGame {
     private String account;
 
     // save — записать конфиг, когда друг сам удалил нас и список изменился
-    public NetworkGame(SocialData social, LinkSettings settings, Runnable save) {
+    public NetworkGame(SocialData social, LinkSettings settings, Runnable save, AnnouncementFeed announcements,
+                       SendPolicy sendPolicy) {
         this.social = social;
         this.settings = settings;
         Path root = SharedLinkFolder.root();
@@ -56,21 +60,25 @@ public final class NetworkGame {
         Path own = accounts.folder(account, AccountScope.profileId());
         this.incoming = new IncomingChat(social, own.resolve("parked.json"));
         // картинки переписки — рядом с папкой сети, общие для всех аккаунтов
-        this.link = new LinkService(own, folder.resolveSibling("media"), GameAccount::current, incoming);
+        this.link = new LinkService(own, folder.resolveSibling("media"), GameAccount::current, incoming, announcements);
         link.switchAccount(own, accounts.others(account));
         this.friends = new FriendSync(link, name -> {
             if (social.removeFriendEverywhere(name)) {
                 save.run();
             }
         });
-        this.direct = new DirectMessages(social, link);
+        this.direct = new DirectMessages(social, link, sendPolicy);
         incoming.setOnDelivered(direct::delivered);
         incoming.setLeftGroup(direct::hasLeftGroup);
-        BadgeText.install(link.badges(), () -> running);
+        this.badges = new BadgeText(link.badges(), () -> running);
     }
 
     public NetworkAddon addon() {
         return new NetworkAddon(friends, link, settings);
+    }
+
+    public BadgeText badges() {
+        return badges;
     }
 
     public LinkService link() {

@@ -22,20 +22,17 @@ public final class BadgeText {
     // белый цвет текста оставляет картинки глифов как есть
     private static final TextColor WHITE = TextColor.fromRgb(0xFFFFFF);
 
-    // миксины зовутся из кода игры, поэтому справочник лежит в статике; до запуска сети значков нет
-    private static volatile BadgeDirectory directory;
-    private static volatile BooleanSupplier enabled = () -> false;
+    private final BadgeDirectory directory;
+    // значки показываются, только пока сеть запущена
+    private final BooleanSupplier enabled;
 
-    private BadgeText() {
-    }
-
-    static void install(BadgeDirectory badges, BooleanSupplier active) {
-        directory = badges;
-        enabled = active;
+    public BadgeText(BadgeDirectory directory, BooleanSupplier enabled) {
+        this.directory = directory;
+        this.enabled = enabled;
     }
 
     // текст с ником игрока: со значком впереди, если игрок в сети мода
-    public static Component prefixed(String name, Component text) {
+    public Component prefixed(String name, Component text) {
         BadgeDirectory badges = directory;
         if (badges == null || text == null || !enabled.getAsBoolean()) {
             return text;

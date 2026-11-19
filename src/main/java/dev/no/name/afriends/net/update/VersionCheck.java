@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
  */
 public final class VersionCheck {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
-    private static final VersionCheck INSTANCE = new VersionCheck();
     private static final long REFRESH_MS = 600_000;
     private static final Duration TIMEOUT = Duration.ofSeconds(8);
 
@@ -37,11 +36,7 @@ public final class VersionCheck {
     private boolean loading;
     private HttpClient client;
 
-    private VersionCheck() {
-    }
-
-    public static VersionCheck get() {
-        return INSTANCE;
+    public VersionCheck() {
     }
 
     /** Своя версия без суффикса сборки, например «2.0.0». */

@@ -34,10 +34,17 @@ final class GifPicker {
     record Inside() implements Click {
     }
 
+    private final GifFavorites favorites;
+    private final ImageTextures images;
     private boolean open;
     private int scrollRow;
     private float x;
     private float y;
+
+    GifPicker(GifFavorites favorites, ImageTextures images) {
+        this.favorites = favorites;
+        this.images = images;
+    }
 
     boolean isOpen() {
         return open;
@@ -72,7 +79,7 @@ final class GifPicker {
         Draw.shadow(g, x, y + 2, w, h, Theme.RADIUS + 2, 10, Theme.SHADOW);
         Draw.box(g, x, y, w, h, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
         Draw.text(g, "Избранные гифки", x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
-        List<GifFavorites.Gif> gifs = GifFavorites.get().all();
+        List<GifFavorites.Gif> gifs = favorites.all();
         if (gifs.isEmpty()) {
             float centerX = x + w / 2;
             Draw.textCentered(g, "Пока пусто", centerX, y + h / 2 - 8, Theme.TEXT_SOFT);
@@ -87,7 +94,7 @@ final class GifPicker {
             float cellY = y + PAD + TITLE + (slot / COLUMNS) * (CELL + GAP);
             boolean hover = mouseX >= cellX && mouseX < cellX + CELL && mouseY >= cellY && mouseY < cellY + CELL;
             Draw.roundedRect(g, cellX, cellY, CELL, CELL, Theme.RADIUS, hover ? Theme.TILE_ON : Theme.TILE);
-            ImageTextures.Entry entry = ImageTextures.get().file(gifs.get(i).file(), true);
+            ImageTextures.Entry entry = images.file(gifs.get(i).file(), true);
             Identifier texture = entry.state() == ImageTextures.State.READY ? entry.texture(now) : null;
             if (texture != null) {
                 float scale = (CELL - 2) / (float) Math.max(entry.width(), entry.height());
@@ -103,7 +110,7 @@ final class GifPicker {
         if (!open || mouseX < x || mouseX >= x + width() || mouseY < y || mouseY >= y + height()) {
             return null;
         }
-        List<GifFavorites.Gif> gifs = GifFavorites.get().all();
+        List<GifFavorites.Gif> gifs = favorites.all();
         double localX = mouseX - x - PAD;
         double localY = mouseY - y - PAD - TITLE;
         if (localX < 0 || localY < 0) {
@@ -126,7 +133,7 @@ final class GifPicker {
         if (!open || mouseX < x || mouseX >= x + width() || mouseY < y || mouseY >= y + height()) {
             return false;
         }
-        int rows = (GifFavorites.get().all().size() + COLUMNS - 1) / COLUMNS;
+        int rows = (favorites.all().size() + COLUMNS - 1) / COLUMNS;
         scrollRow = Math.max(0, Math.min(Math.max(0, rows - VISIBLE_ROWS), scrollRow + (amount < 0 ? 1 : -1)));
         return true;
     }

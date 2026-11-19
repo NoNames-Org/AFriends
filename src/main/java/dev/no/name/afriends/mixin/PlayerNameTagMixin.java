@@ -1,6 +1,6 @@
 package dev.no.name.afriends.mixin;
 
-import dev.no.name.afriends.net.game.BadgeText;
+import dev.no.name.afriends.ClientHooks;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Entity;
@@ -16,7 +16,7 @@ public abstract class PlayerNameTagMixin {
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void afriends$badge(Entity entity, EntityRenderState state, float partialTicks, CallbackInfo callback) {
         if (entity instanceof Player player && state.nameTag != null) {
-            state.nameTag = BadgeText.prefixed(player.getGameProfile().name(), state.nameTag);
+            state.nameTag = ClientHooks.withBadge(player.getGameProfile().name(), state.nameTag);
         }
     }
 }

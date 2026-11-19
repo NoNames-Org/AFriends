@@ -72,16 +72,18 @@ public final class PrivateMessages {
 
     private String openChat;
 
-    private Runnable onChange = () -> { };
+    private final MessageEvents events;
     // заглушённый чат остаётся в архиве и при новом сообщении, как в Telegram
-    private Predicate<String> staysArchived = chat -> false;
+    private final Predicate<String> staysArchived;
 
-    public void setOnChange(Runnable listener) {
-        onChange = listener;
+    public PrivateMessages() {
+        this(MessageEvents.NONE, chat -> false);
     }
 
-    public void setStaysArchived(Predicate<String> rule) {
-        staysArchived = rule;
+    // staysArchived — какие чаты не возвращаются из архива новым сообщением (заглушённые)
+    public PrivateMessages(MessageEvents events, Predicate<String> staysArchived) {
+        this.events = events;
+        this.staysArchived = staysArchived;
     }
 
     public static Parsed parse(String plain, String selfName, long now) {
@@ -111,9 +113,9 @@ public final class PrivateMessages {
         }
         if (!message.fromMe() && !key(partner).equals(openChat)) {
             unread.merge(key(partner), 1, Integer::sum);
-            IncomingAlerts.fire(partner);
+            events.incoming(partner);
         }
-        onChange.run();
+        events.changed();
     }
 
     // реакция на сообщение по его id; false — такого сообщения здесь нет
@@ -125,7 +127,7 @@ public final class PrivateMessages {
         for (int i = chat.size() - 1; i >= 0; i--) {
             if (messageId.equals(chat.get(i).id())) {
                 chat.set(i, chat.get(i).withReaction(mine, reaction));
-                onChange.run();
+                events.changed();
                 return true;
             }
         }
@@ -143,7 +145,7 @@ public final class PrivateMessages {
             if (messageId.equals(message.id()) && message.poll() != null) {
                 GroupPoll poll = voter == null ? message.poll().withMine(choice) : message.poll().withVote(voter, choice);
                 messages.set(i, message.withPoll(poll));
-                onChange.run();
+                events.changed();
                 return true;
             }
         }
@@ -176,7 +178,7 @@ public final class PrivateMessages {
             chatPins.removeAll(messageKeys);
         }
         if (removed) {
-            onChange.run();
+            events.changed();
         }
         return removed;
     }
@@ -191,7 +193,7 @@ public final class PrivateMessages {
             }
             chatPins.add(messageKey);
         }
-        onChange.run();
+        events.changed();
         return true;
     }
 
@@ -228,7 +230,7 @@ public final class PrivateMessages {
     public void addNote(PrivateMessage note) {
         List<PrivateMessage> notes = chats.computeIfAbsent(NOTES, name -> new ArrayList<>());
         notes.add(note.id() == null ? note.withId(MessageIds.next()) : note);
-        onChange.run();
+        events.changed();
     }
 
     /** Чаты вне архива: сначала закреплённые, потом по времени последнего сообщения. */
@@ -266,7 +268,7 @@ public final class PrivateMessages {
 
     public void setTitle(String chat, String title) {
         titles.put(chat, title);
-        onChange.run();
+        events.changed();
     }
 
     public boolean hasTitle(String chat) {
@@ -284,7 +286,7 @@ public final class PrivateMessages {
         } else {
             descriptions.put(chat, text);
         }
-        onChange.run();
+        events.changed();
     }
 
     public MessageImage avatar(String chat) {
@@ -297,7 +299,7 @@ public final class PrivateMessages {
         } else {
             avatars.put(chat, image);
         }
-        onChange.run();
+        events.changed();
     }
 
     /** Отметка на своё сообщение: RECEIPT_NONE, RECEIPT_DELIVERED или RECEIPT_READ. */
@@ -315,7 +317,7 @@ public final class PrivateMessages {
         while (receipts.size() > MAX_RECEIPTS) {
             receipts.remove(receipts.keySet().iterator().next());
         }
-        onChange.run();
+        events.changed();
         return true;
     }
 
@@ -327,7 +329,7 @@ public final class PrivateMessages {
     // пустой чат в списке: новая группа появляется сразу, ещё без сообщений
     public void ensureChat(String chat) {
         if (chats.putIfAbsent(key(chat), new ArrayList<>()) == null) {
-            onChange.run();
+            events.changed();
         }
     }
 
@@ -368,7 +370,7 @@ public final class PrivateMessages {
             archived.add(key(partner));
             pinned.remove(key(partner));
         }
-        onChange.run();
+        events.changed();
     }
 
     /** Непрочитанное в архиве — для значка у строки «Архив». */
@@ -389,14 +391,14 @@ public final class PrivateMessages {
             pinned.add(key(partner));
             archived.remove(key(partner));
         }
-        onChange.run();
+        events.changed();
     }
 
     public void clear(String partner) {
         chats.put(key(partner), new ArrayList<>());
         pins.remove(key(partner));
         unread.remove(key(partner));
-        onChange.run();
+        events.changed();
     }
 
     public void delete(String partner) {
@@ -409,7 +411,7 @@ public final class PrivateMessages {
         titles.remove(partner);
         descriptions.remove(partner);
         avatars.remove(partner);
-        onChange.run();
+        events.changed();
     }
 
     public void markAllRead() {
@@ -453,7 +455,7 @@ public final class PrivateMessages {
         String clean = text == null ? "" : text.length() > MAX_DRAFT ? text.substring(0, MAX_DRAFT) : text;
         String previous = clean.isBlank() ? drafts.remove(key(partner)) : drafts.put(key(partner), clean);
         if (!clean.isBlank() || previous != null) {
-            onChange.run();
+            events.changed();
         }
     }
 

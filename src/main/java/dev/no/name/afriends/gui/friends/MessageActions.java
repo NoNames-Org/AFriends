@@ -7,7 +7,6 @@ import dev.no.name.afriends.core.MessageReply;
 import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.PrivateMessage;
 import dev.no.name.afriends.core.PrivateMessages;
-import dev.no.name.afriends.gui.media.GifFavorites;
 import dev.no.name.afriends.gui.render.icon.Icon;
 import net.minecraft.client.Minecraft;
 
@@ -76,7 +75,7 @@ final class MessageActions {
                     () -> media.copy(image)));
             items.add(new ChatMenu.Item(Icon.EXTERNAL_LINK, "Открыть", false, () -> media.open(image)));
             if (image.animated()) {
-                boolean favorite = GifFavorites.get().contains(image.sha256());
+                boolean favorite = media.isFavorite(image);
                 items.add(new ChatMenu.Item(Icon.STAR, favorite ? "Убрать из избранного" : "В избранные гифки", false,
                         () -> media.toggleFavorite(image)));
             }

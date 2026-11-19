@@ -1,5 +1,6 @@
 package dev.no.name.afriends.compat;
 
+import dev.no.name.afriends.gui.notify.MessageToasts;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
@@ -13,9 +14,9 @@ public final class Compat {
     private Compat() {
     }
 
-    public static void init() {
+    public static void init(MessageToasts toasts) {
         MenuPipelines.init();
-        Hud.init();
+        Hud.init(toasts);
     }
 
     public static void setScreen(Screen screen) {

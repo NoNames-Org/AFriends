@@ -2,13 +2,10 @@ package dev.no.name.afriends.gui.friends;
 
 import dev.no.name.afriends.gui.render.icon.Icon;
 import dev.no.name.afriends.core.PrivateMessages;
-import dev.no.name.afriends.net.announcements.AnnouncementFeed;
 import dev.no.name.afriends.gui.render.FormattedText;
-import dev.no.name.afriends.addon.Addons;
 import dev.no.name.afriends.api.MessageCard;
 import dev.no.name.afriends.core.MessageImage;
 import dev.no.name.afriends.core.MessageReply;
-import dev.no.name.afriends.core.MessageRoute;
 import dev.no.name.afriends.core.PollView;
 import dev.no.name.afriends.core.PrivateMessage;
 import dev.no.name.afriends.gui.render.Colors;
@@ -71,11 +68,11 @@ final class MessageBubbles {
         }
 
         // групповой чат: над чужим сообщением ник автора своим цветом, как в Telegram
-        Bubble withAuthor() {
+        Bubble withAuthor(BubbleContext ctx) {
             if (!hasAuthor(message)) {
                 return this;
             }
-            float labelWidth = Draw.width(authorLabel(message), TextStyle.SMALL) + PADDING_X * 2;
+            float labelWidth = Draw.width(ctx.authorLabel(message), TextStyle.SMALL) + PADDING_X * 2;
             return new Bubble(message, lines, Math.max(width, labelWidth), height + FORWARD_HEIGHT, timeInline, card, rich, chips, poll);
         }
 
@@ -148,25 +145,8 @@ final class MessageBubbles {
     private static final String TICKS_SPACE = "     ";
     private static final float TICK = 6;
     private static final float TICK_STEP = 3;
-    private static java.util.function.ToIntFunction<String> receipts = id -> PrivateMessages.RECEIPT_NONE;
-    private static java.util.function.Function<String, String> prefixes = author -> "";
 
     private MessageBubbles() {
-    }
-
-    /** Откуда брать отметки на свои сообщения (по id); задаёт окно мессенджера. */
-    static void setReceipts(java.util.function.ToIntFunction<String> source) {
-        receipts = source;
-    }
-
-    /** Префикс автора в группе по нику («Админ» → «[Админ] Bob»); задаёт окно мессенджера для открытого чата. */
-    static void setPrefixes(java.util.function.Function<String, String> source) {
-        prefixes = source;
-    }
-
-    private static String authorLabel(PrivateMessage message) {
-        String prefix = prefixes.apply(message.author());
-        return prefix == null || prefix.isEmpty() ? message.author() : "[" + prefix + "] " + message.author();
     }
 
     private static boolean hasTicks(PrivateMessage message) {
@@ -174,11 +154,11 @@ final class MessageBubbles {
     }
 
     /** Галочки справа в конце строки времени: right — правый край этой строки. */
-    static void drawTicks(Gfx g, PrivateMessage message, float right, float y, int color) {
+    static void drawTicks(Gfx g, BubbleContext ctx, PrivateMessage message, float right, float y, int color) {
         if (!hasTicks(message)) {
             return;
         }
-        int state = receipts.applyAsInt(message.id());
+        int state = ctx.receipt(message.id());
         int tickColor = state == PrivateMessages.RECEIPT_READ ? withAlpha(color, 1f) : withAlpha(color, 0.7f);
         float x = right - TICK - (state == PrivateMessages.RECEIPT_NONE ? 0 : TICK_STEP);
         Draw.icon(g, Icon.CHECK, x, y, TICK, tickColor);
@@ -187,10 +167,10 @@ final class MessageBubbles {
         }
     }
 
-    static List<Bubble> layout(List<PrivateMessage> messages, float areaWidth, int firstPending, String partner) {
+    static List<Bubble> layout(BubbleContext ctx, List<PrivateMessage> messages, float areaWidth, int firstPending, String partner) {
         float maxText = areaWidth * MAX_WIDTH_SHARE - PADDING_X * 2;
         // режим стримера: текст сообщений не показываем
-        boolean hidden = Addons.get().hideMessages();
+        boolean hidden = ctx.hidden();
 
         float pendingWidth = Math.max(Draw.width(PENDING, TextStyle.SMALL), Draw.width(FAILED, TextStyle.SMALL));
         List<Bubble> bubbles = new ArrayList<>();
@@ -202,18 +182,18 @@ final class MessageBubbles {
                 float width = VoiceBlock.WIDTH + PADDING_X * 2;
                 float height = PADDING_Y * 2 + VoiceBlock.HEIGHT;
                 bubbles.add(new Bubble(message, List.of(), width, height, false, null, null, List.of(), null)
-                        .withForward().withAuthor().withReply(maxText + PADDING_X * 2).withChips(chips));
+                        .withForward().withAuthor(ctx).withReply(maxText + PADDING_X * 2).withChips(chips));
                 continue;
             }
             if (!hidden && !message.images().isEmpty()) {
                 RichBubble.Layout rich = RichBubble.layout(message, maxText, stampWidth);
                 bubbles.add(new Bubble(message, List.of(), rich.width(), rich.height(), rich.timeInline(), null, rich, List.of(), null)
-                        .withForward().withAuthor().withReply(maxText + PADDING_X * 2).withChips(chips));
+                        .withForward().withAuthor(ctx).withReply(maxText + PADDING_X * 2).withChips(chips));
                 continue;
             }
-            MessageCard.Card card = hidden ? null : Addons.get().card(partner, message.text(), message.fromMe());
+            MessageCard.Card card = hidden ? null : ctx.card(partner, message);
             if (card != null) {
-                bubbles.add(cardBubble(message, card, maxText).withForward().withAuthor().withReply(maxText + PADDING_X * 2).withChips(chips));
+                bubbles.add(cardBubble(message, card, maxText).withForward().withAuthor(ctx).withReply(maxText + PADDING_X * 2).withChips(chips));
                 continue;
             }
             // разметка (жирный, заголовки, цитаты...) — только у настоящего текста, «Скрыто» рисуется как есть
@@ -221,7 +201,7 @@ final class MessageBubbles {
             float widest = FormattedText.widest(lines);
             float lastLine = FormattedText.lastWidth(lines);
 
-            PollView poll = hidden ? null : message.poll() != null ? message.poll() : AnnouncementFeed.get().poll(message);
+            PollView poll = hidden ? null : ctx.poll(message);
             // под опросом время всегда отдельной строкой
             boolean inline = poll == null && lastLine + TIME_GAP + stampWidth <= maxText;
             float contentWidth = inline ? Math.max(widest, lastLine + TIME_GAP + stampWidth) : Math.max(widest, stampWidth);
@@ -231,7 +211,7 @@ final class MessageBubbles {
                 height += PollBlock.height(poll) + 3;
             }
             bubbles.add(new Bubble(message, lines, contentWidth + PADDING_X * 2, height, inline, null, null, List.of(), poll)
-                    .withForward().withAuthor().withReply(maxText + PADDING_X * 2).withChips(chips));
+                    .withForward().withAuthor(ctx).withReply(maxText + PADDING_X * 2).withChips(chips));
         }
         return bubbles;
     }
@@ -256,7 +236,7 @@ final class MessageBubbles {
     }
 
     // рисует пузырь и возвращает, где что нарисовано: кнопка карточки, картинка, плашки реакций
-    static Drawn draw(Gfx g, Bubble bubble, float left, float right, float top, Stamp stamp, MessageRoute route) {
+    static Drawn draw(Gfx g, Bubble bubble, float left, float right, float top, Stamp stamp, BubbleContext ctx) {
         boolean mine = bubble.message().fromMe();
         boolean failed = stamp == Stamp.FAILED;
         float x = mine ? right - bubble.width() : left;
@@ -265,7 +245,7 @@ final class MessageBubbles {
         Draw.roundedRect(g, x, top, bubble.width(), bubble.height(), RADIUS, fill);
         float bubbleTop = top;
         if (hasAuthor(bubble.message())) {
-            Draw.text(g, Draw.trim(authorLabel(bubble.message()), (int) bubble.width() - PADDING_X * 2, TextStyle.SMALL),
+            Draw.text(g, Draw.trim(ctx.authorLabel(bubble.message()), (int) bubble.width() - PADDING_X * 2, TextStyle.SMALL),
                     x + PADDING_X, top + PADDING_Y, authorColor(bubble.message().author()), TextStyle.SMALL);
             top += FORWARD_HEIGHT;
         }
@@ -282,10 +262,10 @@ final class MessageBubbles {
             top += QUOTE_HEIGHT;
         }
         if (isVoice(bubble.message()) && bubble.rich() == null && bubble.lines().isEmpty()) {
-            return drawVoice(g, bubble, x, top, bubbleTop, stamp, route, textColor, quoteY, quoteHeight);
+            return drawVoice(g, bubble, x, top, bubbleTop, stamp, ctx, textColor, quoteY, quoteHeight);
         }
         if (bubble.hasImage()) {
-            return drawImage(g, bubble, x, top, bubbleTop, stamp, route, textColor, quoteY, quoteHeight);
+            return drawImage(g, bubble, x, top, bubbleTop, stamp, ctx, textColor, quoteY, quoteHeight);
         }
         CardButton button = bubble.card() == null ? null : drawCard(g, bubble, x, top, textColor);
         float lineY = top + PADDING_Y + (bubble.card() == null ? 0 : LINE_HEIGHT * 2
@@ -307,7 +287,7 @@ final class MessageBubbles {
         float timeY = bubble.timeInline() ? FormattedText.timeY(bubble.lines(), lineY) : lineY;
         Draw.text(g, time, timeX, timeY, timeColor, TextStyle.SMALL);
         if (stamp == Stamp.TIME) {
-            drawTicks(g, bubble.message(), x + bubble.width() - PADDING_X, timeY, timeColor);
+            drawTicks(g, ctx, bubble.message(), x + bubble.width() - PADDING_X, timeY, timeColor);
         }
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
                 bubbleTop + bubble.height() - ReactionChips.ROW + 1, textColor);
@@ -345,10 +325,10 @@ final class MessageBubbles {
         return message.images().size() == 1 && message.image().voice();
     }
 
-    private static Drawn drawVoice(Gfx g, Bubble bubble, float x, float top, float bubbleTop, Stamp stamp, MessageRoute route,
+    private static Drawn drawVoice(Gfx g, Bubble bubble, float x, float top, float bubbleTop, Stamp stamp, BubbleContext ctx,
                                    int textColor, float quoteY, float quoteHeight) {
         boolean mine = bubble.message().fromMe();
-        VoiceBlock.Hit hit = VoiceBlock.draw(g, bubble.message().image(), route, x + PADDING_X, top + PADDING_Y, textColor);
+        VoiceBlock.Hit hit = VoiceBlock.draw(g, bubble.message().image(), ctx.media(), x + PADDING_X, top + PADDING_Y, textColor);
         String time = switch (stamp) {
             case PENDING -> PENDING;
             case FAILED -> FAILED;
@@ -358,7 +338,7 @@ final class MessageBubbles {
         Draw.text(g, time, x + bubble.width() - PADDING_X - Draw.width(time, TextStyle.SMALL), top + PADDING_Y + VoiceBlock.HEIGHT - 6,
                 timeColor, TextStyle.SMALL);
         if (stamp == Stamp.TIME) {
-            drawTicks(g, bubble.message(), x + bubble.width() - PADDING_X, top + PADDING_Y + VoiceBlock.HEIGHT - 6, timeColor);
+            drawTicks(g, ctx, bubble.message(), x + bubble.width() - PADDING_X, top + PADDING_Y + VoiceBlock.HEIGHT - 6, timeColor);
         }
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
                 bubbleTop + bubble.height() - ReactionChips.ROW + 1, textColor);
@@ -366,7 +346,7 @@ final class MessageBubbles {
                 List.of(), hit);
     }
 
-    private static Drawn drawImage(Gfx g, Bubble bubble, float x, float top, float bubbleTop, Stamp stamp, MessageRoute route,
+    private static Drawn drawImage(Gfx g, Bubble bubble, float x, float top, float bubbleTop, Stamp stamp, BubbleContext ctx,
                                    int textColor, float quoteY, float quoteHeight) {
         String time = switch (stamp) {
             case PENDING -> PENDING;
@@ -375,7 +355,7 @@ final class MessageBubbles {
         };
         boolean mine = bubble.message().fromMe();
         int timeColor = stamp == Stamp.FAILED ? Theme.DANGER : mine ? withAlpha(Theme.ACCENT_TEXT, 0.75f) : Theme.TEXT_DIM;
-        List<RichBubble.ImageHit> images = RichBubble.draw(g, bubble.rich(), route, x, top, bubble.width(), time, textColor, timeColor,
+        List<RichBubble.ImageHit> images = RichBubble.draw(g, bubble.rich(), ctx, x, top, bubble.width(), time, textColor, timeColor,
                 stamp == Stamp.TIME ? bubble.message() : null);
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,
                 bubbleTop + bubble.height() - ReactionChips.ROW + 1, textColor);

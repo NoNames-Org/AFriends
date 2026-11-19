@@ -1,6 +1,7 @@
 package dev.no.name.afriends.gui.friends;
 
-import dev.no.name.afriends.addon.Addons;
+import dev.no.name.afriends.addon.AddonRegistry;
+import dev.no.name.afriends.gui.UiServices;
 import dev.no.name.afriends.api.FriendAction;
 import dev.no.name.afriends.api.RailPanel;
 import dev.no.name.afriends.api.SidePanel;
@@ -49,12 +50,14 @@ public final class FriendsUi {
     private final SoundSettings sound;
     private final NetworkGame network;
     private final Runnable save;
+    private final UiServices ui;
+    private final AddonRegistry addons;
     private final FriendsState friendsState = new FriendsState();
     // состояние панели аддона живёт дольше окна чата: открытая панель остаётся открытой в следующий раз
     private final Map<RailPanel, PanelState> addonStates = new IdentityHashMap<>();
 
     public FriendsUi(SocialData social, ThemeSettings theme, LinkSettings linkSettings, NotifySettings notify,
-                     SoundSettings sound, NetworkGame network, Runnable save) {
+                     SoundSettings sound, NetworkGame network, Runnable save, UiServices ui) {
         this.social = social;
         this.theme = theme;
         this.linkSettings = linkSettings;
@@ -62,6 +65,8 @@ public final class FriendsUi {
         this.sound = sound;
         this.network = network;
         this.save = save;
+        this.ui = ui;
+        this.addons = ui.addons();
     }
 
     /** Панель аддона, открытая в этом окне чата. */
@@ -79,7 +84,7 @@ public final class FriendsUi {
     private void attach(Screen screen, int width, int height) {
         SocialData.Scope scope = social.current();
         MessengerScreen.Context context = new MessengerScreen.Context(scope.friends(), scope.messages(),
-                scope.ignored(), network.direct(), save, notify);
+                scope.ignored(), network.direct(), save, notify, ui);
 
         int railX = width - MARGIN - HubRail.WIDTH;
         int top = MARGIN;
@@ -87,12 +92,12 @@ public final class FriendsUi {
         int panelX = railX - GAP - PANEL_WIDTH;
 
         FriendsPanel friendsPanel = new FriendsPanel(panelX, top, PANEL_WIDTH, panelHeight, scope.friends(),
-                scope.messages(), scope.ignored(), friendsState, save);
+                scope.messages(), scope.ignored(), friendsState, save, addons);
         List<Mounted> mounted = mountAddonPanels(new RailPanel.Bounds(panelX, top, PANEL_WIDTH, panelHeight));
         FriendContextMenu menu = new FriendContextMenu(panelX, friendsState, menuItems(context));
         HubRail rail = new HubRail(railX, top, panelHeight, railButtons(context, mounted), List.of(
                 new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
-                        () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, sound, network.link())))));
+                        () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, sound, network.link(), addons, ui.versions())))));
         friendsState.closeMenu();
 
         Compat.addWidget(screen, friendsPanel);
@@ -103,10 +108,10 @@ public final class FriendsUi {
 
         ScreenMouseEvents.allowMouseScroll(screen).register((current, mouseX, mouseY, horizontal, vertical) ->
                 !friendsPanel.scroll(mouseX, mouseY, vertical) && mounted.stream().noneMatch(entry ->
-                        Addons.get().guard("sidePanel", () -> entry.side().scroll(mouseX, mouseY, vertical), false)));
+                        addons.guard("sidePanel", () -> entry.side().scroll(mouseX, mouseY, vertical), false)));
         ScreenKeyboardEvents.allowKeyPress(screen).register((current, event) ->
                 !(mounted.stream().anyMatch(entry ->
-                        Addons.get().guard("sidePanel", () -> entry.side().handleKey(event), false))
+                        addons.guard("sidePanel", () -> entry.side().handleKey(event), false))
                         || friendsPanel.handleKey(event)));
         ScreenEvents.remove(screen).register(current -> {
             friendsPanel.blur();
@@ -142,7 +147,6 @@ public final class FriendsUi {
 
     // панели аддонов, которые сейчас видны; скрытые закрываем, чтобы не открылись сами при возвращении кнопки
     private List<Mounted> mountAddonPanels(RailPanel.Bounds bounds) {
-        Addons addons = Addons.get();
         List<Mounted> mounted = new ArrayList<>();
         for (RailPanel panel : addons.railPanels()) {
             PanelState state = addonStates.computeIfAbsent(panel, key -> new PanelState());
@@ -171,7 +175,6 @@ public final class FriendsUi {
     }
 
     private List<HubRail.Button> railButtons(MessengerScreen.Context context, List<Mounted> mounted) {
-        Addons addons = Addons.get();
         PrivateMessages messages = context.messages();
         List<HubRail.Button> buttons = new ArrayList<>();
         buttons.add(new HubRail.Button(Icon.USERS, "Друзья", friendsState::isOpen,
@@ -205,7 +208,7 @@ public final class FriendsUi {
         mounted.forEach(entry -> setOpen(entry, entry == target && open));
     }
 
-    private static void setOpen(Mounted entry, boolean open) {
+    private void setOpen(Mounted entry, boolean open) {
         if (entry.state().isOpen() == open) {
             return;
         }
@@ -218,18 +221,17 @@ public final class FriendsUi {
         notifyOpened(entry, open);
     }
 
-    private static void blur(Mounted entry) {
-        Addons.get().run("sidePanel", () -> entry.side().blur());
+    private void blur(Mounted entry) {
+        addons.run("sidePanel", () -> entry.side().blur());
     }
 
-    private static void notifyOpened(Mounted entry, boolean open) {
-        Addons.get().run("sidePanel", () -> entry.side().opened(open));
+    private void notifyOpened(Mounted entry, boolean open) {
+        addons.run("sidePanel", () -> entry.side().opened(open));
     }
 
     private List<FriendContextMenu.Item> menuItems(MessengerScreen.Context context) {
         FriendManager friends = context.friends();
         IgnoreList ignored = context.ignored();
-        Addons addons = Addons.get();
         List<FriendContextMenu.Item> items = new ArrayList<>();
         // пункты аддонов — сверху
         for (FriendAction action : addons.actions()) {

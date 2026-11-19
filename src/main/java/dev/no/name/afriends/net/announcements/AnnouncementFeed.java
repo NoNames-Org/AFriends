@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 // опубликовал или удалил (refreshNow), а пока открыт экран сообщений, список сверяется раз в 15 секунд (refresh)
 public final class AnnouncementFeed {
     private static final Logger LOGGER = LoggerFactory.getLogger(AFriends.NAME);
-    private static final AnnouncementFeed INSTANCE = new AnnouncementFeed();
     private static final long REFRESH_MS = 15_000;
     private static final Duration TIMEOUT = Duration.ofSeconds(8);
     private static final int MAX_TEXT = 600;
@@ -44,11 +43,7 @@ public final class AnnouncementFeed {
     private volatile long fetchedAt;
     private HttpClient client;
 
-    private AnnouncementFeed() {
-    }
-
-    public static AnnouncementFeed get() {
-        return INSTANCE;
+    public AnnouncementFeed() {
     }
 
     // старые сверху, как в любом чате; пусто, пока не загрузилось или объявлений нет

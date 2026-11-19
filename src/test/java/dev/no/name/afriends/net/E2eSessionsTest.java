@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net;
 
+import dev.no.name.afriends.net.e2e.FriendKeys;
 import com.google.gson.JsonObject;
 import dev.no.name.afriends.net.crypto.KemKey;
 import dev.no.name.afriends.net.e2e.E2eException;
