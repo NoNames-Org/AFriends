@@ -99,6 +99,7 @@ public final class FriendsUi {
                 new HubRail.Button(Icon.SETTINGS, "Настройки", () -> false, () -> null,
                         () -> Compat.setScreen(new SettingsScreen(screen, theme, linkSettings, sound, network.link(), addons, ui.versions())))));
         friendsState.closeMenu();
+        openRequested(mounted);
 
         Compat.addWidget(screen, friendsPanel);
         mounted.forEach(entry -> Compat.addWidget(screen, entry.widget()));
@@ -190,6 +191,24 @@ public final class FriendsUi {
             return unread > 0 ? String.valueOf(unread) : null;
         }, () -> Compat.setScreen(new MessengerScreen(null, context))));
         return List.copyOf(buttons);
+    }
+
+    // аддон просит открыть свою панель сразу. Открыта всегда одна панель, поэтому «Друзья» и остальные закрываются.
+    // opened() здесь не зовём: attach сразу после этого разошлёт его всем панелям
+    private void openRequested(List<Mounted> mounted) {
+        mounted.stream()
+                .filter(entry -> addons.guard("railPanel", entry.panel()::openOnAttach, false))
+                .findFirst()
+                .ifPresent(target -> {
+                    friendsState.close();
+                    for (Mounted entry : mounted) {
+                        if (entry == target) {
+                            entry.state().open();
+                        } else {
+                            entry.state().close();
+                        }
+                    }
+                });
     }
 
     private void toggleFriends(List<Mounted> mounted) {

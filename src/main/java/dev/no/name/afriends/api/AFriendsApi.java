@@ -10,7 +10,7 @@ import java.util.Optional;
 public interface AFriendsApi {
     /** Версия контракта. Мажорная растёт, только когда что-то ломается; новые методы приходят в минорной. */
     int VERSION_MAJOR = 2;
-    int VERSION_MINOR = 0;
+    int VERSION_MINOR = 1;
 
     // ---- окна ----
 
