@@ -48,7 +48,7 @@ class SocialDataAccountsTest {
         befriend(social, "Steve");
         account.set("twink");
         befriend(social, "Steve");
-        assertTrue(social.removeFriendEverywhere("Steve"));
+        assertTrue(social.accountWide().removeFriend("Steve"));
         assertFalse(social.friends().find("Steve") != null);
         account.set("main");
         assertTrue(social.friends().find("Steve") != null);

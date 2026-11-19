@@ -31,7 +31,7 @@ public final class ChatFilter {
                 social.messages().markOffline(offline, System.currentTimeMillis());
                 return !social.messages().isOpen(offline);
             }
-            PrivateMessages.Parsed parsed = PrivateMessages.parse(plain, selfName(), System.currentTimeMillis());
+            ServerMessageParser.Parsed parsed = ServerMessageParser.parse(plain, selfName(), System.currentTimeMillis());
             if (parsed == null) {
                 return !social.ignored().isIgnored(chatSender(plain));
             }

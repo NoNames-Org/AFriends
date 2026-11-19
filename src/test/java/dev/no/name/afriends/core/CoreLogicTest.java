@@ -12,18 +12,18 @@ class CoreLogicTest {
     @Test
     @DisplayName("ЛС от меня и мне разбираются, чужие — нет")
     void privateMessageParse() {
-        PrivateMessages.Parsed out = PrivateMessages.parse("[PM] Fell → Bob: привет", "Fell", 5);
+        ServerMessageParser.Parsed out = ServerMessageParser.parse("[PM] Fell → Bob: привет", "Fell", 5);
         assertEquals("Bob", out.partner());
         assertTrue(out.message().fromMe());
         assertEquals("привет", out.message().text());
 
-        PrivateMessages.Parsed in = PrivateMessages.parse("[ЛС] Bob -> fell: хай", "Fell", 5);
+        ServerMessageParser.Parsed in = ServerMessageParser.parse("[ЛС] Bob -> fell: хай", "Fell", 5);
         assertEquals("Bob", in.partner());
         assertFalse(in.message().fromMe());
 
-        assertNull(PrivateMessages.parse("[PM] Ann → Bob: не мне", "Fell", 5));
-        assertNull(PrivateMessages.parse("<Bob> обычный чат", "Fell", 5));
-        assertNull(PrivateMessages.parse("[PM] Fell → Bob: x", null, 5));
+        assertNull(ServerMessageParser.parse("[PM] Ann → Bob: не мне", "Fell", 5));
+        assertNull(ServerMessageParser.parse("<Bob> обычный чат", "Fell", 5));
+        assertNull(ServerMessageParser.parse("[PM] Fell → Bob: x", null, 5));
     }
 
     @Test

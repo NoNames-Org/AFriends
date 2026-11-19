@@ -1,5 +1,6 @@
 package dev.no.name.afriends.addon;
 
+import dev.no.name.afriends.api.FriendListener;
 import dev.no.name.afriends.api.FriendStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -53,9 +55,9 @@ class AddonRegistryTest {
     void friendListenersNotified() {
         AddonRegistry registry = new AddonRegistry();
         List<String> events = new ArrayList<>();
-        registry.addFriendListener(new dev.no.name.afriends.api.FriendListener() {
+        registry.addFriendListener(new FriendListener() {
             @Override
-            public void added(String name, java.util.function.Consumer<String> notice) {
+            public void added(String name, Consumer<String> notice) {
                 events.add("+" + name);
             }
 

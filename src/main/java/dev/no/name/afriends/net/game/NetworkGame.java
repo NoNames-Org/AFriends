@@ -63,7 +63,7 @@ public final class NetworkGame {
         this.link = new LinkService(own, folder.resolveSibling("media"), GameAccount::current, incoming, announcements);
         link.switchAccount(own, accounts.others(account));
         this.friends = new FriendSync(link, name -> {
-            if (social.removeFriendEverywhere(name)) {
+            if (social.accountWide().removeFriend(name)) {
                 save.run();
             }
         });

@@ -193,10 +193,10 @@ final class GroupRoute implements GroupChats {
             return;
         }
         int previous = message.poll().mine();
-        social.vote(chat, messageId, null, choice);
+        social.accountWide().vote(chat, messageId, null, choice);
         link.sendGroupVote(group, messageId, choice).thenAccept(code -> onGame(() -> {
             if (!"ok".equals(code)) {
-                social.vote(chat, messageId, null, previous);
+                social.accountWide().vote(chat, messageId, null, previous);
                 problem.accept("Голос не ушёл: " + LinkText.sendProblem(code));
             }
         }));
@@ -401,7 +401,7 @@ final class GroupRoute implements GroupChats {
         link.leaveGroup(PrivateMessages.groupId(chat)).thenAccept(code -> onGame(() -> {
             if ("ok".equals(code)) {
                 left.add(PrivateMessages.groupId(chat));
-                social.deleteChatEverywhere(chat);
+                social.accountWide().deleteChat(chat);
             } else {
                 problem.accept(groupProblem(code));
             }

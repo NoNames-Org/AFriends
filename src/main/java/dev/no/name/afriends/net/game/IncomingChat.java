@@ -70,7 +70,7 @@ final class IncomingChat implements InboxListener {
     // собеседник получил или прочитал наши сообщения
     @Override
     public void receipt(LinkFriend from, List<String> targets, boolean read, long time) {
-        Minecraft.getInstance().execute(() -> social.receiptEverywhere(targets,
+        Minecraft.getInstance().execute(() -> social.accountWide().receipt(targets,
                 read ? PrivateMessages.RECEIPT_READ : PrivateMessages.RECEIPT_DELIVERED));
     }
 
@@ -117,14 +117,14 @@ final class IncomingChat implements InboxListener {
     // друг удалил у обоих: ищем во всех серверах, как реакцию. Игнор не мешает — это его же переписка с нами
     @Override
     public void deleted(LinkFriend from, List<String> targets, long time) {
-        Minecraft.getInstance().execute(() -> social.removeEverywhere(from.name(), targets));
+        Minecraft.getInstance().execute(() -> social.accountWide().remove(from.name(), targets));
     }
 
     @Override
     public void pinned(LinkFriend from, String target, boolean pinned, long time) {
         Minecraft.getInstance().execute(() -> {
             if (!social.ignored().isIgnored(from.name())) {
-                social.pinEverywhere(from.name(), target, pinned);
+                social.accountWide().pin(from.name(), target, pinned);
             }
         });
     }
@@ -134,7 +134,7 @@ final class IncomingChat implements InboxListener {
     public void reaction(LinkFriend from, String target, String reaction, long time) {
         Minecraft.getInstance().execute(() -> {
             if (!social.ignored().isIgnored(from.name())) {
-                social.react(from.name(), target, false, reaction);
+                social.accountWide().react(from.name(), target, false, reaction);
             }
         });
     }
@@ -165,7 +165,7 @@ final class IncomingChat implements InboxListener {
     // голос участника: опрос ищем во всех серверах, как реакцию. Голос того, кого игнорируешь, всё равно считается
     @Override
     public void groupVote(String group, LinkFriend from, String target, int choice, long time) {
-        Minecraft.getInstance().execute(() -> social.vote(PrivateMessages.groupKey(group), target, from.name(), choice));
+        Minecraft.getInstance().execute(() -> social.accountWide().vote(PrivateMessages.groupKey(group), target, from.name(), choice));
     }
 
     @Override

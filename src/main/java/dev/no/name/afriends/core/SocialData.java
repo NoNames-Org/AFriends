@@ -40,6 +40,7 @@ public final class SocialData {
     // какие чаты не возвращаются из архива новым сообщением (заглушённые)
     private final Predicate<String> staysArchived;
     private final List<MessageEvents> listeners = new CopyOnWriteArrayList<>();
+    private final AccountWide accountWide = new AccountWide(this::accountScopes);
     // общий для всех scope: переписка любого аккаунта и сервера сообщает подписчикам SocialData
     private final MessageEvents events = new MessageEvents() {
         @Override
@@ -91,53 +92,9 @@ public final class SocialData {
         return current().messages();
     }
 
-    // реакция по сети: сообщение с этим id ищем на всех серверах аккаунта — реакция может прийти и из главного меню
-    public boolean react(String partner, String messageId, boolean mine, String reaction) {
-        for (PrivateMessages messages : accountMessages()) {
-            if (messages.react(partner, messageId, mine, reaction)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // голос в опросе группы по сети: ищем на всех серверах аккаунта, как реакцию. voter null — свой
-    public boolean vote(String chat, String messageId, String voter, int choice) {
-        for (PrivateMessages messages : accountMessages()) {
-            if (messages.vote(chat, messageId, voter, choice)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // собеседник удалил сообщения у обоих: ищем на всех серверах аккаунта, как реакцию
-    // чат пропадает на всех серверах этого аккаунта (вышел из группы)
-    public void deleteChatEverywhere(String chat) {
-        accountMessages().forEach(messages -> messages.delete(chat));
-    }
-
-    public void removeEverywhere(String partner, Collection<String> messageIds) {
-        accountMessages().forEach(messages -> messages.remove(partner, messageIds));
-    }
-
-    // отметка на своё сообщение: оно могло уйти с любого сервера этого аккаунта
-    public void receiptEverywhere(List<String> messageIds, int state) {
-        accountMessages().forEach(messages -> messageIds.forEach(id -> messages.markReceipt(id, state)));
-    }
-
-    // собеседник закрепил или открепил сообщение у обоих
-    public void pinEverywhere(String partner, String messageId, boolean pinned) {
-        accountMessages().forEach(messages -> messages.pin(partner, messageId, pinned));
-    }
-
-    // друг удалил нас в сети: на каждом сервере этого аккаунта он больше не друг. true — где-то был
-    public boolean removeFriendEverywhere(String name) {
-        boolean removed = false;
-        for (Scope scope : accountScopes()) {
-            removed |= scope.friends().remove(name);
-        }
-        return removed;
+    /** Изменения из сети, которые касаются всех серверов текущего аккаунта. */
+    public AccountWide accountWide() {
+        return accountWide;
     }
 
     public void tick() {
@@ -161,10 +118,6 @@ public final class SocialData {
             list.add(legacy);
         }
         return list;
-    }
-
-    private List<PrivateMessages> accountMessages() {
-        return accountScopes().stream().map(Scope::messages).toList();
     }
 
     private List<Scope> everyScope() {
