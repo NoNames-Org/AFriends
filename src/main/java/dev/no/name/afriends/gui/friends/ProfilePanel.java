@@ -230,16 +230,16 @@ final class ProfilePanel {
         }
         float textX = avatarX + AVATAR + 8;
         int textWidth = (int) (x + WIDTH - PAD - 14 - textX);
-        Draw.text(g, Draw.trim(title, textWidth, TextStyle.TITLE), textX, avatarY + 9, Theme.TEXT, TextStyle.TITLE);
-        Draw.text(g, Draw.trim(status, textWidth, TextStyle.SMALL), textX, avatarY + 24, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(title, textWidth, TextStyle.TITLE), textX, avatarY + 9, Theme.text(), TextStyle.TITLE);
+        Draw.text(g, Draw.trim(status, textWidth, TextStyle.SMALL), textX, avatarY + 24, Theme.textSoft(), TextStyle.SMALL);
         float closeX = x + WIDTH - PAD - 10;
         boolean closeHover = PanelKit.inside(mouseX, mouseY, closeX - 2, y + PAD - 2, 14, 14);
-        Draw.icon(g, Icon.CLOSE, closeX, y + PAD, 10, closeHover ? Theme.TEXT : Theme.TEXT_DIM);
+        Draw.icon(g, Icon.CLOSE, closeX, y + PAD, 10, closeHover ? Theme.text() : Theme.textDim());
         if (!aboutLines.isEmpty()) {
             float aboutY = y + PAD + AVATAR + 6;
-            Draw.text(g, group ? "Описание" : "О себе", x + PAD, aboutY, Theme.TEXT_DIM, TextStyle.SMALL);
+            Draw.text(g, group ? "Описание" : "О себе", x + PAD, aboutY, Theme.textDim(), TextStyle.SMALL);
             for (int i = 0; i < aboutLines.size(); i++) {
-                Draw.text(g, aboutLines.get(i), x + PAD, aboutY + LINE + i * LINE, Theme.TEXT);
+                Draw.text(g, aboutLines.get(i), x + PAD, aboutY + LINE + i * LINE, Theme.text());
             }
         }
     }

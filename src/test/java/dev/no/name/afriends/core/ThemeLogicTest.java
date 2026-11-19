@@ -15,9 +15,9 @@ class ThemeLogicTest {
     void defaultIsGraphite() {
         ThemeSettings settings = new ThemeSettings();
         settings.select(ThemePreset.GRAPHITE.id());
-        assertEquals(0xF2121318, Theme.PANEL_TOP);
-        assertEquals(0xFFFFFFFF, Theme.ACCENT);
-        assertEquals(0xFF0E0F12, Theme.ACCENT_TEXT);
+        assertEquals(0xF2121318, Theme.panelTop());
+        assertEquals(0xFFFFFFFF, Theme.accent());
+        assertEquals(0xFF0E0F12, Theme.accentText());
     }
 
     @Test
@@ -25,8 +25,8 @@ class ThemeLogicTest {
     void presetRecolors() {
         ThemeSettings settings = new ThemeSettings();
         settings.select(ThemePreset.BLOOD.id());
-        assertEquals(ThemePreset.BLOOD.accent(), Theme.ACCENT);
-        assertNotEquals(0xF2121318, Theme.PANEL_TOP);
+        assertEquals(ThemePreset.BLOOD.accent(), Theme.accent());
+        assertNotEquals(0xF2121318, Theme.panelTop());
         settings.select(ThemePreset.GRAPHITE.id());
     }
 
@@ -36,9 +36,9 @@ class ThemeLogicTest {
         ThemeSettings settings = new ThemeSettings();
         settings.setCustom(0x101820, 0xFFFFE066);
         settings.select(ThemeSettings.CUSTOM_ID);
-        assertEquals(0xFFFFE066, Theme.ACCENT);
+        assertEquals(0xFFFFE066, Theme.accent());
 
-        assertEquals(0xFF0E0F12, Theme.ACCENT_TEXT);
+        assertEquals(0xFF0E0F12, Theme.accentText());
 
         ThemeSettings loaded = new ThemeSettings();
         loaded.fromJson(settings.toJson());

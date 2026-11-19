@@ -24,7 +24,7 @@ final class OnlineDot {
     static void draw(Gfx g, float faceX, float faceY, int face) {
         float x = faceX + face - SIZE + 2;
         float y = faceY + face - SIZE + 2;
-        Draw.roundedRect(g, x, y, SIZE, SIZE, SIZE / 2f, Theme.PANEL_BOTTOM);
+        Draw.roundedRect(g, x, y, SIZE, SIZE, SIZE / 2f, Theme.panelBottom());
         Draw.roundedRect(g, x + 1, y + 1, SIZE - 2, SIZE - 2, (SIZE - 2) / 2f, COLOR);
     }
 }

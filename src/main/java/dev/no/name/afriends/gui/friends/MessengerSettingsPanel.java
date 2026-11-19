@@ -67,9 +67,9 @@ final class MessengerSettingsPanel {
         if (!open) {
             return;
         }
-        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.PANEL_RADIUS, 12, Theme.SHADOW);
-        Draw.box(g, x, y, WIDTH, height, Theme.PANEL_RADIUS, Theme.POPUP, Theme.BORDER_HOVER);
-        Draw.text(g, "Настройки мессенджера", x + PAD, y + PAD, Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.PANEL_RADIUS, 12, Theme.shadow());
+        Draw.box(g, x, y, WIDTH, height, Theme.PANEL_RADIUS, Theme.popup(), Theme.borderHover());
+        Draw.text(g, "Настройки мессенджера", x + PAD, y + PAD, Theme.text(), TextStyle.BODY_MEDIUM);
         float textWidth = WIDTH - PAD * 2 - SWITCH_WIDTH - 8;
         drawToggle(g, Row.SOUND, "Звук сообщений", "У отдельного чата — в его меню", notify.soundEnabled(), textWidth);
         drawToggle(g, Row.TOASTS, "Уведомления", "Карточка о новом сообщении в углу экрана", notify.toastsEnabled(), textWidth);
@@ -82,8 +82,8 @@ final class MessengerSettingsPanel {
 
     private void drawToggle(Gfx g, Row row, String title, String hint, boolean on, float textWidth) {
         float rowY = rowY(row);
-        Draw.text(g, Draw.trim(title, (int) textWidth), x + PAD, rowY, Theme.TEXT);
-        Draw.text(g, Draw.trim(hint, (int) textWidth), x + PAD, rowY + 11, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(title, (int) textWidth), x + PAD, rowY, Theme.text());
+        Draw.text(g, Draw.trim(hint, (int) textWidth), x + PAD, rowY + 11, Theme.textDim(), TextStyle.SMALL);
         ToggleList.drawSwitch(g, x + WIDTH - PAD - SWITCH_WIDTH, rowY + 4, on);
     }
 

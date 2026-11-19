@@ -138,9 +138,9 @@ final class GroupEditor {
         if (mode == null) {
             return;
         }
-        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
-        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
-        Draw.text(g, heading(), x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.shadow());
+        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.popup(), Theme.border());
+        Draw.text(g, heading(), x + PAD, y + PAD, Theme.textSoft(), TextStyle.SMALL);
         if (mode == Mode.CREATE || mode == Mode.RENAME) {
             title.render(g, mouseX, mouseY);
         }
@@ -156,7 +156,7 @@ final class GroupEditor {
         float top = listTop();
         if (names.isEmpty()) {
             String empty = mode == Mode.MEMBERS ? "Кроме тебя никого" : "Нет друзей по сети, кого позвать";
-            Draw.textCentered(g, empty, x + WIDTH / 2f, top + 4, Theme.TEXT_DIM);
+            Draw.textCentered(g, empty, x + WIDTH / 2f, top + 4, Theme.textDim());
             return;
         }
         for (int i = scroll; i < names.size() && i < scroll + VISIBLE; i++) {
@@ -164,23 +164,23 @@ final class GroupEditor {
             String name = names.get(i);
             boolean hover = mouseX >= x + PAD && mouseX < x + WIDTH - PAD && mouseY >= rowY && mouseY < rowY + ROW;
             if (hover && mode != Mode.MEMBERS) {
-                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.cardHover());
             }
             float textX = x + PAD + 2;
             if (mode == Mode.CREATE) {
                 boolean on = picked.contains(name);
-                Draw.box(g, textX, rowY + 4, 8, 8, 2, on ? Theme.ACCENT : Theme.CARD, on ? Theme.ACCENT : Theme.BORDER_HOVER);
+                Draw.box(g, textX, rowY + 4, 8, 8, 2, on ? Theme.accent() : Theme.card(), on ? Theme.accent() : Theme.borderHover());
                 if (on) {
-                    Draw.icon(g, Icon.CHECK, textX + 1, rowY + 5, 6, Theme.ACCENT_TEXT);
+                    Draw.icon(g, Icon.CHECK, textX + 1, rowY + 5, 6, Theme.accentText());
                 }
                 textX += 13;
             }
-            Draw.text(g, Draw.trim(name, (int) (x + WIDTH - PAD - textX - 40)), textX, rowY + 4, Theme.TEXT);
+            Draw.text(g, Draw.trim(name, (int) (x + WIDTH - PAD - textX - 40)), textX, rowY + 4, Theme.text());
             if (mode == Mode.MEMBERS && owned) {
                 String kick = "Исключить";
                 float kickX = x + WIDTH - PAD - Draw.width(kick, TextStyle.SMALL);
                 boolean kickHover = mouseX >= kickX && mouseX < x + WIDTH - PAD && mouseY >= rowY && mouseY < rowY + ROW;
-                Draw.text(g, kick, kickX, rowY + 5, kickHover ? Theme.DANGER : Theme.TEXT_DIM, TextStyle.SMALL);
+                Draw.text(g, kick, kickX, rowY + 5, kickHover ? Theme.DANGER : Theme.textDim(), TextStyle.SMALL);
             }
         }
     }
@@ -190,9 +190,9 @@ final class GroupEditor {
         boolean enabled = mode != Mode.CREATE || !picked.isEmpty();
         boolean hover = enabled && mouseX >= x + PAD && mouseX < x + WIDTH - PAD && mouseY >= buttonY && mouseY < buttonY + BUTTON;
         boolean danger = mode == Mode.MEMBERS;
-        int fill = danger ? (hover ? Theme.CARD_PRESSED : Theme.CARD) : enabled ? Theme.ACCENT : Theme.CARD;
+        int fill = danger ? (hover ? Theme.cardPressed() : Theme.card()) : enabled ? Theme.accent() : Theme.card();
         Draw.roundedRect(g, x + PAD, buttonY, WIDTH - PAD * 2, BUTTON, Theme.RADIUS, fill);
-        int color = danger ? Theme.DANGER : enabled ? Theme.ACCENT_TEXT : Theme.TEXT_DIM;
+        int color = danger ? Theme.DANGER : enabled ? Theme.accentText() : Theme.textDim();
         Draw.textCentered(g, buttonLabel(), x + WIDTH / 2f, buttonY + 4, color);
     }
 

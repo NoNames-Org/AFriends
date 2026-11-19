@@ -90,6 +90,6 @@ final class ReactionChips {
     }
 
     static int textColorFor(boolean mine) {
-        return mine ? Theme.ACCENT_TEXT : Theme.TEXT;
+        return mine ? Theme.accentText() : Theme.text();
     }
 }

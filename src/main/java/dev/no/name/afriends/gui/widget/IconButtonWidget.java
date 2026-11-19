@@ -25,7 +25,7 @@ public class IconButtonWidget extends Widget {
     public void render(Gfx g, int mouseX, int mouseY) {
         hover.setTarget(contains(mouseX, mouseY));
         float size = Theme.ICON;
-        int color = Colors.mix(Theme.TEXT_DIM, Theme.TEXT, hover.get());
+        int color = Colors.mix(Theme.textDim(), Theme.text(), hover.get());
         Draw.icon(g, icon, x + (width - size) / 2f, y + (height - size) / 2f, size, color);
     }
 

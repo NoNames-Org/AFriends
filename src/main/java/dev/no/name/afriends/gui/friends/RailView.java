@@ -27,7 +27,7 @@ final class RailView {
             boolean active = actions[i] == Action.NOTES ? notes : actions[i] == Action.ALL_CHATS && !notes;
             drawButton(g, icon(actions[i]), y, inside(mouseX, mouseY, BUTTON_X, y, RAIL_BUTTON, RAIL_BUTTON), active);
             if (i == 0) {
-                Draw.rect(g, 8, y + RAIL_BUTTON + 3, RAIL_WIDTH - 16, 1, Theme.BORDER);
+                Draw.rect(g, 8, y + RAIL_BUTTON + 3, RAIL_WIDTH - 16, 1, Theme.border());
             }
         }
         // настройки мессенджера — внизу, как в Telegram
@@ -64,18 +64,18 @@ final class RailView {
     }
 
     private static void drawButton(Gfx g, Icon icon, int y, boolean hovered, boolean active) {
-        int fill = active ? Theme.ACCENT : hovered ? Theme.CARD_HOVER : Colors.fade(Theme.CARD, 0);
+        int fill = active ? Theme.accent() : hovered ? Theme.cardHover() : Colors.fade(Theme.card(), 0);
         Draw.roundedRect(g, BUTTON_X, y, RAIL_BUTTON, RAIL_BUTTON, Theme.RADIUS, fill);
-        int color = active ? Theme.ACCENT_TEXT : hovered ? Theme.TEXT : Theme.TEXT_SOFT;
+        int color = active ? Theme.accentText() : hovered ? Theme.text() : Theme.textSoft();
         Draw.icon(g, icon, BUTTON_X + (RAIL_BUTTON - Theme.ICON) / 2f, y + (RAIL_BUTTON - Theme.ICON) / 2f,
                 Theme.ICON, color);
     }
 
     private static void tooltip(Gfx g, String label, int y) {
         float width = Draw.width(label) + 12;
-        Draw.shadow(g, RAIL_WIDTH + 2, y + 4, width, 16, Theme.RADIUS, 8, Theme.SHADOW);
-        Draw.box(g, RAIL_WIDTH + 2, y + 4, width, 16, Theme.RADIUS, Theme.POPUP, Theme.BORDER_HOVER);
-        Draw.text(g, label, RAIL_WIDTH + 8, y + 8, Theme.TEXT);
+        Draw.shadow(g, RAIL_WIDTH + 2, y + 4, width, 16, Theme.RADIUS, 8, Theme.shadow());
+        Draw.box(g, RAIL_WIDTH + 2, y + 4, width, 16, Theme.RADIUS, Theme.popup(), Theme.borderHover());
+        Draw.text(g, label, RAIL_WIDTH + 8, y + 8, Theme.text());
     }
 
     private static int buttonY(int index) {

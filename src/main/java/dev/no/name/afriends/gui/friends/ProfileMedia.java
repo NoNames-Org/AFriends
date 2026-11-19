@@ -141,7 +141,7 @@ final class ProfileMedia {
         if (shown.isEmpty()) {
             String empty = !search.getText().isBlank() ? "Ничего не нашлось"
                     : kind == Kind.MEDIA ? "Картинок в этом чате пока нет" : "Голосовых в этом чате пока нет";
-            Draw.textCentered(g, empty, x + width / 2f, top + 16, Theme.TEXT_DIM);
+            Draw.textCentered(g, empty, x + width / 2f, top + 16, Theme.textDim());
             return;
         }
         scroll = Math.max(0, Math.min(scroll, Math.max(0, contentHeight(shown.size()) - (bottom - top))));
@@ -164,7 +164,7 @@ final class ProfileMedia {
         if (cellY + cell < top || cellY > bottom) {
             return;
         }
-        Draw.roundedRect(g, cellX, cellY, cell, cell, Theme.RADIUS, Theme.TILE);
+        Draw.roundedRect(g, cellX, cellY, cell, cell, Theme.RADIUS, Theme.tile());
         MessageImage image = item.image();
         float ratio = Math.max(1, image.width()) / (float) Math.max(1, image.height());
         float w = ratio >= 1 ? cell : cell * ratio;
@@ -174,7 +174,7 @@ final class ProfileMedia {
         float gotoX = -1;
         float gotoY = cellY + 3;
         if (PanelKit.inside(mouseX, mouseY, cellX, cellY, cell, cell) && mouseY >= top && mouseY < bottom) {
-            Draw.border(g, cellX, cellY, cell, cell, Theme.RADIUS, Theme.BORDER_SELECTED);
+            Draw.border(g, cellX, cellY, cell, cell, Theme.RADIUS, Theme.borderSelected());
             gotoX = cellX + cell - GOTO - 3;
             drawGoto(g, gotoX, gotoY, mouseX, mouseY);
         }
@@ -188,13 +188,13 @@ final class ProfileMedia {
         }
         boolean hovered = PanelKit.inside(mouseX, mouseY, x, rowY, width, VOICE_ROW) && mouseY >= top && mouseY < bottom;
         if (hovered) {
-            Draw.roundedRect(g, x, rowY, width, VOICE_ROW - 2, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, x, rowY, width, VOICE_ROW - 2, Theme.RADIUS, Theme.cardHover());
         }
-        VoiceBlock.draw(g, item.image(), media, x + 4, rowY + 3, Theme.TEXT);
+        VoiceBlock.draw(g, item.image(), media, x + 4, rowY + 3, Theme.text());
         float textX = x + 4 + VoiceBlock.WIDTH + 8;
         int textWidth = (int) (x + width - 4 - textX);
-        Draw.text(g, Draw.trim(item.author(), textWidth), textX, rowY + 5, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, Draw.trim(item.date(), textWidth, TextStyle.SMALL), textX, rowY + 16, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(item.author(), textWidth), textX, rowY + 5, Theme.text(), TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(item.date(), textWidth, TextStyle.SMALL), textX, rowY + 16, Theme.textDim(), TextStyle.SMALL);
         float gotoX = -1;
         float gotoY = rowY + (VOICE_ROW - 2 - GOTO) / 2f;
         if (hovered) {
@@ -207,8 +207,8 @@ final class ProfileMedia {
     // кнопка «к сообщению» в углу картинки или справа у голосового
     private static void drawGoto(Gfx g, float x, float y, int mouseX, int mouseY) {
         boolean over = PanelKit.inside(mouseX, mouseY, x, y, GOTO, GOTO);
-        Draw.box(g, x, y, GOTO, GOTO, Theme.RADIUS, over ? Theme.CARD_HOVER : Theme.CARD, over ? Theme.BORDER_SELECTED : Theme.BORDER);
-        Draw.icon(g, Icon.ARROW_UP_RIGHT, x + 2, y + 2, GOTO - 4, over ? Theme.TEXT : Theme.TEXT_SOFT);
+        Draw.box(g, x, y, GOTO, GOTO, Theme.RADIUS, over ? Theme.cardHover() : Theme.card(), over ? Theme.borderSelected() : Theme.border());
+        Draw.icon(g, Icon.ARROW_UP_RIGHT, x + 2, y + 2, GOTO - 4, over ? Theme.text() : Theme.textSoft());
     }
 
     // картинка, по которой кликнули (её открыть крупно), или переход к сообщению; голосовое играет само. null — мимо

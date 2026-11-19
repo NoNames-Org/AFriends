@@ -63,10 +63,10 @@ public class FriendContextMenu extends WidgetBase {
         float shown = state.menuProgress();
         Draw.pushAlpha(shown);
         Draw.pushOffset(g, (1 - shown) * 6, 0);
-        Draw.shadow(g, getX(), getY() + 2, WIDTH, getHeight(), Theme.RADIUS + 2, 12, Theme.SHADOW);
-        Draw.box(g, getX(), getY(), WIDTH, getHeight(), Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER_HOVER);
+        Draw.shadow(g, getX(), getY() + 2, WIDTH, getHeight(), Theme.RADIUS + 2, 12, Theme.shadow());
+        Draw.box(g, getX(), getY(), WIDTH, getHeight(), Theme.RADIUS + 2, Theme.popup(), Theme.borderHover());
         Draw.text(g, Draw.trim(friend.name(), WIDTH - PADDING * 4), getX() + PADDING * 2, getY() + PADDING + 4,
-                Theme.TEXT_DIM, TextStyle.SMALL);
+                Theme.textDim(), TextStyle.SMALL);
 
         for (int i = 0; i < shownItems.size(); i++) {
             drawItem(g, shownItems.get(i), friend, itemY(i), mouseX, mouseY);
@@ -85,9 +85,9 @@ public class FriendContextMenu extends WidgetBase {
         int itemWidth = WIDTH - PADDING * 2;
         boolean hovered = mouseX >= itemX && mouseX < itemX + itemWidth && mouseY >= itemY && mouseY < itemY + ITEM_HEIGHT;
         if (hovered) {
-            Draw.roundedRect(g, itemX, itemY, itemWidth, ITEM_HEIGHT, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, itemX, itemY, itemWidth, ITEM_HEIGHT, Theme.RADIUS, Theme.cardHover());
         }
-        int color = item.danger().test(friend) ? DANGER : Colors.mix(Theme.TEXT_SOFT, Theme.TEXT, hovered ? 1 : 0);
+        int color = item.danger().test(friend) ? DANGER : Colors.mix(Theme.textSoft(), Theme.text(), hovered ? 1 : 0);
         Draw.icon(g, item.icon(), itemX + 6, itemY + (ITEM_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, color);
         Draw.text(g, item.label().apply(friend), itemX + 6 + Theme.ICON_SMALL + 6, itemY + (ITEM_HEIGHT - 8) / 2f, color);
     }

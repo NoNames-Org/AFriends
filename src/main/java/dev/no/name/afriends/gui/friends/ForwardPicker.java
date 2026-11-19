@@ -59,22 +59,22 @@ final class ForwardPicker {
         if (forwarded.isEmpty()) {
             return;
         }
-        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
-        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
+        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.shadow());
+        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.popup(), Theme.border());
         String title = forwarded.size() == 1 ? "Переслать в…" : "Переслать " + forwarded.size() + " в…";
-        Draw.text(g, title, x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, title, x + PAD, y + PAD, Theme.textSoft(), TextStyle.SMALL);
         if (entries.isEmpty()) {
-            Draw.textCentered(g, "Некуда пересылать", x + WIDTH / 2f, y + PAD + TITLE + 6, Theme.TEXT_DIM);
+            Draw.textCentered(g, "Некуда пересылать", x + WIDTH / 2f, y + PAD + TITLE + 6, Theme.textDim());
             return;
         }
         for (int i = scroll; i < entries.size() && i < scroll + VISIBLE; i++) {
             float rowY = y + PAD + TITLE + (i - scroll) * ROW;
             boolean hover = mouseX >= x + PAD && mouseX < x + WIDTH - PAD && mouseY >= rowY && mouseY < rowY + ROW;
             if (hover) {
-                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.cardHover());
             }
             tiles.paint(g, entries.get(i), x + PAD, rowY + (ROW - FACE) / 2f, FACE);
-            Draw.text(g, Draw.trim(names.apply(entries.get(i)), WIDTH - PAD * 2 - FACE - 8), x + PAD + FACE + 6, rowY + 6, Theme.TEXT);
+            Draw.text(g, Draw.trim(names.apply(entries.get(i)), WIDTH - PAD * 2 - FACE - 8), x + PAD + FACE + 6, rowY + 6, Theme.text());
         }
     }
 

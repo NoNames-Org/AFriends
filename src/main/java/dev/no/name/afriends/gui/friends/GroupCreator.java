@@ -145,7 +145,7 @@ final class GroupCreator {
         }
         Draw.roundedRect(g, 0, 0, areaWidth, areaHeight, Theme.PANEL_RADIUS, 0x66000000);
         PanelKit.frame(g, x, y, WIDTH, height);
-        Draw.text(g, step == 1 ? "Новая группа" : "Участники · выбрано " + picked.size(), x + PAD, y + PAD, Theme.TEXT_SOFT,
+        Draw.text(g, step == 1 ? "Новая группа" : "Участники · выбрано " + picked.size(), x + PAD, y + PAD, Theme.textSoft(),
                 TextStyle.SMALL);
         if (step == 1) {
             drawPhoto(g, mouseX, mouseY);
@@ -167,7 +167,7 @@ final class GroupCreator {
         if (photo != null && PanelKit.filePreview(g, chatMedia, photo, photoX, photoY, PHOTO)) {
             return;
         }
-        Draw.roundedRect(g, photoX, photoY, PHOTO, PHOTO, PHOTO / 2f, hover ? PanelKit.GROUP_COLOR : Theme.TILE_ON);
+        Draw.roundedRect(g, photoX, photoY, PHOTO, PHOTO, PHOTO / 2f, hover ? PanelKit.GROUP_COLOR : Theme.tileOn());
         float icon = PHOTO * 0.4f;
         Draw.icon(g, photo != null ? Icon.CHECK : Icon.CAMERA, photoX + (PHOTO - icon) / 2, photoY + (PHOTO - icon) / 2 - 3, icon,
                 0xFFFFFFFF);
@@ -181,17 +181,17 @@ final class GroupCreator {
         float top = listTop();
         if (shown.isEmpty()) {
             String empty = friends.isEmpty() ? "Нет друзей по сети, кого позвать" : "Никого не нашлось";
-            Draw.textCentered(g, empty, x + WIDTH / 2f, top + 6, Theme.TEXT_DIM);
+            Draw.textCentered(g, empty, x + WIDTH / 2f, top + 6, Theme.textDim());
             return;
         }
         for (int i = scroll; i < shown.size() && i < scroll + VISIBLE; i++) {
             float rowY = top + (i - scroll) * ROW;
             String name = shown.get(i);
             if (PanelKit.inside(mouseX, mouseY, x + PAD, rowY, WIDTH - PAD * 2, ROW)) {
-                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.cardHover());
             }
             PanelKit.checkbox(g, picked.contains(name), false, x + PAD + 2, rowY + 4);
-            Draw.text(g, Draw.trim(name, WIDTH - PAD * 2 - 18), x + PAD + 15, rowY + 4, Theme.TEXT);
+            Draw.text(g, Draw.trim(name, WIDTH - PAD * 2 - 18), x + PAD + 15, rowY + 4, Theme.text());
         }
     }
 

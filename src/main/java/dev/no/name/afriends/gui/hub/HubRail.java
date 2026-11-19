@@ -47,10 +47,10 @@ public class HubRail extends WidgetBase {
     @Override
     protected void draw(Gfx g, int mouseX, int mouseY, float partialTick) {
         Draw.setPixelScale(Minecraft.getInstance().getWindow().getGuiScale());
-        Draw.shadow(g, getX(), getY() + 2, WIDTH, height, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.SHADOW, 0.6f));
+        Draw.shadow(g, getX(), getY() + 2, WIDTH, height, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.shadow(), 0.6f));
         Draw.gradient(g, getX(), getY(), WIDTH, height, Theme.PANEL_RADIUS,
-                Colors.fade(Theme.PANEL_TOP, 0.92f), Colors.fade(Theme.PANEL_BOTTOM, 0.92f));
-        Draw.border(g, getX(), getY(), WIDTH, height, Theme.PANEL_RADIUS, Theme.BORDER);
+                Colors.fade(Theme.panelTop(), 0.92f), Colors.fade(Theme.panelBottom(), 0.92f));
+        Draw.border(g, getX(), getY(), WIDTH, height, Theme.PANEL_RADIUS, Theme.border());
         for (int i = 0; i < top.size(); i++) {
             drawButton(g, top.get(i), buttonY(i, false), hover[i], mouseX, mouseY);
         }
@@ -69,10 +69,10 @@ public class HubRail extends WidgetBase {
         hoverAnim.setTarget(hovered);
         boolean active = button.active().getAsBoolean();
         float hoverAmount = hoverAnim.get();
-        int fill = active ? Theme.ACCENT : Colors.mix(Colors.fade(Theme.CARD, 0), Theme.CARD_HOVER, hoverAmount);
-        int border = active ? Theme.ACCENT : Colors.mix(Colors.fade(Theme.BORDER, 0), Theme.BORDER_HOVER, hoverAmount);
+        int fill = active ? Theme.accent() : Colors.mix(Colors.fade(Theme.card(), 0), Theme.cardHover(), hoverAmount);
+        int border = active ? Theme.accent() : Colors.mix(Colors.fade(Theme.border(), 0), Theme.borderHover(), hoverAmount);
         Draw.box(g, x, y, BUTTON, BUTTON, Theme.RADIUS, fill, border);
-        int iconColor = active ? Theme.ACCENT_TEXT : Colors.mix(Theme.TEXT_SOFT, Theme.TEXT, hoverAmount);
+        int iconColor = active ? Theme.accentText() : Colors.mix(Theme.textSoft(), Theme.text(), hoverAmount);
         Draw.icon(g, button.icon(), x + (BUTTON - ICON) / 2f, y + (BUTTON - ICON) / 2f, ICON, iconColor);
 
         String badge = button.badge().get();
@@ -80,8 +80,8 @@ public class HubRail extends WidgetBase {
             float badgeWidth = Math.max(BADGE, Draw.width(badge, TextStyle.SMALL) + 4);
             float badgeX = x + BUTTON - badgeWidth + 3;
             float badgeY = y - 3;
-            int badgeFill = active ? Theme.ACCENT_TEXT : Theme.ACCENT;
-            int badgeText = active ? Theme.ACCENT : Theme.ACCENT_TEXT;
+            int badgeFill = active ? Theme.accentText() : Theme.accent();
+            int badgeText = active ? Theme.accent() : Theme.accentText();
             Draw.roundedRect(g, badgeX, badgeY, badgeWidth, BADGE, BADGE / 2f, badgeFill);
             Draw.text(g, badge, badgeX + (badgeWidth - Draw.width(badge, TextStyle.SMALL)) / 2, badgeY + 1.5f, badgeText,
                     TextStyle.SMALL);

@@ -187,7 +187,7 @@ public class MessengerScreen extends ScreenBase implements ChatNavigator {
         MenuBlur.request(shown);
         g.blurBeforeThisStratum();
         Draw.pushAlpha(shown);
-        Draw.backdrop(g, width, height, Theme.DIM, Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
+        Draw.backdrop(g, width, height, Theme.dim(), Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
         Draw.popAlpha();
     }
 
@@ -223,11 +223,11 @@ public class MessengerScreen extends ScreenBase implements ChatNavigator {
     }
 
     private static void drawPanel(Gfx g) {
-        Draw.shadow(g, 0, 4, WIDTH, HEIGHT, Theme.PANEL_RADIUS, 24, Theme.SHADOW);
-        Draw.gradient(g, 0, 0, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.PANEL_TOP, Theme.PANEL_BOTTOM);
-        Draw.border(g, 0, 0, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.BORDER);
-        Draw.rect(g, LIST_X, 1, 1, HEIGHT - 2, Theme.BORDER);
-        Draw.rect(g, CHAT_X, 1, 1, HEIGHT - 2, Theme.BORDER);
+        Draw.shadow(g, 0, 4, WIDTH, HEIGHT, Theme.PANEL_RADIUS, 24, Theme.shadow());
+        Draw.gradient(g, 0, 0, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.panelTop(), Theme.panelBottom());
+        Draw.border(g, 0, 0, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.border());
+        Draw.rect(g, LIST_X, 1, 1, HEIGHT - 2, Theme.border());
+        Draw.rect(g, CHAT_X, 1, 1, HEIGHT - 2, Theme.border());
     }
 
     // шапка видит курсор всегда, закреп — только когда поверх нет меню

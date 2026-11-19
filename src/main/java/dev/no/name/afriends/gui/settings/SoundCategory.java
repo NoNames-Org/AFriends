@@ -62,25 +62,25 @@ public final class SoundCategory {
 
     private static void drawBody(Gfx g, SoundSettings sound, int x, int top, int width) {
         // звуки интерфейса
-        Draw.text(g, "Звуки интерфейса", x, top + TOGGLE_Y, Theme.TEXT);
+        Draw.text(g, "Звуки интерфейса", x, top + TOGGLE_Y, Theme.text());
         Draw.text(g, Draw.trim("Щелчки кнопок, открытие окон и меню", width - SWITCH_WIDTH - 8), x, top + TOGGLE_Y + 11,
-                Theme.TEXT_DIM);
+                Theme.textDim());
         ToggleList.drawSwitch(g, x + width - SWITCH_WIDTH, top + TOGGLE_Y + 4, sound.uiSounds());
 
         // громкость игры (общая громкость Minecraft)
         int volume = Math.round(Compat.masterVolume() * 100);
-        Draw.text(g, "Громкость игры — " + volume + "%", x, top + VOLUME_LABEL_Y, Theme.TEXT);
+        Draw.text(g, "Громкость игры — " + volume + "%", x, top + VOLUME_LABEL_Y, Theme.text());
         int trackY = top + VOLUME_TRACK_Y;
-        Draw.box(g, x, trackY, width, TRACK_HEIGHT, TRACK_HEIGHT / 2f, Theme.CARD, Theme.BORDER_HOVER);
+        Draw.box(g, x, trackY, width, TRACK_HEIGHT, TRACK_HEIGHT / 2f, Theme.card(), Theme.borderHover());
         int filled = Math.round(width * clamp(Compat.masterVolume()));
         if (filled > 0) {
-            Draw.roundedRect(g, x, trackY, filled, TRACK_HEIGHT, TRACK_HEIGHT / 2f, Theme.ACCENT);
+            Draw.roundedRect(g, x, trackY, filled, TRACK_HEIGHT, TRACK_HEIGHT / 2f, Theme.accent());
         }
 
         // микрофон для голосовых
-        Draw.text(g, "Микрофон", x, top + MIC_LABEL_Y, Theme.TEXT);
-        Draw.text(g, Draw.trim(currentMicLabel(sound), width - 16), x, top + MIC_LABEL_Y + 11, Theme.TEXT_SOFT);
-        Draw.icon(g, Icon.REFRESH, x + width - 12, top + MIC_LABEL_Y + 2, Theme.ICON_SMALL, Theme.TEXT_DIM);
+        Draw.text(g, "Микрофон", x, top + MIC_LABEL_Y, Theme.text());
+        Draw.text(g, Draw.trim(currentMicLabel(sound), width - 16), x, top + MIC_LABEL_Y + 11, Theme.textSoft());
+        Draw.icon(g, Icon.REFRESH, x + width - 12, top + MIC_LABEL_Y + 2, Theme.ICON_SMALL, Theme.textDim());
     }
 
     private static boolean clickBody(SoundSettings sound, double mouseX, double mouseY, int x, int top, int width) {

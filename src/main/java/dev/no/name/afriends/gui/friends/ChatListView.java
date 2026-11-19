@@ -159,7 +159,7 @@ final class ChatListView {
         int x = LIST_X + 4;
         int width = LIST_WIDTH - 8;
         if (inside(mouseX, mouseY, x, rowY, width, ROW_HEIGHT)) {
-            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.cardHover());
         }
         int faceX = x + 6;
         int faceY = rowY + (ROW_HEIGHT - ROW_FACE) / 2;
@@ -168,14 +168,14 @@ final class ChatListView {
         switch (entry) {
             case ListEntry.ArchiveBack back -> {
                 ChatTiles.round(g, Icon.ARROW_LEFT, ARCHIVE_COLOR, faceX, faceY, ROW_FACE);
-                Draw.text(g, "Архив", textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
-                Draw.text(g, Draw.trim("Назад ко всем чатам", textWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+                Draw.text(g, "Архив", textX, rowY + 6, Theme.text(), TextStyle.BODY_MEDIUM);
+                Draw.text(g, Draw.trim("Назад ко всем чатам", textWidth), textX, rowY + 17, Theme.textSoft(), TextStyle.SMALL);
             }
             case ListEntry.ArchiveRow archive -> drawArchiveRow(g, x, width, rowY, faceX, faceY, textX, textWidth);
             case ListEntry.WriteTo write -> {
                 ChatTiles.face(g, tiles.skinOf(write.name()), faceX, faceY, ROW_FACE);
-                Draw.text(g, Draw.trim(write.name(), textWidth), textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
-                Draw.text(g, Draw.trim("Написать сообщение", textWidth), textX, rowY + 17, Theme.ACCENT, TextStyle.SMALL);
+                Draw.text(g, Draw.trim(write.name(), textWidth), textX, rowY + 6, Theme.text(), TextStyle.BODY_MEDIUM);
+                Draw.text(g, Draw.trim("Написать сообщение", textWidth), textX, rowY + 17, Theme.accent(), TextStyle.SMALL);
             }
             default -> { }
         }
@@ -185,14 +185,14 @@ final class ChatListView {
         ChatTiles.round(g, Icon.ARCHIVE, ARCHIVE_COLOR, faceX, faceY, ROW_FACE);
         int count = messages.archivedPartners().size();
         int unreadCount = messages.archivedUnread();
-        Draw.text(g, "Архив", textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, Draw.trim("Чатов: " + count, textWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, "Архив", textX, rowY + 6, Theme.text(), TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim("Чатов: " + count, textWidth), textX, rowY + 17, Theme.textSoft(), TextStyle.SMALL);
         if (unreadCount > 0) {
             String badge = String.valueOf(unreadCount);
             float badgeWidth = Draw.width(badge, TextStyle.SMALL) + 8;
             float badgeX = x + width - 6 - badgeWidth;
-            Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.CARD_HOVER);
-            Draw.text(g, badge, badgeX + 4, rowY + 18, Theme.TEXT_SOFT, TextStyle.SMALL);
+            Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.cardHover());
+            Draw.text(g, badge, badgeX + 4, rowY + 18, Theme.textSoft(), TextStyle.SMALL);
         }
     }
 
@@ -201,10 +201,10 @@ final class ChatListView {
         int width = LIST_WIDTH - 8;
         boolean selected = controller.isSelected(entry);
         if (selected) {
-            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_SELECTED);
-            Draw.roundedRect(g, x, rowY + 6, 2, ROW_HEIGHT - 12, 1, Theme.ACCENT);
+            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.cardSelected());
+            Draw.roundedRect(g, x, rowY + 6, 2, ROW_HEIGHT - 12, 1, Theme.accent());
         } else if (inside(mouseX, mouseY, x, rowY, width, ROW_HEIGHT)) {
-            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, x, rowY, width, ROW_HEIGHT, Theme.RADIUS, Theme.cardHover());
         }
         boolean announcements = ChatController.ANNOUNCEMENTS.equals(entry);
         boolean notes = announcements || PrivateMessages.NOTES.equals(entry);
@@ -227,15 +227,15 @@ final class ChatListView {
         int nameWidth = (int) (x + width - 6 - textX - dateWidth - pinSpace - 4);
         String title = announcements ? ChatController.ANNOUNCEMENTS_TITLE : notes ? ChatController.NOTES_TITLE
                 : messages.displayName(entry);
-        Draw.text(g, Draw.trim(title, nameWidth), textX, rowY + 6, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, date, x + width - 6 - dateWidth, rowY + 7, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(title, nameWidth), textX, rowY + 6, Theme.text(), TextStyle.BODY_MEDIUM);
+        Draw.text(g, date, x + width - 6 - dateWidth, rowY + 7, Theme.textDim(), TextStyle.SMALL);
         float markX = x + width - 6 - dateWidth - pinSpace;
         if (muted) {
-            Draw.icon(g, Icon.BELL_OFF, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.TEXT_DIM);
+            Draw.icon(g, Icon.BELL_OFF, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.textDim());
             markX += Theme.ICON_SMALL + 3;
         }
         if (pinned) {
-            Draw.icon(g, Icon.PIN, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.TEXT_DIM);
+            Draw.icon(g, Icon.PIN, markX, rowY + 6, Theme.ICON_SMALL - 1, Theme.textDim());
         }
     }
 
@@ -252,14 +252,14 @@ final class ChatListView {
             String label = "Черновик: ";
             float labelWidth = Draw.width(label, TextStyle.SMALL);
             Draw.text(g, label, textX, rowY + 17, Theme.DANGER, TextStyle.SMALL);
-            Draw.text(g, Draw.trim(draft, (int) (previewWidth - labelWidth)), textX + labelWidth, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+            Draw.text(g, Draw.trim(draft, (int) (previewWidth - labelWidth)), textX + labelWidth, rowY + 17, Theme.textSoft(), TextStyle.SMALL);
         } else {
-            Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.TEXT_SOFT, TextStyle.SMALL);
+            Draw.text(g, Draw.trim(preview, previewWidth), textX, rowY + 17, Theme.textSoft(), TextStyle.SMALL);
         }
         if (unread > 0) {
             float badgeX = x + width - 6 - badgeWidth;
-            Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.ACCENT);
-            Draw.text(g, String.valueOf(unread), badgeX + 4, rowY + 18, Theme.ACCENT_TEXT, TextStyle.SMALL);
+            Draw.roundedRect(g, badgeX, rowY + 16, badgeWidth, 10, 5, Theme.accent());
+            Draw.text(g, String.valueOf(unread), badgeX + 4, rowY + 18, Theme.accentText(), TextStyle.SMALL);
         }
     }
 

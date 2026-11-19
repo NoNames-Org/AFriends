@@ -214,7 +214,7 @@ public class SettingsScreen extends ScreenBase {
         MenuBlur.request(shown);
         g.blurBeforeThisStratum();
         Draw.pushAlpha(shown);
-        Draw.backdrop(g, width, height, Theme.DIM, Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
+        Draw.backdrop(g, width, height, Theme.dim(), Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
         Draw.popAlpha();
     }
 
@@ -244,18 +244,18 @@ public class SettingsScreen extends ScreenBase {
     }
 
     private void drawPanel(Gfx g, int x, int y, int w, int h) {
-        Draw.shadow(g, x, y + 2, w, h, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.SHADOW, 0.7f));
-        Draw.gradient(g, x, y, w, h, Theme.PANEL_RADIUS, Theme.PANEL_TOP, Theme.PANEL_BOTTOM);
-        Draw.border(g, x, y, w, h, Theme.PANEL_RADIUS, Theme.BORDER_HOVER);
+        Draw.shadow(g, x, y + 2, w, h, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.shadow(), 0.7f));
+        Draw.gradient(g, x, y, w, h, Theme.PANEL_RADIUS, Theme.panelTop(), Theme.panelBottom());
+        Draw.border(g, x, y, w, h, Theme.PANEL_RADIUS, Theme.borderHover());
     }
 
     private void drawBar(Gfx g, int mouseX, int mouseY) {
         drawPanel(g, left, top, WIDTH, BAR_HEIGHT);
         int iconBox = CONTROL_HEIGHT;
         int iconY = top + (BAR_HEIGHT - iconBox) / 2;
-        Draw.roundedRect(g, left + BAR_PAD, iconY, iconBox, iconBox, Theme.RADIUS, Theme.CARD_SELECTED);
-        Draw.icon(g, Icon.SETTINGS, left + BAR_PAD + (iconBox - 10) / 2f, iconY + (iconBox - 10) / 2f, 10, Theme.ACCENT);
-        Draw.text(g, "Настройки", left + BAR_PAD + iconBox + 8, top + BAR_HEIGHT / 2f - 5, Theme.TEXT, TextStyle.TITLE);
+        Draw.roundedRect(g, left + BAR_PAD, iconY, iconBox, iconBox, Theme.RADIUS, Theme.cardSelected());
+        Draw.icon(g, Icon.SETTINGS, left + BAR_PAD + (iconBox - 10) / 2f, iconY + (iconBox - 10) / 2f, 10, Theme.accent());
+        Draw.text(g, "Настройки", left + BAR_PAD + iconBox + 8, top + BAR_HEIGHT / 2f - 5, Theme.text(), TextStyle.TITLE);
         close.render(g, mouseX, mouseY);
     }
 
@@ -268,19 +268,19 @@ public class SettingsScreen extends ScreenBase {
             int w = SIDEBAR_WIDTH - 12;
             boolean active = item == section;
             boolean hovered = inside(mouseX, mouseY, x, y, w, SECTION_HEIGHT);
-            int fill = active ? Theme.CARD_SELECTED : hovered ? Theme.CARD_HOVER : Theme.CARD;
-            int border = active ? Theme.ACCENT : hovered ? Theme.BORDER_HOVER : Theme.BORDER;
+            int fill = active ? Theme.cardSelected() : hovered ? Theme.cardHover() : Theme.card();
+            int border = active ? Theme.accent() : hovered ? Theme.borderHover() : Theme.border();
             Draw.box(g, x, y, w, SECTION_HEIGHT, Theme.RADIUS, fill, border);
-            int color = active ? Theme.ACCENT : hovered ? Theme.TEXT : Theme.TEXT_SOFT;
+            int color = active ? Theme.accent() : hovered ? Theme.text() : Theme.textSoft();
             Draw.icon(g, item.icon(), x + 7, y + (SECTION_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, color);
             Draw.text(g, item.title(), x + 12 + Theme.ICON_SMALL, y + (SECTION_HEIGHT - 8) / 2f,
-                    active ? Theme.TEXT : Theme.TEXT_SOFT);
+                    active ? Theme.text() : Theme.textSoft());
         }
     }
 
     private void drawContentPanel(Gfx g) {
         drawPanel(g, contentX(), bodyTop(), contentWidth(), BODY_HEIGHT);
-        Draw.text(g, section.subtitle(), innerX(), bodyTop() + 10, Theme.TEXT_SOFT);
+        Draw.text(g, section.subtitle(), innerX(), bodyTop() + 10, Theme.textSoft());
     }
 
     private void drawTheme(Gfx g, int mouseX, int mouseY) {
@@ -294,7 +294,7 @@ public class SettingsScreen extends ScreenBase {
             drawTile(g, tileX(i), tileY(i), title, background, accent, id.equals(theme.selectedId()), mouseX, mouseY);
         }
         int x = innerX();
-        Draw.text(g, "Своя тема", x, customTop() - 4, Theme.TEXT_SOFT);
+        Draw.text(g, "Своя тема", x, customTop() - 4, Theme.textSoft());
         drawColorRow(g, "Фон", 0xFF000000 | theme.customBackground(), sliderY(Slider.BG_HUE) - 12);
         drawHue(g, sliderY(Slider.BG_HUE), bgHue);
         drawValue(g, sliderY(Slider.BG_VALUE), background(bgHue, 0), background(bgHue, 1), bgValue);
@@ -302,27 +302,27 @@ public class SettingsScreen extends ScreenBase {
         drawHue(g, sliderY(Slider.ACCENT_HUE), accentHue);
         drawValue(g, sliderY(Slider.ACCENT_VALUE), accent(accentHue, 0), accent(accentHue, 1), accentValue);
         Draw.text(g, Draw.trim("Двигай ползунки — тема «Своя» включится сама", innerWidth()),
-                x, sliderY(Slider.ACCENT_VALUE) + 16, Theme.TEXT_DIM);
+                x, sliderY(Slider.ACCENT_VALUE) + 16, Theme.textDim());
     }
 
     private void drawTile(Gfx g, int x, int y, String title, int background, int accent, boolean selected,
                           int mouseX, int mouseY) {
         int w = tileWidth();
         boolean hovered = inside(mouseX, mouseY, x, y, w, TILE_HEIGHT);
-        int fill = selected ? Theme.CARD_SELECTED : hovered ? Theme.CARD_HOVER : Theme.CARD;
-        int border = selected ? Theme.ACCENT : hovered ? Theme.BORDER_HOVER : Theme.BORDER;
+        int fill = selected ? Theme.cardSelected() : hovered ? Theme.cardHover() : Theme.card();
+        int border = selected ? Theme.accent() : hovered ? Theme.borderHover() : Theme.border();
         Draw.box(g, x, y, w, TILE_HEIGHT, Theme.RADIUS, fill, border);
         float swatchY = y + (TILE_HEIGHT - SWATCH) / 2f;
-        Draw.box(g, x + 7, swatchY, SWATCH, SWATCH, SWATCH / 2f, 0xFF000000 | background, Theme.BORDER_HOVER);
+        Draw.box(g, x + 7, swatchY, SWATCH, SWATCH, SWATCH / 2f, 0xFF000000 | background, Theme.borderHover());
         Draw.roundedRect(g, x + 7 + SWATCH - 2, swatchY, SWATCH, SWATCH, SWATCH / 2f, accent);
         Draw.text(g, Draw.trim(title, w - 34), x + 10 + SWATCH * 2, y + (TILE_HEIGHT - 8) / 2f,
-                selected ? Theme.TEXT : Theme.TEXT_SOFT);
+                selected ? Theme.text() : Theme.textSoft());
     }
 
     private void drawColorRow(Gfx g, String label, int color, int y) {
         int x = innerX();
-        Draw.text(g, label, x, y - 1, Theme.TEXT_SOFT);
-        Draw.box(g, x + innerWidth() - 18, y - 2, 18, 9, Theme.RADIUS - 1, color, Theme.BORDER_HOVER);
+        Draw.text(g, label, x, y - 1, Theme.textSoft());
+        Draw.box(g, x + innerWidth() - 18, y - 2, 18, 9, Theme.RADIUS - 1, color, Theme.borderHover());
     }
 
     private void drawHue(Gfx g, int y, float value) {
@@ -331,14 +331,14 @@ public class SettingsScreen extends ScreenBase {
         for (int i = 0; i < HUE_STOPS.length - 1; i++) {
             Draw.gradientHorizontal(g, x + i * segment, y, segment + 0.5f, SLIDER_HEIGHT, 0, HUE_STOPS[i], HUE_STOPS[i + 1]);
         }
-        Draw.border(g, x, y, innerWidth(), SLIDER_HEIGHT, 2, Theme.BORDER_HOVER);
+        Draw.border(g, x, y, innerWidth(), SLIDER_HEIGHT, 2, Theme.borderHover());
         drawKnob(g, x + value * innerWidth(), y);
     }
 
     private void drawValue(Gfx g, int y, int from, int to, float value) {
         int x = innerX();
         Draw.gradientHorizontal(g, x, y, innerWidth(), SLIDER_HEIGHT, 2, from, to);
-        Draw.border(g, x, y, innerWidth(), SLIDER_HEIGHT, 2, Theme.BORDER_HOVER);
+        Draw.border(g, x, y, innerWidth(), SLIDER_HEIGHT, 2, Theme.borderHover());
         drawKnob(g, x + value * innerWidth(), y);
     }
 

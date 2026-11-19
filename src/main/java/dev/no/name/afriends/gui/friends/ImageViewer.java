@@ -63,7 +63,7 @@ final class ImageViewer {
             g.image(texture, Math.round(x), Math.round(y), Math.round(w), Math.round(h), entry.width(), entry.height());
         } else {
             String label = entry.state() == ImageTextures.State.FAILED ? "Картинка не загрузилась" : "Загрузка…";
-            Draw.textCentered(g, label, width / 2f, height / 2f - 4, Theme.TEXT_SOFT);
+            Draw.textCentered(g, label, width / 2f, height / 2f - 4, Theme.textSoft());
         }
         buttonsY = height - MARGIN - BUTTON_HEIGHT;
         buttonsX = (width - (BUTTON_WIDTH * 3 + 8)) / 2f;
@@ -90,7 +90,7 @@ final class ImageViewer {
 
     private void drawButton(Gfx g, String label, float x, int mouseX, int mouseY) {
         boolean hover = mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= buttonsY && mouseY < buttonsY + BUTTON_HEIGHT;
-        Draw.box(g, x, buttonsY, BUTTON_WIDTH, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.TILE_ON : Theme.TILE, Theme.BORDER);
-        Draw.text(g, label, x + (BUTTON_WIDTH - Draw.width(label, TextStyle.SMALL)) / 2, buttonsY + 5, Theme.TEXT, TextStyle.SMALL);
+        Draw.box(g, x, buttonsY, BUTTON_WIDTH, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.tileOn() : Theme.tile(), Theme.border());
+        Draw.text(g, label, x + (BUTTON_WIDTH - Draw.width(label, TextStyle.SMALL)) / 2, buttonsY + 5, Theme.text(), TextStyle.SMALL);
     }
 }

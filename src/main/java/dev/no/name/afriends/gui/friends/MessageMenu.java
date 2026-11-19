@@ -60,17 +60,17 @@ final class MessageMenu {
 
     private void drawPill(Gfx g, int mouseX, int mouseY) {
         float radius = PILL_HEIGHT / 2f;
-        Draw.shadow(g, pillX, pillY + 2, pillWidth, PILL_HEIGHT, radius, 10, Theme.SHADOW);
-        Draw.box(g, pillX, pillY, pillWidth, PILL_HEIGHT, radius, Theme.POPUP, Theme.BORDER_HOVER);
+        Draw.shadow(g, pillX, pillY + 2, pillWidth, PILL_HEIGHT, radius, 10, Theme.shadow());
+        Draw.box(g, pillX, pillY, pillWidth, PILL_HEIGHT, radius, Theme.popup(), Theme.borderHover());
         for (int i = 0; i < Reactions.ALL.size(); i++) {
             String reaction = Reactions.ALL.get(i);
             float cellX = pillX + PAD + i * CELL;
             float cellY = pillY + PAD;
             boolean hover = mouseX >= cellX && mouseX < cellX + CELL && mouseY >= cellY && mouseY < cellY + CELL;
             if (reaction.equals(message.reaction())) {
-                Draw.roundedRect(g, cellX, cellY, CELL, CELL, CELL / 2f, Theme.TILE_ON);
+                Draw.roundedRect(g, cellX, cellY, CELL, CELL, CELL / 2f, Theme.tileOn());
             } else if (hover) {
-                Draw.roundedRect(g, cellX, cellY, CELL, CELL, CELL / 2f, Theme.CARD_HOVER);
+                Draw.roundedRect(g, cellX, cellY, CELL, CELL, CELL / 2f, Theme.cardHover());
             }
             float size = hover ? EMOJI + 2 : EMOJI;
             ReactionChips.emoji(g, reaction, cellX + (CELL - size) / 2, cellY + (CELL - size) / 2, Math.round(size));

@@ -92,7 +92,7 @@ public final class SafetyScreen extends ScreenBase {
         MenuBlur.request(shown);
         g.blurBeforeThisStratum();
         Draw.pushAlpha(shown);
-        Draw.backdrop(g, width, height, Theme.DIM, Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
+        Draw.backdrop(g, width, height, Theme.dim(), Theme.DIM_VIGNETTE, Theme.DIM_GRAIN);
         Draw.popAlpha();
     }
 
@@ -108,14 +108,14 @@ public final class SafetyScreen extends ScreenBase {
         Draw.pushAlpha(shown);
         Draw.pushOffset(g, 0, (1 - shown) * Motion.RISE);
         int panelHeight = height();
-        Draw.shadow(g, left, top + 2, WIDTH, panelHeight, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.SHADOW, 0.7f));
-        Draw.gradient(g, left, top, WIDTH, panelHeight, Theme.PANEL_RADIUS, Theme.PANEL_TOP, Theme.PANEL_BOTTOM);
-        Draw.border(g, left, top, WIDTH, panelHeight, Theme.PANEL_RADIUS, Theme.BORDER_HOVER);
+        Draw.shadow(g, left, top + 2, WIDTH, panelHeight, Theme.PANEL_RADIUS, 12, Colors.fade(Theme.shadow(), 0.7f));
+        Draw.gradient(g, left, top, WIDTH, panelHeight, Theme.PANEL_RADIUS, Theme.panelTop(), Theme.panelBottom());
+        Draw.border(g, left, top, WIDTH, panelHeight, Theme.PANEL_RADIUS, Theme.borderHover());
 
-        Draw.icon(g, Icon.SHIELD_CHECK, left + PAD, top + PAD + 1, Theme.ICON, Theme.ACCENT);
+        Draw.icon(g, Icon.SHIELD_CHECK, left + PAD, top + PAD + 1, Theme.ICON, Theme.accent());
         Draw.text(g, Draw.trim("Сверка ключей с " + friend, WIDTH - PAD * 2 - 16, TextStyle.TITLE), left + PAD + 16, top + PAD,
-                Theme.TEXT, TextStyle.TITLE);
-        Draw.text(g, "Цифры одинаковые у вас обоих", left + PAD + 16, top + PAD + 12, Theme.TEXT_DIM, TextStyle.SMALL);
+                Theme.text(), TextStyle.TITLE);
+        Draw.text(g, "Цифры одинаковые у вас обоих", left + PAD + 16, top + PAD + 12, Theme.textDim(), TextStyle.SMALL);
 
         int qrTop = top + PAD + 26;
         drawQr(g, left + (WIDTH - qrPixels()) / 2, qrTop);
@@ -124,14 +124,14 @@ public final class SafetyScreen extends ScreenBase {
 
         int rows = (number.split(" ").length + GROUPS_PER_ROW - 1) / GROUPS_PER_ROW;
         int hintTop = digitsTop + rows * ROW_GAP + 8;
-        Draw.text(g, "Друг наводит камеру телефона на QR и сравнивает", left + PAD, hintTop, Theme.TEXT_SOFT, TextStyle.SMALL);
-        Draw.text(g, "цифры со своим экраном. Совпали — переписку не", left + PAD, hintTop + 9, Theme.TEXT_SOFT, TextStyle.SMALL);
-        Draw.text(g, "читает никто, даже сервер сети.", left + PAD, hintTop + 18, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, "Друг наводит камеру телефона на QR и сравнивает", left + PAD, hintTop, Theme.textSoft(), TextStyle.SMALL);
+        Draw.text(g, "цифры со своим экраном. Совпали — переписку не", left + PAD, hintTop + 9, Theme.textSoft(), TextStyle.SMALL);
+        Draw.text(g, "читает никто, даже сервер сети.", left + PAD, hintTop + 18, Theme.textSoft(), TextStyle.SMALL);
 
         copy.render(g, x, y);
         done.render(g, x, y);
         if (copiedAt > 0 && System.currentTimeMillis() - copiedAt < 1500) {
-            Draw.textCentered(g, "Скопировано", left + WIDTH / 2f, copy.getY() - 10, Theme.TEXT_DIM);
+            Draw.textCentered(g, "Скопировано", left + WIDTH / 2f, copy.getY() - 10, Theme.textDim());
         }
         Draw.popOffset(g);
         Draw.popAlpha();
@@ -156,7 +156,7 @@ public final class SafetyScreen extends ScreenBase {
         float cell = (WIDTH - PAD * 2) / (float) GROUPS_PER_ROW;
         for (int i = 0; i < groups.length; i++) {
             float centerX = left + PAD + cell * (i % GROUPS_PER_ROW) + cell / 2;
-            Draw.textCentered(g, groups[i], centerX, y + (i / GROUPS_PER_ROW) * ROW_GAP, Theme.TEXT);
+            Draw.textCentered(g, groups[i], centerX, y + (i / GROUPS_PER_ROW) * ROW_GAP, Theme.text());
         }
     }
 

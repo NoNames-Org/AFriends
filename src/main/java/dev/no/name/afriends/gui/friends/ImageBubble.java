@@ -38,13 +38,13 @@ final class ImageBubble {
             }
             return;
         }
-        Draw.roundedRect(g, x, y, width, height, Theme.RADIUS - 1, Theme.TILE);
+        Draw.roundedRect(g, x, y, width, height, Theme.RADIUS - 1, Theme.tile());
         boolean failed = entry.state() == ImageTextures.State.FAILED;
         Icon icon = failed ? Icon.ERROR : Icon.IMAGE;
         String label = failed ? "не загрузилась" : "загрузка…";
         float iconSize = 12;
-        Draw.icon(g, icon, x + (width - iconSize) / 2, y + height / 2 - iconSize, iconSize, Theme.TEXT_DIM);
-        Draw.text(g, label, x + (width - Draw.width(label, TextStyle.SMALL)) / 2, y + height / 2 + 3, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.icon(g, icon, x + (width - iconSize) / 2, y + height / 2 - iconSize, iconSize, Theme.textDim());
+        Draw.text(g, label, x + (width - Draw.width(label, TextStyle.SMALL)) / 2, y + height / 2 + 3, Theme.textDim(), TextStyle.SMALL);
     }
 
     // время поверх картинки — на тёмной плашке, как в Telegram

@@ -46,31 +46,31 @@ public final class AboutCategory implements SettingsCategory {
     public void draw(Gfx g, int x, int top, int width, int mouseX, int mouseY) {
         check.refresh();
 
-        Draw.text(g, "Текущая версия", x, top, Theme.TEXT_SOFT);
-        Draw.text(g, Draw.trim(check.current(), width), x, top + 12, Theme.TEXT, TextStyle.TITLE);
+        Draw.text(g, "Текущая версия", x, top, Theme.textSoft());
+        Draw.text(g, Draw.trim(check.current(), width), x, top + 12, Theme.text(), TextStyle.TITLE);
 
         int statusY = top + 34;
         if (check.outdated()) {
-            Draw.text(g, Draw.trim("Доступна версия " + check.latest(), width), x, statusY, Theme.ACCENT);
+            Draw.text(g, Draw.trim("Доступна версия " + check.latest(), width), x, statusY, Theme.accent());
         } else if (check.checked()) {
-            Draw.text(g, "У вас последняя версия", x, statusY, Theme.TEXT_SOFT);
+            Draw.text(g, "У вас последняя версия", x, statusY, Theme.textSoft());
         } else {
-            Draw.text(g, "Проверяем обновления…", x, statusY, Theme.TEXT_DIM);
+            Draw.text(g, "Проверяем обновления…", x, statusY, Theme.textDim());
         }
 
         String authors = check.authors();
         int authorsY = statusY + 22;
-        Draw.text(g, "Авторы", x, authorsY, Theme.TEXT_SOFT);
-        Draw.text(g, Draw.trim(authors.isEmpty() ? "—" : authors, width), x, authorsY + 12, Theme.TEXT);
+        Draw.text(g, "Авторы", x, authorsY, Theme.textSoft());
+        Draw.text(g, Draw.trim(authors.isEmpty() ? "—" : authors, width), x, authorsY + 12, Theme.text());
 
         if (check.outdated()) {
             int[] button = buttonRect(x, top, width);
             boolean hovered = inside(mouseX, mouseY, button);
             Draw.box(g, button[0], button[1], button[2], button[3], Theme.RADIUS,
-                    hovered ? Theme.CARD_HOVER : Theme.CARD_SELECTED, Theme.ACCENT);
+                    hovered ? Theme.cardHover() : Theme.cardSelected(), Theme.accent());
             Draw.icon(g, Icon.DOWNLOAD, button[0] + 10, button[1] + (button[3] - Theme.ICON_SMALL) / 2f,
-                    Theme.ICON_SMALL, Theme.ACCENT);
-            Draw.text(g, "Обновить", button[0] + 14 + Theme.ICON_SMALL, button[1] + (button[3] - 8) / 2f, Theme.TEXT);
+                    Theme.ICON_SMALL, Theme.accent());
+            Draw.text(g, "Обновить", button[0] + 14 + Theme.ICON_SMALL, button[1] + (button[3] - 8) / 2f, Theme.text());
         }
     }
 

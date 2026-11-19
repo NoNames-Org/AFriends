@@ -70,15 +70,15 @@ final class Selection {
     void drawBar(Gfx g, float x, float y, float width, float height, int mouseX, int mouseY) {
         barRight = x + width;
         barY = y + (height - BUTTON_HEIGHT) / 2f;
-        Draw.text(g, "Выбрано: " + keys.size(), x, y + (height - 10) / 2f, Theme.TEXT, TextStyle.TITLE);
+        Draw.text(g, "Выбрано: " + keys.size(), x, y + (height - 10) / 2f, Theme.text(), TextStyle.TITLE);
         float buttonX = barRight;
         for (int i = BUTTONS.size() - 1; i >= 0; i--) {
             Button button = BUTTONS.get(i);
             float buttonWidth = buttonWidth(button);
             buttonX -= buttonWidth;
             boolean hover = inside(mouseX, mouseY, buttonX, barY, buttonWidth, BUTTON_HEIGHT);
-            Draw.roundedRect(g, buttonX, barY, buttonWidth, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.CARD_HOVER : Theme.CARD);
-            int color = button.action() == Action.DELETE ? DANGER : hover ? Theme.TEXT : Theme.TEXT_SOFT;
+            Draw.roundedRect(g, buttonX, barY, buttonWidth, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.cardHover() : Theme.card());
+            int color = button.action() == Action.DELETE ? DANGER : hover ? Theme.text() : Theme.textSoft();
             Draw.icon(g, button.icon(), buttonX + 5, barY + (BUTTON_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, color);
             Draw.text(g, button.label(), buttonX + 5 + Theme.ICON_SMALL + 4, barY + 5, color);
             buttonX -= 4;
@@ -103,10 +103,10 @@ final class Selection {
     void drawMark(Gfx g, PrivateMessage message, float x, float centerY) {
         float y = centerY - CIRCLE / 2f;
         if (contains(message)) {
-            Draw.roundedRect(g, x, y, CIRCLE, CIRCLE, CIRCLE / 2f, Theme.ACCENT);
-            Draw.icon(g, Icon.CHECK, x + 2, y + 2, CIRCLE - 4, Theme.ACCENT_TEXT);
+            Draw.roundedRect(g, x, y, CIRCLE, CIRCLE, CIRCLE / 2f, Theme.accent());
+            Draw.icon(g, Icon.CHECK, x + 2, y + 2, CIRCLE - 4, Theme.accentText());
         } else {
-            Draw.box(g, x, y, CIRCLE, CIRCLE, CIRCLE / 2f, 0x00000000, Theme.TEXT_DIM);
+            Draw.box(g, x, y, CIRCLE, CIRCLE, CIRCLE / 2f, 0x00000000, Theme.textDim());
         }
     }
 

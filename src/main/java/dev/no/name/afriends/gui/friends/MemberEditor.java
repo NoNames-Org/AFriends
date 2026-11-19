@@ -96,7 +96,7 @@ final class MemberEditor {
         }
         PanelKit.frame(g, x, y, WIDTH, height);
         String heading = self ? "Твой префикс в группе" : "Права: " + member;
-        Draw.text(g, Draw.trim(heading, WIDTH - PAD * 2, TextStyle.SMALL), x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(heading, WIDTH - PAD * 2, TextStyle.SMALL), x + PAD, y + PAD, Theme.textSoft(), TextStyle.SMALL);
         prefix.render(g, mouseX, mouseY);
         if (!self) {
             drawEntries(g, mouseX, mouseY);
@@ -114,10 +114,10 @@ final class MemberEditor {
             float rowX = x + PAD + (entry.isChild() ? INDENT : 0);
             boolean hover = !disabled && PanelKit.inside(mouseX, mouseY, x + PAD, rowY, WIDTH - PAD * 2, ROW);
             if (hover) {
-                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+                Draw.roundedRect(g, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, ROW, Theme.RADIUS, Theme.cardHover());
             }
             PanelKit.checkbox(g, (perms & entry.bit()) != 0, disabled, rowX, rowY + 2.5f);
-            int color = disabled ? Theme.TEXT_FAINT : Theme.TEXT;
+            int color = disabled ? Theme.textFaint() : Theme.text();
             Draw.text(g, Draw.trim(entry.title(), (int) (x + WIDTH - PAD - rowX - 12), TextStyle.SMALL), rowX + 12, rowY + 4,
                     color, TextStyle.SMALL);
             rowY += ROW;

@@ -61,14 +61,14 @@ final class VoiceStrip {
         if (!recorder.isRecording()) {
             return;
         }
-        Draw.box(g, x, y, width, height, Theme.RADIUS, Theme.CARD, Theme.DANGER);
+        Draw.box(g, x, y, width, height, Theme.RADIUS, Theme.card(), Theme.DANGER);
         float dot = 4 + recorder.level() * 4;
         float dotX = x + 8;
         Draw.roundedRect(g, dotX - dot / 2 + 3, y + height / 2f - dot / 2, dot, dot, dot / 2, Theme.DANGER);
         String time = VoiceBlock.clock(recorder.seconds()) + " / " + VoiceBlock.clock(VoiceClip.MAX_SECONDS);
-        Draw.text(g, time, x + 18, y + (height - 7) / 2f, Theme.TEXT, TextStyle.BODY);
+        Draw.text(g, time, x + 18, y + (height - 7) / 2f, Theme.text(), TextStyle.BODY);
         String hint = "Enter — отправить · Esc — отмена";
         Draw.text(g, hint, x + width - 6 - Draw.width(hint, TextStyle.SMALL), y + (height - 6) / 2f,
-                Colors.fade(Theme.TEXT_DIM, 0.9f), TextStyle.SMALL);
+                Colors.fade(Theme.textDim(), 0.9f), TextStyle.SMALL);
     }
 }

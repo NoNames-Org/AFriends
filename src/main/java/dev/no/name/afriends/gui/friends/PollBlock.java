@@ -57,7 +57,7 @@ final class PollBlock {
             if (voted) {
                 float fill = width * poll.share(i) / 100f;
                 if (fill > 0) {
-                    Draw.roundedRect(g, x, rowY, fill, ROW, RADIUS, Colors.fade(Theme.ACCENT, chosen ? 0.38f : 0.18f));
+                    Draw.roundedRect(g, x, rowY, fill, ROW, RADIUS, Colors.fade(Theme.accent(), chosen ? 0.38f : 0.18f));
                 }
                 String share = poll.share(i) + "%";
                 float shareWidth = Draw.width(share, TextStyle.SMALL);

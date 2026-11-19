@@ -97,10 +97,10 @@ public class FriendsPanel extends WidgetBase {
 
         pose.translate((1 - open) * (panelWidth + 8), 0);
         Draw.pushAlpha(open);
-        Draw.shadow(g, getX(), getY() + 2, panelWidth, height, Theme.PANEL_RADIUS, 14, Colors.fade(Theme.SHADOW, 0.7f));
+        Draw.shadow(g, getX(), getY() + 2, panelWidth, height, Theme.PANEL_RADIUS, 14, Colors.fade(Theme.shadow(), 0.7f));
         Draw.gradient(g, getX(), getY(), panelWidth, height, Theme.PANEL_RADIUS,
-                Colors.fade(Theme.PANEL_TOP, 0.92f), Colors.fade(Theme.PANEL_BOTTOM, 0.92f));
-        Draw.border(g, getX(), getY(), panelWidth, height, Theme.PANEL_RADIUS, Theme.BORDER);
+                Colors.fade(Theme.panelTop(), 0.92f), Colors.fade(Theme.panelBottom(), 0.92f));
+        Draw.border(g, getX(), getY(), panelWidth, height, Theme.PANEL_RADIUS, Theme.border());
         drawHeader(g);
         drawSearch(g, mx, mouseY);
         drawList(g, mx, mouseY);
@@ -113,17 +113,17 @@ public class FriendsPanel extends WidgetBase {
         int faceX = getX() + PADDING;
         int faceY = getY() + (HEADER_HEIGHT - OWN_FACE) / 2;
         if (self != null) {
-            Draw.roundedRect(g, faceX - 1, faceY - 1, OWN_FACE + 2, OWN_FACE + 2, 3, Theme.BORDER_HOVER);
+            Draw.roundedRect(g, faceX - 1, faceY - 1, OWN_FACE + 2, OWN_FACE + 2, 3, Theme.borderHover());
             g.face(self.getSkin(), faceX, faceY, OWN_FACE);
         }
         float textX = faceX + OWN_FACE + 8;
         String name = self == null ? "—" : self.getGameProfile().name();
-        Draw.text(g, Draw.trim(name, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 13, Theme.TEXT,
+        Draw.text(g, Draw.trim(name, (int) (getX() + panelWidth - PADDING - textX)), textX, getY() + 13, Theme.text(),
                 TextStyle.BODY_MEDIUM);
         ProfileStatus profile = addons.profile();
         if (profile == null) {
             editingStatus = false;
-            Draw.text(g, "Твой профиль", textX, getY() + 25, Theme.TEXT_DIM, TextStyle.SMALL);
+            Draw.text(g, "Твой профиль", textX, getY() + 25, Theme.textDim(), TextStyle.SMALL);
         } else if (editingStatus) {
             statusField.setBounds((int) textX - 2, getY() + 21, (int) (getX() + panelWidth - PADDING - textX + 2), 14);
             statusField.render(g, -1000, -1000);
@@ -131,9 +131,9 @@ public class FriendsPanel extends WidgetBase {
             String status = addons.guard("profileStatus", profile::get, "");
             String shown = status.isEmpty() ? "Нажми, чтобы задать статус" : "«" + status + "»";
             Draw.text(g, Draw.trim(shown, (int) (getX() + panelWidth - PADDING - textX), TextStyle.SMALL), textX, getY() + 25,
-                    status.isEmpty() ? Theme.TEXT_FAINT : Theme.TEXT_DIM, TextStyle.SMALL);
+                    status.isEmpty() ? Theme.textFaint() : Theme.textDim(), TextStyle.SMALL);
         }
-        Draw.rect(g, getX() + PADDING, getY() + HEADER_HEIGHT, panelWidth - PADDING * 2, 1, Theme.BORDER);
+        Draw.rect(g, getX() + PADDING, getY() + HEADER_HEIGHT, panelWidth - PADDING * 2, 1, Theme.border());
     }
 
     private int labelY() {
@@ -154,19 +154,19 @@ public class FriendsPanel extends WidgetBase {
         if (showNotice) {
             Draw.text(g, Draw.trim(notice, panelWidth - PADDING * 2), x, labelY(), noticeColor, TextStyle.SMALL);
         } else {
-            Draw.text(g, "Друзья", x, labelY(), Theme.TEXT, TextStyle.SMALL);
+            Draw.text(g, "Друзья", x, labelY(), Theme.text(), TextStyle.SMALL);
             Draw.text(g, String.valueOf(friends.size()), x + Draw.width("Друзья", TextStyle.SMALL) + 5, labelY(),
-                    Theme.TEXT_DIM, TextStyle.SMALL);
+                    Theme.textDim(), TextStyle.SMALL);
         }
         field.setBounds(x, fieldY(), addX() - 4 - x, FIELD_HEIGHT);
         field.render(g, mouseX, mouseY);
 
         boolean hovered = mouseX >= addX() && mouseX < addX() + FIELD_HEIGHT && mouseY >= fieldY() && mouseY < fieldY() + FIELD_HEIGHT;
         addHover.setTarget(hovered);
-        int fill = Colors.mix(Theme.ACCENT, Colors.mix(Theme.ACCENT, 0xFFFFFFFF, 0.25f), addHover.get());
+        int fill = Colors.mix(Theme.accent(), Colors.mix(Theme.accent(), 0xFFFFFFFF, 0.25f), addHover.get());
         Draw.roundedRect(g, addX(), fieldY(), FIELD_HEIGHT, FIELD_HEIGHT, Theme.RADIUS, fill);
         Draw.icon(g, Icon.PLUS, addX() + (FIELD_HEIGHT - Theme.ICON_SMALL) / 2f, fieldY() + (FIELD_HEIGHT - Theme.ICON_SMALL) / 2f,
-                Theme.ICON_SMALL, Theme.ACCENT_TEXT);
+                Theme.ICON_SMALL, Theme.accentText());
     }
 
     private void addFromField() {
@@ -183,7 +183,7 @@ public class FriendsPanel extends WidgetBase {
                 UiSounds.play(UiSound.SELECT);
                 addons.added(name, text -> notify(text, SUCCESS));
             }
-            case ALREADY -> notify(name + " уже в друзьях", Theme.TEXT_SOFT);
+            case ALREADY -> notify(name + " уже в друзьях", Theme.textSoft());
             case SELF -> notify("Себя добавить нельзя", Theme.DANGER);
             case INVALID -> notify("Это не похоже на ник", Theme.DANGER);
         }
@@ -253,13 +253,13 @@ public class FriendsPanel extends WidgetBase {
     private void drawRequest(Gfx g, AddonRegistry.Request request, int rowY, int mouseX, int mouseY) {
         int rowX = getX() + 4;
         int rowWidth = panelWidth - 8;
-        Draw.box(g, rowX, rowY + 1, rowWidth, ROW_HEIGHT - 2, Theme.RADIUS, Theme.CARD_SELECTED, Theme.BORDER_HOVER);
+        Draw.box(g, rowX, rowY + 1, rowWidth, ROW_HEIGHT - 2, Theme.RADIUS, Theme.cardSelected(), Theme.borderHover());
         int faceX = getX() + PADDING + 2;
         drawFace(g, friends.skinOf(request.name()), faceX, rowY + (ROW_HEIGHT - FACE) / 2);
         float textX = faceX + FACE + 8;
         int textWidth = (int) (acceptX() - 4 - textX);
-        Draw.text(g, Draw.trim(request.name(), textWidth, TextStyle.BODY_MEDIUM), textX, rowY + 4, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, Draw.trim(request.hint(), textWidth, TextStyle.SMALL), textX, rowY + 14, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(request.name(), textWidth, TextStyle.BODY_MEDIUM), textX, rowY + 4, Theme.text(), TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(request.hint(), textWidth, TextStyle.SMALL), textX, rowY + 14, Theme.textDim(), TextStyle.SMALL);
         drawRequestButton(g, acceptX(), rowY, Icon.CHECK, SUCCESS, mouseX, mouseY);
         drawRequestButton(g, declineX(), rowY, Icon.CLOSE, Theme.DANGER, mouseX, mouseY);
     }
@@ -267,7 +267,7 @@ public class FriendsPanel extends WidgetBase {
     private void drawRequestButton(Gfx g, int x, int rowY, Icon icon, int color, int mouseX, int mouseY) {
         int y = rowY + (ROW_HEIGHT - REQUEST_BUTTON) / 2;
         boolean hovered = mouseX >= x && mouseX < x + REQUEST_BUTTON && mouseY >= y && mouseY < y + REQUEST_BUTTON;
-        Draw.roundedRect(g, x, y, REQUEST_BUTTON, REQUEST_BUTTON, Theme.RADIUS, hovered ? Theme.CARD_PRESSED : Theme.CARD_HOVER);
+        Draw.roundedRect(g, x, y, REQUEST_BUTTON, REQUEST_BUTTON, Theme.RADIUS, hovered ? Theme.cardPressed() : Theme.cardHover());
         Draw.icon(g, icon, x + (REQUEST_BUTTON - Theme.ICON_SMALL) / 2f, y + (REQUEST_BUTTON - Theme.ICON_SMALL) / 2f,
                 Theme.ICON_SMALL, color);
     }
@@ -286,9 +286,9 @@ public class FriendsPanel extends WidgetBase {
         boolean hovered = mouseX >= rowX && mouseX < rowX + rowWidth && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT;
         boolean selected = state.menuFriend() != null && state.menuFriend().name().equalsIgnoreCase(friend.name());
         if (selected) {
-            Draw.box(g, rowX, rowY, rowWidth, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_SELECTED, Theme.BORDER_HOVER);
+            Draw.box(g, rowX, rowY, rowWidth, ROW_HEIGHT, Theme.RADIUS, Theme.cardSelected(), Theme.borderHover());
         } else if (hovered) {
-            Draw.roundedRect(g, rowX, rowY, rowWidth, ROW_HEIGHT, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, rowX, rowY, rowWidth, ROW_HEIGHT, Theme.RADIUS, Theme.cardHover());
         }
         int faceX = getX() + PADDING + 2;
         int faceY = rowY + (ROW_HEIGHT - FACE) / 2;
@@ -309,24 +309,24 @@ public class FriendsPanel extends WidgetBase {
         boolean twoLines = line != null && !line.isEmpty();
         float nameY = twoLines ? rowY + 5 : rowY + (ROW_HEIGHT - 8) / 2f;
         String name = Draw.trim(friend.name(), textWidth, TextStyle.BODY_MEDIUM);
-        Draw.text(g, name, textX, nameY, isIgnored || status != null && !online ? Theme.TEXT_SOFT : Theme.TEXT, TextStyle.BODY_MEDIUM);
+        Draw.text(g, name, textX, nameY, isIgnored || status != null && !online ? Theme.textSoft() : Theme.text(), TextStyle.BODY_MEDIUM);
         String note = status == null || isIgnored ? null : status.note();
         if (note != null && !note.isEmpty()) {
             float noteX = textX + Draw.width(name, TextStyle.BODY_MEDIUM) + 4;
             int room = (int) (textX + textWidth - noteX);
             if (room > 20) {
-                Draw.text(g, Draw.trim("«" + note + "»", room, TextStyle.SMALL), noteX, nameY + 1, Theme.TEXT_FAINT, TextStyle.SMALL);
+                Draw.text(g, Draw.trim("«" + note + "»", room, TextStyle.SMALL), noteX, nameY + 1, Theme.textFaint(), TextStyle.SMALL);
             }
         }
         if (twoLines) {
-            Draw.text(g, Draw.trim(line, textWidth, TextStyle.SMALL), textX, rowY + 14, !isIgnored && online ? SUCCESS : Theme.TEXT_FAINT,
+            Draw.text(g, Draw.trim(line, textWidth, TextStyle.SMALL), textX, rowY + 14, !isIgnored && online ? SUCCESS : Theme.textFaint(),
                     TextStyle.SMALL);
         }
         if (unread > 0) {
             float badgeX = getX() + panelWidth - PADDING - badgeWidth;
             float badgeY = rowY + (ROW_HEIGHT - 10) / 2f;
-            Draw.roundedRect(g, badgeX, badgeY, badgeWidth, 10, 5, Theme.ACCENT);
-            Draw.text(g, String.valueOf(unread), badgeX + 4, badgeY + 2, Theme.ACCENT_TEXT, TextStyle.SMALL);
+            Draw.roundedRect(g, badgeX, badgeY, badgeWidth, 10, 5, Theme.accent());
+            Draw.text(g, String.valueOf(unread), badgeX + 4, badgeY + 2, Theme.accentText(), TextStyle.SMALL);
         }
     }
 
@@ -334,8 +334,8 @@ public class FriendsPanel extends WidgetBase {
         if (skin != null) {
             g.face(skin, x, y, FACE);
         } else {
-            Draw.gradient(g, x, y, FACE, FACE, 2, Theme.TILE_ON, Theme.TILE);
-            Draw.icon(g, Icon.USER, x + (FACE - 10) / 2f, y + (FACE - 10) / 2f, 10, Theme.TEXT_DIM);
+            Draw.gradient(g, x, y, FACE, FACE, 2, Theme.tileOn(), Theme.tile());
+            Draw.icon(g, Icon.USER, x + (FACE - 10) / 2f, y + (FACE - 10) / 2f, 10, Theme.textDim());
         }
     }
 
@@ -343,10 +343,10 @@ public class FriendsPanel extends WidgetBase {
         float centerX = getX() + panelWidth / 2f;
         float centerY = (top + bottom) / 2f;
         boolean searching = !field.getText().isBlank();
-        Draw.icon(g, searching ? Icon.SEARCH : Icon.USERS, centerX - 9, centerY - 26, 18, Theme.TEXT_FAINT);
-        Draw.textCentered(g, searching ? "Никого не нашлось" : "Друзей пока нет", centerX, centerY - 2, Theme.TEXT_DIM);
+        Draw.icon(g, searching ? Icon.SEARCH : Icon.USERS, centerX - 9, centerY - 26, 18, Theme.textFaint());
+        Draw.textCentered(g, searching ? "Никого не нашлось" : "Друзей пока нет", centerX, centerY - 2, Theme.textDim());
         String hint = searching ? "Жми «+», чтобы добавить" : "Впиши ник выше и жми «+»";
-        Draw.text(g, hint, centerX - Draw.width(hint, TextStyle.SMALL) / 2f, centerY + 10, Theme.TEXT_FAINT, TextStyle.SMALL);
+        Draw.text(g, hint, centerX - Draw.width(hint, TextStyle.SMALL) / 2f, centerY + 10, Theme.textFaint(), TextStyle.SMALL);
     }
 
     public boolean scroll(double mouseX, double mouseY, double amount) {

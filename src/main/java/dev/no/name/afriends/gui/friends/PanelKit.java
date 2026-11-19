@@ -37,9 +37,9 @@ final class PanelKit {
     static void button(Gfx g, String label, float x, float y, float width, boolean accent, boolean danger, boolean disabled,
                        int mouseX, int mouseY) {
         boolean hover = !disabled && inside(mouseX, mouseY, x, y, width, BUTTON);
-        int fill = accent && !disabled ? Theme.ACCENT : hover ? Theme.CARD_HOVER : Theme.CARD;
-        Draw.box(g, x, y, width, BUTTON, Theme.RADIUS, fill, accent && !disabled ? Theme.ACCENT : Theme.BORDER);
-        int color = disabled ? Theme.TEXT_FAINT : accent ? Theme.ACCENT_TEXT : danger ? Theme.DANGER : hover ? Theme.TEXT : Theme.TEXT_SOFT;
+        int fill = accent && !disabled ? Theme.accent() : hover ? Theme.cardHover() : Theme.card();
+        Draw.box(g, x, y, width, BUTTON, Theme.RADIUS, fill, accent && !disabled ? Theme.accent() : Theme.border());
+        int color = disabled ? Theme.textFaint() : accent ? Theme.accentText() : danger ? Theme.DANGER : hover ? Theme.text() : Theme.textSoft();
         String shown = Draw.trim(label, (int) width - 6, TextStyle.SMALL);
         Draw.text(g, shown, x + (width - Draw.width(shown, TextStyle.SMALL)) / 2f, y + 5, color, TextStyle.SMALL);
     }
@@ -54,13 +54,13 @@ final class PanelKit {
         for (int i = 0; i < labels.length; i++) {
             float tabX = x + i * step;
             boolean hover = inside(mouseX, mouseY, tabX, y, step, BUTTON);
-            int color = i == active ? Theme.TEXT : hover ? Theme.TEXT_SOFT : Theme.TEXT_DIM;
+            int color = i == active ? Theme.text() : hover ? Theme.textSoft() : Theme.textDim();
             Draw.text(g, labels[i], tabX + (step - Draw.width(labels[i], TextStyle.SMALL)) / 2f, y + 4, color, TextStyle.SMALL);
             if (i == active) {
-                Draw.roundedRect(g, tabX + 6, y + BUTTON - 2, step - 12, 2, 1, Theme.ACCENT);
+                Draw.roundedRect(g, tabX + 6, y + BUTTON - 2, step - 12, 2, 1, Theme.accent());
             }
         }
-        Draw.rect(g, x, y + BUTTON, width, 1, Theme.BORDER);
+        Draw.rect(g, x, y + BUTTON, width, 1, Theme.border());
     }
 
     // какая вкладка под курсором; -1 — мимо
@@ -72,17 +72,17 @@ final class PanelKit {
     }
 
     static void checkbox(Gfx g, boolean on, boolean disabled, float x, float y) {
-        int fill = on && !disabled ? Theme.ACCENT : Theme.CARD;
-        Draw.box(g, x, y, 8, 8, 2, fill, on && !disabled ? Theme.ACCENT : disabled ? Theme.BORDER : Theme.BORDER_HOVER);
+        int fill = on && !disabled ? Theme.accent() : Theme.card();
+        Draw.box(g, x, y, 8, 8, 2, fill, on && !disabled ? Theme.accent() : disabled ? Theme.border() : Theme.borderHover());
         if (on) {
-            Draw.icon(g, Icon.CHECK, x + 1, y + 1, 6, disabled ? Theme.TEXT_FAINT : Theme.ACCENT_TEXT);
+            Draw.icon(g, Icon.CHECK, x + 1, y + 1, 6, disabled ? Theme.textFaint() : Theme.accentText());
         }
     }
 
     // маленькая плашка с текстом (префикс, «владелец»); возвращает ширину
     static float tag(Gfx g, String text, float x, float y, int color) {
         float width = Draw.width(text, TextStyle.SMALL) + 6;
-        Draw.roundedRect(g, x, y, width, 9, 4.5f, Theme.TILE_ON);
+        Draw.roundedRect(g, x, y, width, 9, 4.5f, Theme.tileOn());
         Draw.text(g, text, x + 3, y + 1.5f, color, TextStyle.SMALL);
         return width;
     }
@@ -96,9 +96,9 @@ final class PanelKit {
             g.face(skin, Math.round(x), Math.round(y), size);
             return;
         }
-        Draw.gradient(g, x, y, size, size, Theme.RADIUS - 1, Theme.TILE_ON, Theme.TILE);
+        Draw.gradient(g, x, y, size, size, Theme.RADIUS - 1, Theme.tileOn(), Theme.tile());
         float icon = size * 0.5f;
-        Draw.icon(g, Icon.USER, x + (size - icon) / 2, y + (size - icon) / 2, icon, Theme.TEXT_DIM);
+        Draw.icon(g, Icon.USER, x + (size - icon) / 2, y + (size - icon) / 2, icon, Theme.textDim());
     }
 
     // аватарка группы, а пока её нет или она грузится — синий кружок со значком
@@ -128,7 +128,7 @@ final class PanelKit {
         float scale = size / (float) Math.max(entry.width(), entry.height());
         int w = Math.max(1, Math.round(entry.width() * scale));
         int h = Math.max(1, Math.round(entry.height() * scale));
-        Draw.roundedRect(g, x, y, size, size, Theme.RADIUS, Theme.TILE);
+        Draw.roundedRect(g, x, y, size, size, Theme.RADIUS, Theme.tile());
         g.image(texture, Math.round(x + (size - w) / 2f), Math.round(y + (size - h) / 2f), w, h, entry.width(), entry.height());
         return true;
     }
@@ -139,7 +139,7 @@ final class PanelKit {
 
     // окно-карточка с тенью
     static void frame(Gfx g, float x, float y, float width, float height) {
-        Draw.shadow(g, x, y + 2, width, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
-        Draw.box(g, x, y, width, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
+        Draw.shadow(g, x, y + 2, width, height, Theme.RADIUS + 2, 12, Theme.shadow());
+        Draw.box(g, x, y, width, height, Theme.RADIUS + 2, Theme.popup(), Theme.border());
     }
 }

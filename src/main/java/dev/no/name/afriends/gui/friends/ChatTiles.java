@@ -84,9 +84,9 @@ final class ChatTiles {
         if (skin != null) {
             g.face(skin, x, y, size);
         } else {
-            Draw.gradient(g, x, y, size, size, Theme.RADIUS - 1, Theme.TILE_ON, Theme.TILE);
+            Draw.gradient(g, x, y, size, size, Theme.RADIUS - 1, Theme.tileOn(), Theme.tile());
             float icon = size * 0.5f;
-            Draw.icon(g, Icon.USER, x + (size - icon) / 2, y + (size - icon) / 2, icon, Theme.TEXT_DIM);
+            Draw.icon(g, Icon.USER, x + (size - icon) / 2, y + (size - icon) / 2, icon, Theme.textDim());
         }
     }
 

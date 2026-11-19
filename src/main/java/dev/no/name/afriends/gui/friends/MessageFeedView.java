@@ -109,8 +109,8 @@ final class MessageFeedView {
     static void drawNoChat(Gfx g) {
         float centerX = CHAT_X + CHAT_WIDTH / 2f;
         float drift = (Easing.pulse(Motion.now(), Theme.IDLE_PERIOD) - 0.5f) * 3;
-        Draw.icon(g, Icon.MESSAGE, centerX - 10, HEIGHT / 2f - 24 + drift, 20, Theme.TEXT_FAINT);
-        Draw.textCentered(g, "Выбери чат слева", centerX, HEIGHT / 2f + 2, Theme.TEXT_DIM);
+        Draw.icon(g, Icon.MESSAGE, centerX - 10, HEIGHT / 2f - 24 + drift, 20, Theme.textFaint());
+        Draw.textCentered(g, "Выбери чат слева", centerX, HEIGHT / 2f + 2, Theme.textDim());
     }
 
     // плашка закрепа рисуется и при пустом списке: так она забывает открепленное и не ловит по нему клики
@@ -138,7 +138,7 @@ final class MessageFeedView {
                 item.reply())));
         if (shown.isEmpty()) {
             String text = controller.isNotes() ? "Пиши сюда заметки — их видишь только ты" : "Сообщений пока нет — напиши первым";
-            Draw.textCentered(g, text, CHAT_X + CHAT_WIDTH / 2f, (top + bottom) / 2f, Theme.TEXT_SOFT);
+            Draw.textCentered(g, text, CHAT_X + CHAT_WIDTH / 2f, (top + bottom) / 2f, Theme.textSoft());
             return;
         }
         // при выделении слева кружки: входящие сдвигаются вправо
@@ -199,11 +199,11 @@ final class MessageFeedView {
         if (key.equals(highlightKey) && now - highlightAt < HIGHLIGHT_MS) {
             float fade = 1 - (now - highlightAt) / (float) HIGHLIGHT_MS;
             Draw.roundedRect(g, CHAT_X + 1, bubble.y() - 1, CHAT_WIDTH - 2, bubble.height() + 2, 0,
-                    Colors.fade(Theme.ACCENT, 0.18f * fade));
+                    Colors.fade(Theme.accent(), 0.18f * fade));
         }
         if (selection.isActive()) {
             if (selection.contains(bubble.message())) {
-                Draw.rect(g, CHAT_X + 1, bubble.y() - 1, CHAT_WIDTH - 2, bubble.height() + 2, Colors.fade(Theme.ACCENT, 0.1f));
+                Draw.rect(g, CHAT_X + 1, bubble.y() - 1, CHAT_WIDTH - 2, bubble.height() + 2, Colors.fade(Theme.accent(), 0.1f));
             }
             selection.drawMark(g, bubble.message(), CHAT_X + PAD, bubble.y() + bubble.height() / 2f);
         }

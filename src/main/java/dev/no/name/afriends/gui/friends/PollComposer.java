@@ -118,9 +118,9 @@ final class PollComposer {
         if (chat == null) {
             return;
         }
-        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.SHADOW);
-        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
-        Draw.text(g, "Новый опрос", x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.shadow(g, x, y + 2, WIDTH, height, Theme.RADIUS + 2, 12, Theme.shadow());
+        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 2, Theme.popup(), Theme.border());
+        Draw.text(g, "Новый опрос", x + PAD, y + PAD, Theme.textSoft(), TextStyle.SMALL);
         question.render(g, mouseX, mouseY);
         for (int i = 0; i < options.size(); i++) {
             TextFieldWidget field = options.get(i);
@@ -128,19 +128,19 @@ final class PollComposer {
             if (removable(i)) {
                 float removeX = field.getX() + field.getWidth() + 2;
                 boolean hover = mouseX >= removeX && mouseX < removeX + REMOVE && mouseY >= field.getY() && mouseY < field.getY() + FIELD;
-                Draw.icon(g, Icon.CLOSE, removeX + 1, field.getY() + 4, REMOVE - 2, hover ? Theme.DANGER : Theme.TEXT_DIM);
+                Draw.icon(g, Icon.CLOSE, removeX + 1, field.getY() + 4, REMOVE - 2, hover ? Theme.DANGER : Theme.textDim());
             }
         }
         if (canAdd()) {
             float addY = addY();
             boolean hover = mouseX >= x + PAD && mouseX < x + WIDTH - PAD && mouseY >= addY && mouseY < addY + ADD;
-            Draw.text(g, "+ Вариант", x + PAD + 2, addY + 3, hover ? Theme.TEXT : Theme.TEXT_DIM, TextStyle.SMALL);
+            Draw.text(g, "+ Вариант", x + PAD + 2, addY + 3, hover ? Theme.text() : Theme.textDim(), TextStyle.SMALL);
         }
         boolean ready = poll() != null;
         float buttonY = buttonY();
-        Draw.roundedRect(g, x + PAD, buttonY, WIDTH - PAD * 2, BUTTON, Theme.RADIUS, ready ? Theme.ACCENT : Theme.CARD);
+        Draw.roundedRect(g, x + PAD, buttonY, WIDTH - PAD * 2, BUTTON, Theme.RADIUS, ready ? Theme.accent() : Theme.card());
         String label = ready ? "Отправить опрос" : "Вопрос и хотя бы 2 разных варианта";
-        Draw.textCentered(g, label, x + WIDTH / 2f, buttonY + 4, ready ? Theme.ACCENT_TEXT : Theme.TEXT_DIM);
+        Draw.textCentered(g, label, x + WIDTH / 2f, buttonY + 4, ready ? Theme.accentText() : Theme.textDim());
     }
 
     // true — клик внутри окна (обработан); мимо окна оно закрывается

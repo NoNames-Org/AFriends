@@ -45,15 +45,15 @@ final class ReplyStrip {
         if (reply == null) {
             return;
         }
-        Draw.box(g, x, y, width, HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
-        Draw.icon(g, Icon.UNDO, x + 6, y + (HEIGHT - Theme.ICON) / 2f, Theme.ICON, Theme.ACCENT);
-        Draw.roundedRect(g, x + 22, y + 4, 2, HEIGHT - 8, 1, Theme.ACCENT);
+        Draw.box(g, x, y, width, HEIGHT, Theme.RADIUS, Theme.card(), Theme.border());
+        Draw.icon(g, Icon.UNDO, x + 6, y + (HEIGHT - Theme.ICON) / 2f, Theme.ICON, Theme.accent());
+        Draw.roundedRect(g, x + 22, y + 4, 2, HEIGHT - 8, 1, Theme.accent());
         float textX = x + 28;
         int textWidth = (int) (x + width - CLOSE - 8 - textX);
-        Draw.text(g, Draw.trim("Ответ " + reply.author(), textWidth, TextStyle.SMALL), textX, y + 4, Theme.ACCENT, TextStyle.SMALL);
-        Draw.text(g, Draw.trim(reply.snippet(), textWidth, TextStyle.SMALL), textX, y + 12, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim("Ответ " + reply.author(), textWidth, TextStyle.SMALL), textX, y + 4, Theme.accent(), TextStyle.SMALL);
+        Draw.text(g, Draw.trim(reply.snippet(), textWidth, TextStyle.SMALL), textX, y + 12, Theme.textSoft(), TextStyle.SMALL);
         boolean hover = onClose(mouseX, mouseY);
-        Draw.icon(g, Icon.CLOSE, closeX() + 2, y + (HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, hover ? Theme.TEXT : Theme.TEXT_DIM);
+        Draw.icon(g, Icon.CLOSE, closeX() + 2, y + (HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, hover ? Theme.text() : Theme.textDim());
     }
 
     private float closeX() {

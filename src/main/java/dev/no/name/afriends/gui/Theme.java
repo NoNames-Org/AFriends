@@ -1,50 +1,121 @@
 package dev.no.name.afriends.gui;
 
+import dev.no.name.afriends.gui.theme.Palette;
+
+/**
+ * Размеры оформления и текущие цвета. Цвета — один неизменяемый {@link Palette}: тему меняет только
+ * {@code ThemeSettings} заменой набора целиком, остальной код цвета лишь читает
+ */
 public final class Theme {
     public static final int RADIUS = 4;
     public static final int PANEL_RADIUS = 8;
-
-    public static int DIM = 0x8C060710;
     public static final float DIM_VIGNETTE = 0.55f;
     public static final float DIM_GRAIN = 0.35f;
-
-    public static int PANEL_TOP = 0xF2121318;
-    public static int PANEL_BOTTOM = 0xF20B0C0F;
-    public static int SHADOW = 0x99000000;
-
-    public static int POPUP = 0xFF15161A;
-    public static int BORDER = 0xFF26282E;
-    public static int BORDER_HOVER = 0xFF3A3D45;
-    public static int BORDER_SELECTED = 0xFF6F737C;
-
-    public static int CARD = 0xFF16171B;
-    public static int CARD_HOVER = 0xFF1B1D22;
-    public static int CARD_SELECTED = 0xFF202227;
-    public static int CARD_PRESSED = 0xFF2A2C33;
-
-    public static int TEXT = 0xFFFFFFFF;
-    public static int TEXT_SOFT = 0xFFA9ADB6;
-    public static int TEXT_DIM = 0xFF8B8F98;
-    public static int TEXT_FAINT = 0xFF5E626B;
-
-    public static int TILE = 0xFF1F2126;
-    public static int TILE_ON = 0xFF2C2E35;
-
     public static final long IDLE_PERIOD = 3600;
-
-    public static int HUD_BACKGROUND = 0xE00D0E12;
-    public static int HUD_BORDER = 0xFF23252B;
-
-    public static int ACCENT = 0xFFFFFFFF;
-
-    public static int ACCENT_TEXT = 0xFF0E0F12;
-
     // опасные действия и черновики: одинаковый красный во всех окнах
     public static final int DANGER = 0xFFFF6B6B;
-
     public static final int ICON_SMALL = 8;
     public static final int ICON = 10;
 
+    private static volatile Palette palette = Palette.GRAPHITE;
+
     private Theme() {
+    }
+
+    public static Palette palette() {
+        return palette;
+    }
+
+    /** Сменить тему целиком; зовёт только ThemeSettings. */
+    public static void use(Palette next) {
+        palette = next;
+    }
+
+    public static int dim() {
+        return palette.dim();
+    }
+
+    public static int panelTop() {
+        return palette.panelTop();
+    }
+
+    public static int panelBottom() {
+        return palette.panelBottom();
+    }
+
+    public static int shadow() {
+        return palette.shadow();
+    }
+
+    public static int popup() {
+        return palette.popup();
+    }
+
+    public static int border() {
+        return palette.border();
+    }
+
+    public static int borderHover() {
+        return palette.borderHover();
+    }
+
+    public static int borderSelected() {
+        return palette.borderSelected();
+    }
+
+    public static int card() {
+        return palette.card();
+    }
+
+    public static int cardHover() {
+        return palette.cardHover();
+    }
+
+    public static int cardSelected() {
+        return palette.cardSelected();
+    }
+
+    public static int cardPressed() {
+        return palette.cardPressed();
+    }
+
+    public static int text() {
+        return palette.text();
+    }
+
+    public static int textSoft() {
+        return palette.textSoft();
+    }
+
+    public static int textDim() {
+        return palette.textDim();
+    }
+
+    public static int textFaint() {
+        return palette.textFaint();
+    }
+
+    public static int tile() {
+        return palette.tile();
+    }
+
+    public static int tileOn() {
+        return palette.tileOn();
+    }
+
+    public static int hudBackground() {
+        return palette.hudBackground();
+    }
+
+    public static int hudBorder() {
+        return palette.hudBorder();
+    }
+
+    public static int accent() {
+        return palette.accent();
+    }
+
+    public static int accentText() {
+        return palette.accentText();
     }
 }

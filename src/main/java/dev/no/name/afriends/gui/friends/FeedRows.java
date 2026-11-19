@@ -73,8 +73,8 @@ final class FeedRows {
     static void drawDay(Gfx g, String label, float y) {
         float width = Draw.width(label, TextStyle.SMALL) + 12;
         float x = CHAT_X + (CHAT_WIDTH - width) / 2f;
-        Draw.box(g, x, y + 3, width, 11, 5.5f, Theme.CARD, Theme.BORDER);
-        Draw.text(g, label, x + 6, y + 5.5f, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.box(g, x, y + 3, width, 11, 5.5f, Theme.card(), Theme.border());
+        Draw.text(g, label, x + 6, y + 5.5f, Theme.textSoft(), TextStyle.SMALL);
     }
 
     // пузырь въезжает и проявляется; ожидающий — полупрозрачный и гаснет к концу таймаута

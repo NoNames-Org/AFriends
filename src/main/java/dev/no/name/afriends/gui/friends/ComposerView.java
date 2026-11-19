@@ -172,8 +172,8 @@ final class ComposerView {
     private void drawBar(Gfx g, int mouseX, int mouseY) {
         // плашка растёт вверх вместе с многострочным полем; значки и «отправить» остаются внизу
         int barY = BAR_Y - inputExtra;
-        int border = input.isFocused() ? Theme.BORDER_SELECTED : Theme.BORDER;
-        Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT + inputExtra, Theme.RADIUS, Theme.CARD, border);
+        int border = input.isFocused() ? Theme.borderSelected() : Theme.border();
+        Draw.box(g, BAR_X, barY, BAR_WIDTH, INPUT_HEIGHT + inputExtra, Theme.RADIUS, Theme.card(), border);
         // над полосой: сначала ответ, над ним прикреплённая картинка
         int replyY = barY - ReplyStrip.HEIGHT - 4;
         replyStrip.draw(g, BAR_X, replyY, BAR_WIDTH + SEND_WIDTH + 4, mouseX, mouseY);
@@ -184,10 +184,10 @@ final class ComposerView {
     /** Вместо поля ввода в чатах только для чтения. */
     private static void drawReadOnly(Gfx g, String text) {
         float y = BAR_Y;
-        Draw.box(g, CHAT_X + PAD, y, CHAT_WIDTH - PAD * 2, INPUT_HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
+        Draw.box(g, CHAT_X + PAD, y, CHAT_WIDTH - PAD * 2, INPUT_HEIGHT, Theme.RADIUS, Theme.card(), Theme.border());
         float textX = CHAT_X + PAD + (CHAT_WIDTH - PAD * 2 - Theme.ICON_SMALL - 5 - Draw.width(text)) / 2f;
-        Draw.icon(g, Icon.LOCK, textX, y + (INPUT_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, Theme.TEXT_DIM);
-        Draw.text(g, text, textX + Theme.ICON_SMALL + 5, y + (INPUT_HEIGHT - 8) / 2f, Theme.TEXT_DIM);
+        Draw.icon(g, Icon.LOCK, textX, y + (INPUT_HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, Theme.textDim());
+        Draw.text(g, text, textX + Theme.ICON_SMALL + 5, y + (INPUT_HEIGHT - 8) / 2f, Theme.textDim());
     }
 
     /** Подпись-предупреждение над полосой ввода. */
@@ -199,7 +199,7 @@ final class ComposerView {
         float width = Math.min(CHAT_WIDTH - PAD * 2, Draw.width(warning, TextStyle.SMALL) + 12);
         float x = CHAT_X + (CHAT_WIDTH - width) / 2f;
         float y = top() - 18;
-        Draw.box(g, x, y, width, 14, Theme.RADIUS, Theme.POPUP, DANGER);
+        Draw.box(g, x, y, width, 14, Theme.RADIUS, Theme.popup(), DANGER);
         Draw.text(g, Draw.trim(warning, (int) width - 12, TextStyle.SMALL), x + 6, y + 4, DANGER, TextStyle.SMALL);
     }
 

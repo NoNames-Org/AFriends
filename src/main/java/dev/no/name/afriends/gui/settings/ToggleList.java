@@ -29,12 +29,12 @@ public final class ToggleList {
         for (int i = 0; i < toggles.size(); i++) {
             Toggle toggle = toggles.get(i);
             int y = rowY(top, i);
-            Draw.text(g, Draw.trim(toggle.title(), textWidth), x, y, Theme.TEXT);
-            Draw.text(g, Draw.trim(toggle.description(), textWidth), x, y + 11, Theme.TEXT_DIM);
+            Draw.text(g, Draw.trim(toggle.title(), textWidth), x, y, Theme.text());
+            Draw.text(g, Draw.trim(toggle.description(), textWidth), x, y + 11, Theme.textDim());
             drawSwitch(g, x + width - SWITCH_WIDTH, y + 4, toggle.enabled().getAsBoolean());
         }
         if (!note.isEmpty()) {
-            Draw.text(g, Draw.trim(note, width), x, rowY(top, toggles.size()) + 2, Theme.TEXT_DIM);
+            Draw.text(g, Draw.trim(note, width), x, rowY(top, toggles.size()) + 2, Theme.textDim());
         }
     }
 
@@ -56,9 +56,9 @@ public final class ToggleList {
 
     public static void drawSwitch(Gfx g, float x, float y, boolean on) {
         float radius = SWITCH_HEIGHT / 2f;
-        Draw.box(g, x, y, SWITCH_WIDTH, SWITCH_HEIGHT, radius, on ? Theme.ACCENT : Theme.CARD, on ? Theme.ACCENT : Theme.BORDER_HOVER);
+        Draw.box(g, x, y, SWITCH_WIDTH, SWITCH_HEIGHT, radius, on ? Theme.accent() : Theme.card(), on ? Theme.accent() : Theme.borderHover());
         float knob = SWITCH_HEIGHT - 4;
         float knobX = on ? x + SWITCH_WIDTH - knob - 2 : x + 2;
-        Draw.roundedRect(g, knobX, y + 2, knob, knob, knob / 2f, on ? Theme.ACCENT_TEXT : Theme.TEXT_SOFT);
+        Draw.roundedRect(g, knobX, y + 2, knob, knob, knob / 2f, on ? Theme.accentText() : Theme.textSoft());
     }
 }

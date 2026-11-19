@@ -1,5 +1,6 @@
 package dev.no.name.afriends.gui.theme;
 
+import dev.no.name.afriends.gui.Theme;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -46,14 +47,14 @@ public final class ThemeSettings {
 
     public void apply() {
         if (CUSTOM_ID.equals(selectedId)) {
-            Palettes.apply(customBackground, customAccent);
+            Theme.use(Palettes.custom(customBackground, customAccent));
             return;
         }
         ThemePreset preset = ThemePreset.find(selectedId);
         if (preset == null || preset == ThemePreset.GRAPHITE) {
-            Palettes.applyGraphite();
+            Theme.use(Palettes.graphite());
         } else {
-            Palettes.apply(preset.background(), preset.accent());
+            Theme.use(Palettes.custom(preset.background(), preset.accent()));
         }
     }
 

@@ -240,8 +240,8 @@ final class MessageBubbles {
         boolean mine = bubble.message().fromMe();
         boolean failed = stamp == Stamp.FAILED;
         float x = mine ? right - bubble.width() : left;
-        int fill = failed ? Theme.CARD_PRESSED : mine ? Theme.ACCENT : Theme.CARD_SELECTED;
-        int textColor = failed ? Theme.TEXT_SOFT : mine ? Theme.ACCENT_TEXT : Theme.TEXT;
+        int fill = failed ? Theme.cardPressed() : mine ? Theme.accent() : Theme.cardSelected();
+        int textColor = failed ? Theme.textSoft() : mine ? Theme.accentText() : Theme.text();
         Draw.roundedRect(g, x, top, bubble.width(), bubble.height(), RADIUS, fill);
         float bubbleTop = top;
         if (hasAuthor(bubble.message())) {
@@ -281,7 +281,7 @@ final class MessageBubbles {
             case FAILED -> FAILED;
             case TIME -> time(bubble.message());
         };
-        int timeColor = failed ? Theme.DANGER : mine ? withAlpha(Theme.ACCENT_TEXT, 0.75f) : Theme.TEXT_DIM;
+        int timeColor = failed ? Theme.DANGER : mine ? withAlpha(Theme.accentText(), 0.75f) : Theme.textDim();
         float timeX = x + bubble.width() - PADDING_X - Draw.width(time, TextStyle.SMALL);
 
         float timeY = bubble.timeInline() ? FormattedText.timeY(bubble.lines(), lineY) : lineY;
@@ -297,7 +297,7 @@ final class MessageBubbles {
 
     // цитата: подложка, полоска слева, автор цветом и начало текста
     private static void drawQuote(Gfx g, MessageReply reply, float x, float y, float width, int textColor, boolean mine) {
-        int accent = mine ? textColor : Theme.ACCENT;
+        int accent = mine ? textColor : Theme.accent();
         Draw.roundedRect(g, x, y, width, QUOTE_HEIGHT - 3, RADIUS - 1, Colors.fade(textColor, 0.1f));
         Draw.roundedRect(g, x, y, 2, QUOTE_HEIGHT - 3, 1, accent);
         int textWidth = (int) width - QUOTE_TEXT_X - 3;
@@ -334,7 +334,7 @@ final class MessageBubbles {
             case FAILED -> FAILED;
             case TIME -> time(bubble.message());
         };
-        int timeColor = stamp == Stamp.FAILED ? Theme.DANGER : mine ? withAlpha(Theme.ACCENT_TEXT, 0.75f) : Theme.TEXT_DIM;
+        int timeColor = stamp == Stamp.FAILED ? Theme.DANGER : mine ? withAlpha(Theme.accentText(), 0.75f) : Theme.textDim();
         Draw.text(g, time, x + bubble.width() - PADDING_X - Draw.width(time, TextStyle.SMALL), top + PADDING_Y + VoiceBlock.HEIGHT - 6,
                 timeColor, TextStyle.SMALL);
         if (stamp == Stamp.TIME) {
@@ -354,7 +354,7 @@ final class MessageBubbles {
             case TIME -> time(bubble.message());
         };
         boolean mine = bubble.message().fromMe();
-        int timeColor = stamp == Stamp.FAILED ? Theme.DANGER : mine ? withAlpha(Theme.ACCENT_TEXT, 0.75f) : Theme.TEXT_DIM;
+        int timeColor = stamp == Stamp.FAILED ? Theme.DANGER : mine ? withAlpha(Theme.accentText(), 0.75f) : Theme.textDim();
         List<RichBubble.ImageHit> images = RichBubble.draw(g, bubble.rich(), ctx, x, top, bubble.width(), time, textColor, timeColor,
                 stamp == Stamp.TIME ? bubble.message() : null);
         List<ReactionChips.Hit> chips = ReactionChips.draw(g, bubble.chips(), x + PADDING_X,

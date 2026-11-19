@@ -82,17 +82,17 @@ public final class MessageToasts {
 
     // карточка как панели мессенджера: тень, градиент, рамка, значок в плашке, заголовок и подпись
     private static void drawCard(Gfx g, Card card, float x, float y) {
-        Draw.shadow(g, x, y + 2, WIDTH, HEIGHT, Theme.PANEL_RADIUS, 10, Colors.fade(Theme.SHADOW, 0.6f));
-        Draw.gradient(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.PANEL_TOP, Theme.PANEL_BOTTOM);
-        Draw.border(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.BORDER);
+        Draw.shadow(g, x, y + 2, WIDTH, HEIGHT, Theme.PANEL_RADIUS, 10, Colors.fade(Theme.shadow(), 0.6f));
+        Draw.gradient(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.panelTop(), Theme.panelBottom());
+        Draw.border(g, x, y, WIDTH, HEIGHT, Theme.PANEL_RADIUS, Theme.border());
         float badgeX = x + PAD;
         float badgeY = y + (HEIGHT - BADGE) / 2f;
-        Draw.box(g, badgeX, badgeY, BADGE, BADGE, Theme.RADIUS, Theme.ACCENT, Theme.ACCENT);
-        Draw.icon(g, Icon.MESSAGE, badgeX + (BADGE - ICON) / 2f, badgeY + (BADGE - ICON) / 2f, ICON, Theme.ACCENT_TEXT);
+        Draw.box(g, badgeX, badgeY, BADGE, BADGE, Theme.RADIUS, Theme.accent(), Theme.accent());
+        Draw.icon(g, Icon.MESSAGE, badgeX + (BADGE - ICON) / 2f, badgeY + (BADGE - ICON) / 2f, ICON, Theme.accentText());
         float textX = badgeX + BADGE + 7;
         int textWidth = (int) (x + WIDTH - PAD - textX);
-        Draw.text(g, Draw.trim(card.title(), textWidth, TextStyle.BODY_MEDIUM), textX, y + 7, Theme.TEXT, TextStyle.BODY_MEDIUM);
-        Draw.text(g, Draw.trim(card.subtitle(), textWidth, TextStyle.SMALL), textX, y + 18, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(card.title(), textWidth, TextStyle.BODY_MEDIUM), textX, y + 7, Theme.text(), TextStyle.BODY_MEDIUM);
+        Draw.text(g, Draw.trim(card.subtitle(), textWidth, TextStyle.SMALL), textX, y + 18, Theme.textSoft(), TextStyle.SMALL);
     }
 
     private static float clamp01(float value) {

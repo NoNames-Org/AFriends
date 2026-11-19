@@ -43,18 +43,18 @@ final class NetworkSection {
 
     void draw(Gfx g, int x, int top, int width, int mouseX, int mouseY) {
         String state = LinkText.connection(link.snapshot(), link.configured());
-        Draw.text(g, Draw.trim(state, width), x, top, Theme.TEXT, TextStyle.TITLE);
+        Draw.text(g, Draw.trim(state, width), x, top, Theme.text(), TextStyle.TITLE);
         for (int i = 0; i < toggles.size(); i++) {
             Toggle toggle = toggles.get(i);
             int y = rowY(top, i);
-            Draw.text(g, Draw.trim(toggle.title(), width - SWITCH_WIDTH - 8), x, y, Theme.TEXT);
+            Draw.text(g, Draw.trim(toggle.title(), width - SWITCH_WIDTH - 8), x, y, Theme.text());
             Draw.text(g, Draw.trim(toggle.hint(), width - SWITCH_WIDTH - 8, TextStyle.SMALL), x, y + 11,
-                    Theme.TEXT_FAINT, TextStyle.SMALL);
+                    Theme.textFaint(), TextStyle.SMALL);
             drawSwitch(g, x + width - SWITCH_WIDTH, y + 2, toggle.value().get());
         }
         int aboutY = rowY(top, toggles.size()) + 4;
         for (int i = 0; i < ABOUT.size(); i++) {
-            Draw.text(g, Draw.trim(ABOUT.get(i), width, TextStyle.SMALL), x, aboutY + i * 10, Theme.TEXT_FAINT, TextStyle.SMALL);
+            Draw.text(g, Draw.trim(ABOUT.get(i), width, TextStyle.SMALL), x, aboutY + i * 10, Theme.textFaint(), TextStyle.SMALL);
         }
     }
 
@@ -77,9 +77,9 @@ final class NetworkSection {
 
     private static void drawSwitch(Gfx g, float x, float y, boolean on) {
         float radius = SWITCH_HEIGHT / 2f;
-        Draw.box(g, x, y, SWITCH_WIDTH, SWITCH_HEIGHT, radius, on ? Theme.ACCENT : Theme.CARD, on ? Theme.ACCENT : Theme.BORDER_HOVER);
+        Draw.box(g, x, y, SWITCH_WIDTH, SWITCH_HEIGHT, radius, on ? Theme.accent() : Theme.card(), on ? Theme.accent() : Theme.borderHover());
         float knob = SWITCH_HEIGHT - 4;
         float knobX = on ? x + SWITCH_WIDTH - knob - 2 : x + 2;
-        Draw.roundedRect(g, knobX, y + 2, knob, knob, knob / 2f, on ? Theme.ACCENT_TEXT : Theme.TEXT_SOFT);
+        Draw.roundedRect(g, knobX, y + 2, knob, knob, knob / 2f, on ? Theme.accentText() : Theme.textSoft());
     }
 }

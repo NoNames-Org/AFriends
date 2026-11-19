@@ -41,8 +41,8 @@ public class ButtonWidget extends Widget {
         float hovered = hover.get();
         float pressed = press.get();
 
-        int fill = Colors.mix(Colors.mix(Theme.CARD, Theme.CARD_HOVER, hovered), Theme.CARD_PRESSED, pressed);
-        int border = Colors.mix(Theme.BORDER, Theme.BORDER_HOVER, Math.max(hovered, pressed));
+        int fill = Colors.mix(Colors.mix(Theme.card(), Theme.cardHover(), hovered), Theme.cardPressed(), pressed);
+        int border = Colors.mix(Theme.border(), Theme.borderHover(), Math.max(hovered, pressed));
         Draw.box(g, x, y, width, height, Theme.RADIUS, fill, border);
 
         int iconWidth = icon == null ? 0 : Theme.ICON_SMALL;
@@ -50,7 +50,7 @@ public class ButtonWidget extends Widget {
         int gap = icon != null && text != null ? ICON_GAP : 0;
         float contentX = x + (width - iconWidth - gap - textWidth) / 2f;
 
-        int color = Colors.mix(Theme.TEXT_DIM, Theme.TEXT, text != null ? 0.75f + 0.25f * hovered : hovered);
+        int color = Colors.mix(Theme.textDim(), Theme.text(), text != null ? 0.75f + 0.25f * hovered : hovered);
         if (icon != null) {
             Draw.icon(g, icon, contentX, y + (height - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, color);
         }

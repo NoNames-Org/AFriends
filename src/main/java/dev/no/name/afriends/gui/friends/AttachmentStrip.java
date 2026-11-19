@@ -56,7 +56,7 @@ final class AttachmentStrip {
         if (file == null) {
             return;
         }
-        Draw.box(g, x, y, width, HEIGHT, Theme.RADIUS, Theme.CARD, Theme.BORDER);
+        Draw.box(g, x, y, width, HEIGHT, Theme.RADIUS, Theme.card(), Theme.border());
         boolean animated = ImageTextures.isGif(file);
         ImageTextures.Entry entry = images.file(file, animated);
         Identifier texture = entry.state() == ImageTextures.State.READY ? entry.texture(System.currentTimeMillis()) : null;
@@ -67,22 +67,22 @@ final class AttachmentStrip {
             float scale = THUMB / (float) Math.max(entry.width(), entry.height());
             int w = Math.max(1, Math.round(entry.width() * scale));
             int h = Math.max(1, Math.round(entry.height() * scale));
-            Draw.roundedRect(g, thumbX, thumbY, THUMB, THUMB, Theme.RADIUS - 1, Theme.TILE);
+            Draw.roundedRect(g, thumbX, thumbY, THUMB, THUMB, Theme.RADIUS - 1, Theme.tile());
             g.image(texture, Math.round(thumbX + (THUMB - w) / 2f), Math.round(thumbY + (THUMB - h) / 2f), w, h, entry.width(), entry.height());
         } else {
-            Draw.roundedRect(g, thumbX, thumbY, THUMB, THUMB, Theme.RADIUS - 1, Theme.TILE);
+            Draw.roundedRect(g, thumbX, thumbY, THUMB, THUMB, Theme.RADIUS - 1, Theme.tile());
             Draw.icon(g, Icon.IMAGE, thumbX + (THUMB - Theme.ICON_SMALL) / 2f, thumbY + (THUMB - Theme.ICON_SMALL) / 2f,
-                    Theme.ICON_SMALL, Theme.TEXT_DIM);
+                    Theme.ICON_SMALL, Theme.textDim());
         }
         float textX = thumbX + THUMB + 6;
         int textWidth = (int) (x + width - 20 - textX);
-        Draw.text(g, Draw.trim(file.getFileName().toString(), textWidth), textX, y + 4, Theme.TEXT);
+        Draw.text(g, Draw.trim(file.getFileName().toString(), textWidth), textX, y + 4, Theme.text());
         String info = (animated ? "Гифка" : "Изображение") + " · " + sizeText(size);
-        Draw.text(g, Draw.trim(info, textWidth, TextStyle.SMALL), textX, y + 15, Theme.TEXT_DIM, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(info, textWidth, TextStyle.SMALL), textX, y + 15, Theme.textDim(), TextStyle.SMALL);
         closeX = x + width - 16;
         closeY = y + (HEIGHT - 12) / 2f;
         boolean hover = mouseX >= closeX && mouseX < closeX + 12 && mouseY >= closeY && mouseY < closeY + 12;
-        Draw.icon(g, Icon.CLOSE, closeX + 2, closeY + 2, Theme.ICON_SMALL, hover ? Theme.TEXT : Theme.TEXT_DIM);
+        Draw.icon(g, Icon.CLOSE, closeX + 2, closeY + 2, Theme.ICON_SMALL, hover ? Theme.text() : Theme.textDim());
     }
 
     // true — нажали крестик, картинка убрана

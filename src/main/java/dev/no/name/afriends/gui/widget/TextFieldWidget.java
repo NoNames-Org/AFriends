@@ -99,12 +99,12 @@ public class TextFieldWidget extends Widget {
         float focusAmount = focus.get();
 
         if (framed) {
-            int border = Colors.mix(Colors.mix(Theme.BORDER, Theme.BORDER_HOVER, hover.get()), Theme.BORDER_SELECTED, focusAmount);
-            Draw.box(g, x, y, width, height, Theme.RADIUS, Colors.mix(Theme.CARD, Theme.CARD_HOVER, focusAmount), border);
+            int border = Colors.mix(Colors.mix(Theme.border(), Theme.borderHover(), hover.get()), Theme.borderSelected(), focusAmount);
+            Draw.box(g, x, y, width, height, Theme.RADIUS, Colors.mix(Theme.card(), Theme.cardHover(), focusAmount), border);
         }
         if (icon != null) {
             Draw.icon(g, icon, x + PADDING - 1, y + (height - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL,
-                    Colors.mix(Theme.TEXT_FAINT, Theme.TEXT, focusAmount));
+                    Colors.mix(Theme.textFaint(), Theme.text(), focusAmount));
         }
 
         int textX = x + (framed ? PADDING : 0) + (icon != null ? Theme.ICON_SMALL + 3 : 0);
@@ -115,17 +115,17 @@ public class TextFieldWidget extends Widget {
         int textY = y + (height - 8) / 2;
         String shown = Draw.trim(text, x + width - PADDING - textX - 2);
         if (text.isEmpty()) {
-            Draw.text(g, placeholder, textX, textY, Colors.fade(Theme.TEXT_FAINT, 1 - 0.5f * focusAmount));
+            Draw.text(g, placeholder, textX, textY, Colors.fade(Theme.textFaint(), 1 - 0.5f * focusAmount));
         } else {
             if (allSelected && focused) {
-                Draw.roundedRect(g, textX - 1, y + 3, Draw.width(shown) + 2, height - 6, 1.5f, Colors.fade(Theme.ACCENT, 0.35f));
+                Draw.roundedRect(g, textX - 1, y + 3, Draw.width(shown) + 2, height - 6, 1.5f, Colors.fade(Theme.accent(), 0.35f));
             }
-            Draw.text(g, shown, textX, textY, Theme.TEXT);
+            Draw.text(g, shown, textX, textY, Theme.text());
         }
 
         float caretX = textX + (text.isEmpty() ? 0 : Draw.width(shown) + 1);
         float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
-        Draw.rect(g, caretX, y + 4, 0.75f, height - 8, Colors.fade(Theme.TEXT, caretAlpha));
+        Draw.rect(g, caretX, y + 4, 0.75f, height - 8, Colors.fade(Theme.text(), caretAlpha));
     }
 
     // многострочная отрисовка: видимые строки сверху вниз, каретка в конце последней.
@@ -133,9 +133,9 @@ public class TextFieldWidget extends Widget {
     private void renderLines(Gfx g, int textX, float focusAmount) {
         int avail = x + width - PADDING - textX - 2;
         if (text.isEmpty()) {
-            Draw.text(g, placeholder, textX, y + 5, Colors.fade(Theme.TEXT_FAINT, 1 - 0.5f * focusAmount));
+            Draw.text(g, placeholder, textX, y + 5, Colors.fade(Theme.textFaint(), 1 - 0.5f * focusAmount));
             float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
-            Draw.rect(g, textX, y + 4, 0.75f, 9, Colors.fade(Theme.TEXT, caretAlpha));
+            Draw.rect(g, textX, y + 4, 0.75f, 9, Colors.fade(Theme.text(), caretAlpha));
             return;
         }
         String[] lines = text.split("\n", -1);
@@ -149,13 +149,13 @@ public class TextFieldWidget extends Widget {
             // Ctrl+A: подсветка под каждой видимой строкой, у пустой — узкая полоска, чтобы было видно, что она тоже выделена
             if (selected) {
                 Draw.roundedRect(g, textX - 1, lineY - 1, Math.max(3, Draw.width(lastShown) + 2), LINE_HEIGHT, 1.5f,
-                        Colors.fade(Theme.ACCENT, 0.35f));
+                        Colors.fade(Theme.accent(), 0.35f));
             }
-            Draw.text(g, lastShown, textX, lineY, Theme.TEXT);
+            Draw.text(g, lastShown, textX, lineY, Theme.text());
             lineY += LINE_HEIGHT;
         }
         float caretAlpha = focusAmount * (0.25f + 0.75f * Easing.pulse(Motion.now(), CARET_PERIOD));
-        Draw.rect(g, textX + Draw.width(lastShown) + 1, lineY - LINE_HEIGHT, 0.75f, 9, Colors.fade(Theme.TEXT, caretAlpha));
+        Draw.rect(g, textX + Draw.width(lastShown) + 1, lineY - LINE_HEIGHT, 0.75f, 9, Colors.fade(Theme.text(), caretAlpha));
     }
 
     @Override

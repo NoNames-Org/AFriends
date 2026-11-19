@@ -51,17 +51,17 @@ final class PinnedBar {
         if (current == null) {
             return;
         }
-        Draw.rect(g, x, y, width, HEIGHT, Theme.CARD);
-        Draw.rect(g, x, y + HEIGHT - 1, width, 1, Theme.BORDER);
+        Draw.rect(g, x, y, width, HEIGHT, Theme.card());
+        Draw.rect(g, x, y + HEIGHT - 1, width, 1, Theme.border());
         drawStripes(g, x + 8, y + 4, HEIGHT - 8);
         int index = pinned.size() - 1 - fromEnd;
         String title = pinned.size() == 1 || index == pinned.size() - 1 ? "Закреплённое сообщение" : "Закреплённое сообщение #" + (index + 1);
         float textX = x + 15;
         int textWidth = (int) (x + width - CLOSE - 10 - textX);
-        Draw.text(g, Draw.trim(title, textWidth, TextStyle.SMALL), textX, y + 4, Theme.ACCENT, TextStyle.SMALL);
-        Draw.text(g, Draw.trim(MessageReply.preview(current), textWidth, TextStyle.SMALL), textX, y + 12, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.text(g, Draw.trim(title, textWidth, TextStyle.SMALL), textX, y + 4, Theme.accent(), TextStyle.SMALL);
+        Draw.text(g, Draw.trim(MessageReply.preview(current), textWidth, TextStyle.SMALL), textX, y + 12, Theme.textSoft(), TextStyle.SMALL);
         boolean hover = onClose(mouseX, mouseY);
-        Draw.icon(g, Icon.CLOSE, closeX() + 2, y + (HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, hover ? Theme.TEXT : Theme.TEXT_DIM);
+        Draw.icon(g, Icon.CLOSE, closeX() + 2, y + (HEIGHT - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL, hover ? Theme.text() : Theme.textDim());
     }
 
     // полоски слева: сколько закрепов и какой из них показан
@@ -71,7 +71,7 @@ final class PinnedBar {
         float gap = 1;
         float each = (height - gap * (count - 1)) / count;
         for (int i = 0; i < count; i++) {
-            int color = i == active ? Theme.ACCENT : Theme.TEXT_FAINT;
+            int color = i == active ? Theme.accent() : Theme.textFaint();
             Draw.roundedRect(g, stripeX, top + i * (each + gap), 2, each, 1, color);
         }
     }

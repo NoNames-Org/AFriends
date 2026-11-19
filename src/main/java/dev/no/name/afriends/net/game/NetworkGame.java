@@ -111,7 +111,7 @@ public final class NetworkGame {
             return;
         }
         LocalProfile profile = new LocalProfile(presence.current(client, settings.shareServer(), settings.status()),
-                Theme.ACCENT & 0xFFFFFF, settings.visible(), Compat.currentServer());
+                Theme.accent() & 0xFFFFFF, settings.visible(), Compat.currentServer());
         if (lastProfile == null || !profile.equals(lastProfile)) {
             lastProfile = profile;
             link.updateProfile(profile);

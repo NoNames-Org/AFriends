@@ -76,15 +76,15 @@ final class GifPicker {
         }
         float w = width();
         float h = height();
-        Draw.shadow(g, x, y + 2, w, h, Theme.RADIUS + 2, 10, Theme.SHADOW);
-        Draw.box(g, x, y, w, h, Theme.RADIUS + 2, Theme.POPUP, Theme.BORDER);
-        Draw.text(g, "Избранные гифки", x + PAD, y + PAD, Theme.TEXT_SOFT, TextStyle.SMALL);
+        Draw.shadow(g, x, y + 2, w, h, Theme.RADIUS + 2, 10, Theme.shadow());
+        Draw.box(g, x, y, w, h, Theme.RADIUS + 2, Theme.popup(), Theme.border());
+        Draw.text(g, "Избранные гифки", x + PAD, y + PAD, Theme.textSoft(), TextStyle.SMALL);
         List<GifFavorites.Gif> gifs = favorites.all();
         if (gifs.isEmpty()) {
             float centerX = x + w / 2;
-            Draw.textCentered(g, "Пока пусто", centerX, y + h / 2 - 8, Theme.TEXT_SOFT);
+            Draw.textCentered(g, "Пока пусто", centerX, y + h / 2 - 8, Theme.textSoft());
             String hint = "правый клик по гифке → ★";
-            Draw.text(g, hint, centerX - Draw.width(hint, TextStyle.SMALL) / 2f, y + h / 2 + 4, Theme.TEXT_DIM, TextStyle.SMALL);
+            Draw.text(g, hint, centerX - Draw.width(hint, TextStyle.SMALL) / 2f, y + h / 2 + 4, Theme.textDim(), TextStyle.SMALL);
             return;
         }
         long now = System.currentTimeMillis();
@@ -93,7 +93,7 @@ final class GifPicker {
             float cellX = x + PAD + (slot % COLUMNS) * (CELL + GAP);
             float cellY = y + PAD + TITLE + (slot / COLUMNS) * (CELL + GAP);
             boolean hover = mouseX >= cellX && mouseX < cellX + CELL && mouseY >= cellY && mouseY < cellY + CELL;
-            Draw.roundedRect(g, cellX, cellY, CELL, CELL, Theme.RADIUS, hover ? Theme.TILE_ON : Theme.TILE);
+            Draw.roundedRect(g, cellX, cellY, CELL, CELL, Theme.RADIUS, hover ? Theme.tileOn() : Theme.tile());
             ImageTextures.Entry entry = images.file(gifs.get(i).file(), true);
             Identifier texture = entry.state() == ImageTextures.State.READY ? entry.texture(now) : null;
             if (texture != null) {

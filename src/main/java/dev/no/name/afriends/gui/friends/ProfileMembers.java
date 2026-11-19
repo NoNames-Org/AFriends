@@ -89,7 +89,7 @@ final class ProfileMembers {
         boolean self = name.equalsIgnoreCase(selfName);
         boolean hover = PanelKit.inside(mouseX, mouseY, x, rowY, width, ROW) && mouseY >= y && mouseY < y + height;
         if (hover && owned) {
-            Draw.roundedRect(g, x, rowY, width, ROW, Theme.RADIUS, Theme.CARD_HOVER);
+            Draw.roundedRect(g, x, rowY, width, ROW, Theme.RADIUS, Theme.cardHover());
         }
         PanelKit.face(g, skins.apply(name), x + 3, rowY + (ROW - FACE) / 2f, FACE);
         float textX = x + 3 + FACE + 6;
@@ -97,11 +97,11 @@ final class ProfileMembers {
         if (kickable(name)) {
             float kickX = right - Draw.width(KICK, TextStyle.SMALL);
             boolean kickHover = hover && mouseX >= kickX;
-            Draw.text(g, KICK, kickX, rowY + 6, kickHover ? Theme.DANGER : Theme.TEXT_DIM, TextStyle.SMALL);
+            Draw.text(g, KICK, kickX, rowY + 6, kickHover ? Theme.DANGER : Theme.textDim(), TextStyle.SMALL);
             right = kickX - 4;
         } else if (owned) {
             Draw.icon(g, Icon.CHEVRON_RIGHT, right - Theme.ICON_SMALL, rowY + (ROW - Theme.ICON_SMALL) / 2f, Theme.ICON_SMALL,
-                    hover ? Theme.TEXT : Theme.TEXT_FAINT);
+                    hover ? Theme.text() : Theme.textFaint());
             right -= Theme.ICON_SMALL + 4;
         }
         String prefix = groups == null ? "" : groups.prefixOf(chat, name);
@@ -109,13 +109,13 @@ final class ProfileMembers {
         float tags = (prefix == null || prefix.isEmpty() ? 0 : PanelKit.tagWidth(prefix) + 3)
                 + (isOwner(name) ? PanelKit.tagWidth("владелец") + 3 : 0);
         String shown = Draw.trim(label, (int) Math.max(20, right - textX - tags));
-        Draw.text(g, shown, textX, rowY + 5, Theme.TEXT);
+        Draw.text(g, shown, textX, rowY + 5, Theme.text());
         float tagX = textX + Draw.width(shown) + 4;
         if (prefix != null && !prefix.isEmpty()) {
-            tagX += PanelKit.tag(g, prefix, tagX, rowY + 4.5f, Theme.TEXT_SOFT) + 3;
+            tagX += PanelKit.tag(g, prefix, tagX, rowY + 4.5f, Theme.textSoft()) + 3;
         }
         if (isOwner(name)) {
-            PanelKit.tag(g, "владелец", tagX, rowY + 4.5f, Theme.ACCENT);
+            PanelKit.tag(g, "владелец", tagX, rowY + 4.5f, Theme.accent());
         }
     }
 

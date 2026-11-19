@@ -64,23 +64,23 @@ public final class ConfirmBox {
             return;
         }
         Draw.roundedRect(g, 0, 0, areaWidth, areaHeight, Theme.PANEL_RADIUS, 0x66000000);
-        Draw.shadow(g, x, y + 3, WIDTH, height, Theme.RADIUS + 3, 16, Theme.SHADOW);
-        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 3, Theme.POPUP, Theme.BORDER_HOVER);
+        Draw.shadow(g, x, y + 3, WIDTH, height, Theme.RADIUS + 3, 16, Theme.shadow());
+        Draw.box(g, x, y, WIDTH, height, Theme.RADIUS + 3, Theme.popup(), Theme.borderHover());
         float lineY = y + PAD;
         for (String line : lines) {
-            Draw.text(g, line, x + PAD, lineY, Theme.TEXT);
+            Draw.text(g, line, x + PAD, lineY, Theme.text());
             lineY += LINE;
         }
         if (request.check() != null) {
             float rowY = lineY + 6;
             boolean hover = inside(mouseX, mouseY, x + PAD - 2, rowY, WIDTH - PAD * 2 + 4, CHECK_ROW);
             float boxY = rowY + (CHECK_ROW - CHECK) / 2f;
-            Draw.box(g, x + PAD, boxY, CHECK, CHECK, 2, checked ? Theme.ACCENT : Theme.CARD, hover ? Theme.BORDER_SELECTED : Theme.BORDER_HOVER);
+            Draw.box(g, x + PAD, boxY, CHECK, CHECK, 2, checked ? Theme.accent() : Theme.card(), hover ? Theme.borderSelected() : Theme.borderHover());
             if (checked) {
-                Draw.icon(g, Icon.CHECK, x + PAD + 1, boxY + 1, CHECK - 2, Theme.ACCENT_TEXT);
+                Draw.icon(g, Icon.CHECK, x + PAD + 1, boxY + 1, CHECK - 2, Theme.accentText());
             }
             Draw.text(g, Draw.trim(request.check(), WIDTH - PAD * 2 - CHECK - 6), x + PAD + CHECK + 6, rowY + 4,
-                    hover ? Theme.TEXT : Theme.TEXT_SOFT);
+                    hover ? Theme.text() : Theme.textSoft());
         }
         float buttonY = y + height - PAD - BUTTON_HEIGHT;
         drawButton(g, "Отмена", cancelX(), buttonY, false, mouseX, mouseY);
@@ -97,8 +97,8 @@ public final class ConfirmBox {
 
     private static void drawButton(Gfx g, String label, float bx, float by, boolean danger, int mouseX, int mouseY) {
         boolean hover = inside(mouseX, mouseY, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT);
-        Draw.roundedRect(g, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.CARD_HOVER : Theme.CARD);
-        int color = danger ? Theme.DANGER : hover ? Theme.TEXT : Theme.TEXT_SOFT;
+        Draw.roundedRect(g, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT, Theme.RADIUS, hover ? Theme.cardHover() : Theme.card());
+        int color = danger ? Theme.DANGER : hover ? Theme.text() : Theme.textSoft();
         Draw.text(g, label, bx + (BUTTON_WIDTH - Draw.width(label)) / 2f, by + 4, color, TextStyle.BODY_MEDIUM);
     }
 
