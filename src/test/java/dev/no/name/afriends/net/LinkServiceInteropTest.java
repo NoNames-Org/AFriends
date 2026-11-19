@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net;
 
+import dev.no.name.afriends.net.announcements.AnnouncementFeed;
 import dev.no.name.afriends.net.service.OutgoingText;
 import dev.no.name.afriends.core.MessageImage;
 import dev.no.name.afriends.net.chat.InboxListener;
@@ -46,7 +47,7 @@ class LinkServiceInteropTest {
             this.name = name;
             this.service = new LinkService(folder, folder.resolveSibling("media"), () -> new PlayerAccount(name, challenge -> {
                 throw new IllegalStateException("в тесте без Mojang");
-            }), this);
+            }), this, new AnnouncementFeed());
         }
 
         @Override

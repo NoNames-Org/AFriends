@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net;
 
+import dev.no.name.afriends.net.announcements.AnnouncementFeed;
 import dev.no.name.afriends.net.chat.InboxListener;
 import dev.no.name.afriends.net.model.Connection;
 import dev.no.name.afriends.net.model.LinkFriend;
@@ -36,7 +37,7 @@ class AltLinksInteropTest {
         return new LinkService(folder, folder.resolveSibling("media"), () -> new PlayerAccount(name,
                 challenge -> {
                     throw new IllegalStateException("в тесте без Mojang");
-                }), QUIET);
+                }), QUIET, new AnnouncementFeed());
     }
 
     private static void waitFor(String what, BooleanSupplier condition) throws InterruptedException {

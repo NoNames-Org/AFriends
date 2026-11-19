@@ -5,6 +5,8 @@ import dev.no.name.afriends.net.model.LinkGroup;
 
 /** Тексты для игрока о группах: отказы сервера, нехватка прав, «участника/участников». */
 final class GroupTexts {
+    static final int MAX_PREFIX = 16;
+
     private GroupTexts() {
     }
 
@@ -28,7 +30,7 @@ final class GroupTexts {
             case "not_owner" -> "Это может только владелец группы";
             case "no_permission" -> "Владелец группы не дал тебе на это права";
             case "bad_target" -> "С владельцем группы так нельзя";
-            case "bad_prefix" -> "Префикс — до " + GroupRoute.MAX_PREFIX + " символов, без переносов";
+            case "bad_prefix" -> "Префикс — до " + MAX_PREFIX + " символов, без переносов";
             case "not_member" -> "Ты больше не в этой группе";
             case "rate_limited" -> "Слишком часто — подожди немного";
             default -> "Не вышло (" + code + ")";

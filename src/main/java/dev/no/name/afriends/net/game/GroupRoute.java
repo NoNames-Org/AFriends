@@ -28,7 +28,6 @@ import java.util.function.Consumer;
 final class GroupRoute implements GroupChats {
     private final SocialData social;
     private final LinkService link;
-    static final int MAX_PREFIX = 16;
     private final GroupSending sending;
     private final GroupMembership membership;
 
@@ -172,8 +171,8 @@ final class GroupRoute implements GroupChats {
     public void setPrefix(String chat, String memberName, String prefix, Consumer<String> problem) {
         LinkGroup group = link.snapshot().group(PrivateMessages.groupId(chat));
         String clean = prefix == null ? "" : prefix.replaceAll("[\\p{Cntrl}§]", " ").replaceAll("\\s+", " ").strip();
-        if (clean.codePointCount(0, clean.length()) > MAX_PREFIX) {
-            problem.accept("Префикс — до " + MAX_PREFIX + " символов");
+        if (clean.codePointCount(0, clean.length()) > GroupTexts.MAX_PREFIX) {
+            problem.accept("Префикс — до " + GroupTexts.MAX_PREFIX + " символов");
             return;
         }
         LinkFriend member = group == null ? null : group.memberNamed(memberName);

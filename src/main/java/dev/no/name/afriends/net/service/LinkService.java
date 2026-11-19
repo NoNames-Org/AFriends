@@ -68,10 +68,6 @@ public final class LinkService {
     private volatile LinkEndpoint endpoint;
 
     // mediaFolder — кэш картинок переписки, общий для всех аккаунтов: он зашифрован и ничей
-    public LinkService(Path folder, Path mediaFolder, Supplier<PlayerAccount> player, InboxListener listener) {
-        this(folder, mediaFolder, player, listener, new AnnouncementFeed());
-    }
-
     // announcements — лента объявлений: голоса в опросах идут через сеть, событие сервера обновляет ленту
     public LinkService(Path folder, Path mediaFolder, Supplier<PlayerAccount> player, InboxListener listener,
                        AnnouncementFeed announcements) {

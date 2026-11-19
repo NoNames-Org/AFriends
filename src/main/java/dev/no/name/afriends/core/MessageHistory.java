@@ -12,7 +12,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
@@ -84,8 +83,9 @@ final class MessageHistory {
         return message == null ? 0 : message.time();
     }
 
-    Set<String> keys() {
-        return Set.copyOf(chats.keySet());
+    // в порядке HashMap, как до разделения: при равном времени чаты не перемешиваются между запусками
+    List<String> keys() {
+        return new ArrayList<>(chats.keySet());
     }
 
     boolean has(String key) {
