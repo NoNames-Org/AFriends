@@ -3,7 +3,6 @@ package dev.no.name.afriends.net.service;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.no.name.afriends.AFriends;
-import dev.no.name.afriends.core.MessageReply;
 import dev.no.name.afriends.net.announcements.AnnouncementFeed;
 import dev.no.name.afriends.net.badges.BadgeDirectory;
 import dev.no.name.afriends.net.chat.ChatPayload;
@@ -55,6 +54,11 @@ public final class LinkService {
     private final BlobClient blobs = new BlobClient();
     private final MediaCache media;
     private final AnnouncementFeed announcements;
+    private final FriendsGateway friends;
+    private final DirectGateway direct;
+    private final GroupGateway groups;
+    private final ProfileGateway profile;
+    private final OfficialGateway officialGateway;
     private final BadgeDirectory badges = new BadgeDirectory();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, " link"));
     private final ExecutorService io = Executors.newCachedThreadPool(runnable -> daemon(runnable, " link io"));
@@ -78,6 +82,12 @@ public final class LinkService {
         this.media = new MediaCache(mediaFolder, blobs);
         this.announcements = announcements;
         announcements.votes().setRequester(this::query);
+        LinkCalls calls = new Calls();
+        this.friends = new FriendsGateway(calls);
+        this.direct = new DirectGateway(calls);
+        this.groups = new GroupGateway(calls);
+        this.profile = new ProfileGateway(calls);
+        this.officialGateway = new OfficialGateway(calls);
     }
 
     public LinkSnapshot snapshot() {
@@ -197,161 +207,29 @@ public final class LinkService {
         });
     }
 
-    public CompletableFuture<String> requestFriend(String name) {
-        JsonObject data = new JsonObject();
-        data.addProperty("name", name);
-        return action("friends.request", data);
+    // ---- операции, по смыслу ----
+
+    public FriendsGateway friends() {
+        return friends;
     }
 
-    public CompletableFuture<String> respond(String friendId, boolean accept) {
-        JsonObject data = new JsonObject();
-        data.addProperty("id", friendId);
-        data.addProperty("accept", accept);
-        return action("friends.respond", data);
+    public DirectGateway direct() {
+        return direct;
     }
 
-    public CompletableFuture<String> removeFriend(String friendId) {
-        JsonObject data = new JsonObject();
-        data.addProperty("id", friendId);
-        return action("friends.remove", data);
+    public GroupGateway groups() {
+        return groups;
     }
 
-    // сообщение без номера: на него не поставить реакцию (для проверок сети)
-    public CompletableFuture<String> sendText(String friendId, String text) {
-        return sendText(friendId, text, null);
+    public ProfileGateway profile() {
+        return profile;
     }
 
-    // сообщение другу по сети; id — для реакций; "ok" или код причины
-    public CompletableFuture<String> sendText(String friendId, String text, String id) {
-        return sendText(friendId, text, id, null);
+    public OfficialGateway official() {
+        return officialGateway;
     }
 
-    // forwardedFrom — чьё сообщение пересылаем (null — своё)
-    public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom) {
-        return sendText(friendId, text, id, forwardedFrom, null);
-    }
-
-    // reply — на какое сообщение ответ (null — не ответ)
-    public CompletableFuture<String> sendText(String friendId, String text, String id, String forwardedFrom,
-                                              MessageReply reply) {
-        return sendPayload(friendId, new ChatPayload.Text(text, id, null, forwardedFrom, reply));
-    }
-
-    // ---- групповые чаты ----
-
-    // новая группа из друзей; в ответе id группы или null, если не вышло (тогда code — причина)
-    public CompletableFuture<JsonObject> createGroup(List<String> memberIds) {
-        JsonObject data = new JsonObject();
-        JsonArray members = new JsonArray();
-        memberIds.forEach(members::add);
-        data.add("members", members);
-        return query("group.create", data).thenApply(json -> {
-            onWorker(runtime -> runtime.sync.request());
-            return json;
-        });
-    }
-
-    public CompletableFuture<String> addToGroup(String group, String friendId) {
-        JsonObject data = new JsonObject();
-        data.addProperty("group", group);
-        data.addProperty("id", friendId);
-        return action("group.add", data);
-    }
-
-    public CompletableFuture<String> leaveGroup(String group) {
-        JsonObject data = new JsonObject();
-        data.addProperty("group", group);
-        return action("group.leave", data);
-    }
-
-    public CompletableFuture<String> kickFromGroup(String group, String memberId) {
-        JsonObject data = new JsonObject();
-        data.addProperty("group", group);
-        data.addProperty("id", memberId);
-        return action("group.kick", data);
-    }
-
-    // сообщение в группу: каждому участнику отдельным сквозным конвертом. "ok" — дошло до всех, иначе код первого отказа
-    public CompletableFuture<String> sendGroupText(String group, String text, String id,
-                                                   MessageReply reply) {
-        return sendToGroup(group, new ChatPayload.Text(text, id, null, null, reply, group));
-    }
-
-    // опрос в группу: вопрос — text, варианты — options; голосуют по id
-    public CompletableFuture<String> sendGroupPoll(String group, String text, String id, List<String> options) {
-        return sendToGroup(group, new ChatPayload.Text(text, id, null, null, null, group, options));
-    }
-
-    // свой голос в опросе группы всем участникам; choice -1 — отозвать
-    public CompletableFuture<String> sendGroupVote(String group, String target, int choice) {
-        return sendToGroup(group, new ChatPayload.Vote(group, target, choice));
-    }
-
-    public CompletableFuture<String> sendGroupName(String group, String name) {
-        return sendToGroup(group, new ChatPayload.GroupName(group, name));
-    }
-
-    // название группы одному участнику — новичку, которого только что позвали
-    public CompletableFuture<String> sendGroupNameTo(String peerId, String group, String name) {
-        return sendPayload(peerId, new ChatPayload.GroupName(group, name));
-    }
-
-    // описание и/или аватарка группы всем участникам; null — поле не меняется
-    public CompletableFuture<String> sendGroupMeta(String group, String name, String description, MessageImage avatar) {
-        return sendToGroup(group, new ChatPayload.GroupMeta(group, name, description, avatar));
-    }
-
-    // права участника группы (только владелец); "ok" или код отказа
-    public CompletableFuture<String> setGroupPerms(String group, String memberId, int perms) {
-        JsonObject data = new JsonObject();
-        data.addProperty("group", group);
-        data.addProperty("id", memberId);
-        data.addProperty("perms", perms);
-        return action("group.perms", data);
-    }
-
-    // префикс участника группы (только владелец); пустой — убрать
-    public CompletableFuture<String> setGroupPrefix(String group, String memberId, String prefix) {
-        JsonObject data = new JsonObject();
-        data.addProperty("group", group);
-        data.addProperty("id", memberId);
-        data.addProperty("prefix", prefix);
-        return action("group.prefix", data);
-    }
-
-    // описание своего профиля; пустое — убрать
-    public CompletableFuture<String> setAbout(String text) {
-        JsonObject data = new JsonObject();
-        data.addProperty("text", text);
-        return action("profile.about", data);
-    }
-
-    // кто может начать личный чат: все или только друзья
-    public CompletableFuture<String> setDmFromEveryone(boolean everyone) {
-        JsonObject data = new JsonObject();
-        data.addProperty("value", everyone ? "all" : "friends");
-        return action("settings.dm", data);
-    }
-
-    // начать личный чат с игроком сети по нику; "ok" — чат есть (карточка придёт со следующим sync), иначе код
-    public CompletableFuture<String> openChat(String name) {
-        JsonObject data = new JsonObject();
-        data.addProperty("name", name);
-        return action("chat.open", data);
-    }
-
-    // заблокировать / разблокировать собеседника личного чата
-    public CompletableFuture<String> blockChat(String accountId, boolean on) {
-        JsonObject data = new JsonObject();
-        data.addProperty("id", accountId);
-        data.addProperty("on", on);
-        return action("chat.block", data);
-    }
-
-    // отметки «доставлено» / «прочитано» автору сообщений
-    public CompletableFuture<String> sendReceipt(String peerId, List<String> targets, boolean read) {
-        return sendPayload(peerId, new ChatPayload.Receipt(targets, read));
-    }
+    // ---- транспорт для шлюзов: всё на потоке сети, при открытой связи ----
 
     private CompletableFuture<String> sendToGroup(String groupId, ChatPayload payload) {
         return call(runtime -> {
@@ -365,21 +243,6 @@ public final class LinkService {
         });
     }
 
-    // удалить у друга сообщения с этими id
-    public CompletableFuture<String> sendDelete(String friendId, List<String> targets) {
-        return sendPayload(friendId, new ChatPayload.Delete(targets));
-    }
-
-    // закрепить или открепить у друга сообщение с этим id
-    public CompletableFuture<String> sendPin(String friendId, String target, boolean pinned) {
-        return sendPayload(friendId, new ChatPayload.Pin(target, pinned));
-    }
-
-    // реакция на сообщение с этим id; reaction == null — снять свою
-    public CompletableFuture<String> sendReaction(String friendId, String target, String reaction) {
-        return sendPayload(friendId, new ChatPayload.Reaction(target, reaction));
-    }
-
     private CompletableFuture<String> sendPayload(String friendId, ChatPayload payload) {
         return call(runtime -> {
             // друг, собеседник личного чата или участник общей группы — сервер пропустит всех троих
@@ -389,43 +252,6 @@ public final class LinkService {
             }
             return runtime.outbox.send(friend, payload);
         });
-    }
-
-    // Картинка другу: шифруем своим ключом, заливаем на сервер, ключ и ссылку — сквозным сообщением.
-    // Готово — придёт описание картинки (для своей переписки); отказ — исключение с кодом
-    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption) {
-        return sendImage(friendId, prepared, id, caption, null);
-    }
-
-    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
-                                                     String forwardedFrom) {
-        return sendImage(friendId, prepared, id, caption, forwardedFrom, null);
-    }
-
-    public CompletableFuture<MessageImage> sendImage(String friendId, PreparedImage prepared, String id, String caption,
-                                                     String forwardedFrom, MessageReply reply) {
-        return uploadImage(prepared).thenCompose(image -> call(runtime -> {
-            LinkFriend friend = snapshot.peer(friendId);
-            if (friend == null) {
-                return CompletableFuture.failedFuture(new TunnelError("not_friends"));
-            }
-            return runtime.outbox.send(friend, new ChatPayload.Text(caption, id, image, forwardedFrom, reply));
-        }).thenCompose(code -> "ok".equals(code) ? CompletableFuture.completedFuture(image)
-                : CompletableFuture.failedFuture(new TunnelError(code))));
-    }
-
-    // картинка или голосовое в группу: заливается один раз, ключ уходит каждому участнику сквозным конвертом
-    public CompletableFuture<MessageImage> sendGroupImage(String group, PreparedImage prepared, String id, String caption,
-                                                          MessageReply reply) {
-        return uploadImage(prepared).thenCompose(image ->
-                sendToGroup(group, new ChatPayload.Text(caption, id, image, null, reply, group))
-                        .thenCompose(code -> "ok".equals(code) ? CompletableFuture.completedFuture(image)
-                                : CompletableFuture.failedFuture(new TunnelError(code))));
-    }
-
-    // аватарка группы: заливается так же, как картинка; описание рассылает sendGroupMeta
-    public CompletableFuture<MessageImage> uploadGroupAvatar(PreparedImage prepared) {
-        return uploadImage(prepared);
     }
 
     // шифруем своим ключом и заливаем на сервер; готово — описание картинки с ключом (кладём и в свой кэш)
@@ -460,7 +286,7 @@ public final class LinkService {
 
     // Картинка в чат AFriends: её смотрят админы на портале, поэтому она не шифруется — заливается открыто
     // (official.media даёт место, PUT /v1/media/<id>) и уходит в official.send вместе с подписью
-    public CompletableFuture<MessageImage> sendOfficialImage(PreparedImage prepared, String caption) {
+    private CompletableFuture<MessageImage> sendOfficialImage(PreparedImage prepared, String caption) {
         CompletableFuture<MessageImage> result = new CompletableFuture<>();
         worker.execute(() -> {
             if (runtime == null || snapshot.connection() != Connection.ONLINE) {
@@ -494,13 +320,6 @@ public final class LinkService {
     // файлы картинок переписки: кеш на диске, при надобности скачивает и расшифровывает
     public MediaCache media() {
         return media;
-    }
-
-    // ответ в чат «AFriends»: уходит админам на портал; "ok" или код причины
-    public CompletableFuture<String> sendOfficial(String text) {
-        JsonObject data = new JsonObject();
-        data.addProperty("text", text);
-        return call(runtime -> runtime.connection.request("official.send", data));
     }
 
     // отпечаток пары для сверки голосом; null — друг неизвестен или ключи ещё не загружены.
@@ -558,6 +377,49 @@ public final class LinkService {
     }
 
     // ---- события туннеля, поток сети ----
+
+    /** Транспорт, который видят шлюзы: только отправка и запросы, без жизненного цикла связи. */
+    private final class Calls implements LinkCalls {
+        @Override
+        public CompletableFuture<String> action(String op, JsonObject data) {
+            return LinkService.this.action(op, data);
+        }
+
+        @Override
+        public CompletableFuture<JsonObject> query(String op, JsonObject data) {
+            return LinkService.this.query(op, data);
+        }
+
+        @Override
+        public CompletableFuture<String> request(String op, JsonObject data) {
+            return call(runtime -> runtime.connection.request(op, data));
+        }
+
+        @Override
+        public CompletableFuture<String> send(String peerId, ChatPayload payload) {
+            return sendPayload(peerId, payload);
+        }
+
+        @Override
+        public CompletableFuture<String> sendToGroup(String groupId, ChatPayload payload) {
+            return LinkService.this.sendToGroup(groupId, payload);
+        }
+
+        @Override
+        public CompletableFuture<MessageImage> upload(PreparedImage prepared) {
+            return uploadImage(prepared);
+        }
+
+        @Override
+        public CompletableFuture<MessageImage> sendOfficialImage(PreparedImage prepared, String caption) {
+            return LinkService.this.sendOfficialImage(prepared, caption);
+        }
+
+        @Override
+        public void requestSync() {
+            onWorker(runtime -> runtime.sync.request());
+        }
+    }
 
     private final class Hooks implements LinkRuntime.Hooks {
         @Override

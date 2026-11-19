@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net;
 
+import dev.no.name.afriends.net.service.OutgoingText;
 import dev.no.name.afriends.core.MessageImage;
 import dev.no.name.afriends.net.chat.InboxListener;
 import dev.no.name.afriends.net.media.PreparedImage;
@@ -108,10 +109,10 @@ class LinkServiceInteropTest {
             waitFor("вход", () -> alice.service.snapshot().connection() == Connection.ONLINE
                     && bob.service.snapshot().connection() == Connection.ONLINE);
 
-            assertEquals("ok", alice.service.requestFriend(bob.name).get(5, TimeUnit.SECONDS));
+            assertEquals("ok", alice.service.friends().request(bob.name).get(5, TimeUnit.SECONDS));
             waitFor("заявка у Боба", () -> !bob.service.snapshot().incoming().isEmpty());
             LinkRequest request = bob.service.snapshot().incoming().get(0);
-            assertEquals("ok", bob.service.respond(request.id(), true).get(5, TimeUnit.SECONDS));
+            assertEquals("ok", bob.service.friends().respond(request.id(), true).get(5, TimeUnit.SECONDS));
             waitFor("дружба", () -> alice.friend(bob.name) != null && bob.friend(alice.name) != null);
 
             // статусы доходят только после того, как ключ статуса пришёл сквозным сообщением
@@ -130,9 +131,9 @@ class LinkServiceInteropTest {
 
             String bobId = alice.friend(bob.name).id();
             String aliceId = bob.friend(alice.name).id();
-            assertEquals("ok", alice.service.sendText(bobId, "привет").get(10, TimeUnit.SECONDS));
+            assertEquals("ok", alice.service.direct().sendText(bobId, OutgoingText.of("привет")).get(10, TimeUnit.SECONDS));
             assertEquals(alice.name + ": привет", bob.texts.poll(10, TimeUnit.SECONDS));
-            assertEquals("ok", bob.service.sendText(aliceId, "и тебе").get(10, TimeUnit.SECONDS));
+            assertEquals("ok", bob.service.direct().sendText(aliceId, OutgoingText.of("и тебе")).get(10, TimeUnit.SECONDS));
             assertEquals(bob.name + ": и тебе", alice.texts.poll(10, TimeUnit.SECONDS));
 
             // картинка: Алиса шифрует и заливает, Боб получает описание, скачивает и расшифровывает тот же файл
@@ -141,7 +142,7 @@ class LinkServiceInteropTest {
             ByteArrayOutputStream png = new ByteArrayOutputStream();
             ImageIO.write(picture, "png", png);
             PreparedImage prepared = PreparedImage.of(png.toByteArray());
-            MessageImage sent = alice.service.sendImage(bobId, prepared, "aaaabbbbccccdddd", "смотри").get(30, TimeUnit.SECONDS);
+            MessageImage sent = alice.service.direct().sendImage(bobId, prepared, OutgoingText.of("смотри", "aaaabbbbccccdddd")).get(30, TimeUnit.SECONDS);
             MessageImage received = bob.images.poll(10, TimeUnit.SECONDS);
             assertEquals(sent, received);
             assertEquals("смотри", bob.captions.poll(1, TimeUnit.SECONDS));
@@ -149,14 +150,14 @@ class LinkServiceInteropTest {
             assertArrayEquals(png.toByteArray(), Files.readAllBytes(file));
 
             // картинка в чат AFriends: открытая, заливается на сервер и уходит админам с подписью
-            MessageImage official = alice.service.sendOfficialImage(prepared, "скрин бага").get(30, TimeUnit.SECONDS);
+            MessageImage official = alice.service.official().sendImage(prepared, "скрин бага").get(30, TimeUnit.SECONDS);
             assertEquals(prepared.sha256(), official.sha256());
             assertEquals(true, official.isPublic());
 
             // реакция на картинку и её снятие
-            assertEquals("ok", bob.service.sendReaction(aliceId, "aaaabbbbccccdddd", "fire").get(10, TimeUnit.SECONDS));
+            assertEquals("ok", bob.service.direct().sendReaction(aliceId, "aaaabbbbccccdddd", "fire").get(10, TimeUnit.SECONDS));
             assertEquals(bob.name + " aaaabbbbccccdddd fire", alice.reactions.poll(10, TimeUnit.SECONDS));
-            assertEquals("ok", bob.service.sendReaction(aliceId, "aaaabbbbccccdddd", null).get(10, TimeUnit.SECONDS));
+            assertEquals("ok", bob.service.direct().sendReaction(aliceId, "aaaabbbbccccdddd", null).get(10, TimeUnit.SECONDS));
             assertEquals(bob.name + " aaaabbbbccccdddd null", alice.reactions.poll(10, TimeUnit.SECONDS));
 
             String safetyA = alice.service.safetyNumber(bobId).get(5, TimeUnit.SECONDS);

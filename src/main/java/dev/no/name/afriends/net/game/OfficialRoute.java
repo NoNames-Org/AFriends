@@ -31,7 +31,7 @@ final class OfficialRoute {
         if (link.snapshot().connection() != Connection.ONLINE) {
             return Optional.of(offline());
         }
-        link.sendOfficial(withPrefix(text, forwardedFrom)).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+        link.official().send(withPrefix(text, forwardedFrom)).thenAccept(code -> Minecraft.getInstance().execute(() -> {
             if ("ok".equals(code)) {
                 social.messages().add(PrivateMessages.OFFICIAL, new PrivateMessage(true, text, System.currentTimeMillis(),
                         null, List.of(), null, null, forwardedFrom));
@@ -47,7 +47,7 @@ final class OfficialRoute {
             return Optional.of(offline());
         }
         CompletableFuture.supplyAsync(() -> PreparedImage.read(file))
-                .thenCompose(prepared -> link.sendOfficialImage(prepared, withPrefix(caption, forwardedFrom)))
+                .thenCompose(prepared -> link.official().sendImage(prepared, withPrefix(caption, forwardedFrom)))
                 .whenComplete((image, error) -> Minecraft.getInstance().execute(() -> {
                     if (error == null) {
                         social.messages().add(PrivateMessages.OFFICIAL, new PrivateMessage(true, caption, System.currentTimeMillis(),

@@ -1,5 +1,6 @@
 package dev.no.name.afriends.net.game;
 
+import dev.no.name.afriends.net.service.OutgoingText;
 import dev.no.name.afriends.addon.SendPolicy;
 import dev.no.name.afriends.net.model.LinkGroup;
 import dev.no.name.afriends.core.voice.VoiceClip;
@@ -136,7 +137,7 @@ public final class DirectMessages implements MessageRoute {
                 return Optional.of(LinkText.sendProblem("offline"));
             }
             String id = MessageIds.next();
-            link.sendText(friend.id(), text, id, forwardedFrom, reply).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+            link.direct().sendText(friend.id(), new OutgoingText(text, id, forwardedFrom, reply)).thenAccept(code -> Minecraft.getInstance().execute(() -> {
                 long now = System.currentTimeMillis();
                 if ("ok".equals(code)) {
                     social.messages().add(partner, new PrivateMessage(true, text, now, id, List.of(), null, null, forwardedFrom, reply));
@@ -206,7 +207,7 @@ public final class DirectMessages implements MessageRoute {
         }
         String id = MessageIds.next();
         CompletableFuture.supplyAsync(() -> PreparedImage.read(file))
-                .thenCompose(prepared -> link.sendImage(friend.id(), prepared, id, caption, forwardedFrom, reply))
+                .thenCompose(prepared -> link.direct().sendImage(friend.id(), prepared, new OutgoingText(caption, id, forwardedFrom, reply)))
                 .whenComplete((image, error) -> Minecraft.getInstance().execute(() -> {
                     if (error == null) {
                         social.messages().add(partner, new PrivateMessage(true, caption, System.currentTimeMillis(), id,
@@ -233,7 +234,7 @@ public final class DirectMessages implements MessageRoute {
             return Optional.of(LinkText.sendProblem("offline"));
         }
         String id = MessageIds.next();
-        link.sendImage(friend.id(), PreparedImage.voice(data, centiseconds), id, "", null, reply)
+        link.direct().sendImage(friend.id(), PreparedImage.voice(data, centiseconds), new OutgoingText("", id, null, reply))
                 .whenComplete((voice, error) -> Minecraft.getInstance().execute(() -> {
                     if (error == null) {
                         social.messages().add(partner, new PrivateMessage(true, "", System.currentTimeMillis(), id,
@@ -259,7 +260,7 @@ public final class DirectMessages implements MessageRoute {
         }
         String before = message.reaction();
         social.messages().react(partner, message.id(), true, reaction);
-        link.sendReaction(friend.id(), message.id(), reaction).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+        link.direct().sendReaction(friend.id(), message.id(), reaction).thenAccept(code -> Minecraft.getInstance().execute(() -> {
             if (!"ok".equals(code)) {
                 social.messages().react(partner, message.id(), true, before);
                 failed.accept(LinkText.sendProblem(code));
@@ -276,7 +277,7 @@ public final class DirectMessages implements MessageRoute {
         if (!forBoth || friend == null || !canSync(partner, messages)) {
             return;
         }
-        link.sendDelete(friend.id(), keys).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+        link.direct().sendDelete(friend.id(), keys).thenAccept(code -> Minecraft.getInstance().execute(() -> {
             if (!"ok".equals(code)) {
                 failed.accept("У собеседника не удалилось: " + LinkText.sendProblem(code));
             }
@@ -291,7 +292,7 @@ public final class DirectMessages implements MessageRoute {
         if (!forBoth || friend == null || message.id() == null) {
             return;
         }
-        link.sendPin(friend.id(), message.id(), pinned).thenAccept(code -> Minecraft.getInstance().execute(() -> {
+        link.direct().sendPin(friend.id(), message.id(), pinned).thenAccept(code -> Minecraft.getInstance().execute(() -> {
             if (!"ok".equals(code)) {
                 failed.accept((pinned ? "У собеседника не закрепилось: " : "У собеседника не открепилось: ")
                         + LinkText.sendProblem(code));

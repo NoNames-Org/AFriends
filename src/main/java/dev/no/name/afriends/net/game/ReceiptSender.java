@@ -71,7 +71,7 @@ final class ReceiptSender {
         }
         pending.forEach((peer, ids) -> {
             for (int from = 0; from < ids.size(); from += MAX_BATCH) {
-                link.sendReceipt(peer, List.copyOf(ids.subList(from, Math.min(ids.size(), from + MAX_BATCH))), isRead);
+                link.direct().sendReceipt(peer, List.copyOf(ids.subList(from, Math.min(ids.size(), from + MAX_BATCH))), isRead);
             }
         });
         pending.clear();

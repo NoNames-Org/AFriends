@@ -106,7 +106,7 @@ public final class FriendSync {
     }
 
     private void request(String name, Consumer<String> notice) {
-        link.requestFriend(name).thenAccept(code -> {
+        link.friends().request(name).thenAccept(code -> {
             LOGGER.info("{}: заявка в друзья {} — {}", AFriends.NAME, name, code);
             // not_found — у него нет мода, это обычный друг, молчим
             String text = switch (code) {
@@ -125,7 +125,7 @@ public final class FriendSync {
         removedAt.put(key(name), System.currentTimeMillis());
         LinkFriend friend = friend(name);
         if (friend != null) {
-            link.removeFriend(friend.id()).thenAccept(code ->
+            link.friends().remove(friend.id()).thenAccept(code ->
                     LOGGER.info("{}: удаление из друзей {} — {}", AFriends.NAME, name, code));
         }
         waiting.remove(name);
@@ -135,7 +135,7 @@ public final class FriendSync {
         for (LinkRequest request : link.snapshot().incoming()) {
             if (request.name().equalsIgnoreCase(name)) {
                 answered.put(key(name), System.currentTimeMillis());
-                link.respond(request.id(), accept).thenAccept(code ->
+                link.friends().respond(request.id(), accept).thenAccept(code ->
                         LOGGER.info("{}: ответ на заявку {} ({}) — {}", AFriends.NAME, name, accept ? "да" : "нет", code));
             }
         }

@@ -41,7 +41,7 @@ final class NetworkProfile implements ProfileRoute {
             problem.accept("Описание — до " + MAX_ABOUT + " символов");
             return;
         }
-        link.setAbout(clean).thenAccept(code -> onGame(() -> report(code, problem)));
+        link.profile().setAbout(clean).thenAccept(code -> GameThread.run(() -> report(code, problem)));
     }
 
     @Override
@@ -51,7 +51,7 @@ final class NetworkProfile implements ProfileRoute {
 
     @Override
     public void setDmFromEveryone(boolean everyone, Consumer<String> problem) {
-        link.setDmFromEveryone(everyone).thenAccept(code -> onGame(() -> report(code, problem)));
+        link.profile().setDmFromEveryone(everyone).thenAccept(code -> GameThread.run(() -> report(code, problem)));
     }
 
     @Override
@@ -70,7 +70,7 @@ final class NetworkProfile implements ProfileRoute {
             notInNetwork.run();
             return;
         }
-        link.openChat(name).thenAccept(code -> onGame(() -> {
+        link.profile().openChat(name).thenAccept(code -> GameThread.run(() -> {
             switch (code) {
                 case "ok" -> waitForCard(name, done, 0);
                 case "not_found" -> notInNetwork.run();
@@ -86,7 +86,7 @@ final class NetworkProfile implements ProfileRoute {
             return;
         }
         CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS)
-                .execute(() -> onGame(() -> waitForCard(name, done, attempt + 1)));
+                .execute(() -> GameThread.run(() -> waitForCard(name, done, attempt + 1)));
     }
 
     @Override
@@ -102,7 +102,7 @@ final class NetworkProfile implements ProfileRoute {
             problem.accept("Этого игрока нет в сети AFriends");
             return;
         }
-        link.blockChat(peer.id(), blocked).thenAccept(code -> onGame(() -> report(code, problem)));
+        link.profile().blockChat(peer.id(), blocked).thenAccept(code -> GameThread.run(() -> report(code, problem)));
     }
 
     // игрок, которого мы знаем по сети: друг, собеседник или участник общей группы
@@ -137,9 +137,5 @@ final class NetworkProfile implements ProfileRoute {
             case "limit" -> "Слишком много заблокированных";
             default -> LinkText.sendProblem(code);
         };
-    }
-
-    private static void onGame(Runnable task) {
-        Minecraft.getInstance().execute(task);
     }
 }
